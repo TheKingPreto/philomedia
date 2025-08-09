@@ -1,4 +1,5 @@
-const TMDB_API_KEY = 'bae54b0c4d043ca1841a554a039e2cd8'; 
+import { TMDB_API_KEY } from './config.js';
+
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
 export async function searchTMDB(query) {
