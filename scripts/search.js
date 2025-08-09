@@ -1,58 +1,61 @@
-import { searchMulti } from "./seriesAPI.js";
+import { searchTMDB } from './seriesAPI.js';
 
-document.addEventListener("DOMContentLoaded", () => {
-  const searchForm = document.getElementById("search-form");
-  const searchInput = document.getElementById("search-input");
-  const resultsContainer = document.getElementById("search-results");
+const form = document.getElementById('search-form');
+const input = document.getElementById('search-input');
+const resultsContainer = document.getElementById('search-results');
 
-  searchForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
 
-    const query = searchInput.value.trim();
-    if (!query) return;
+  const query = input.value.trim();
+  if (!query) {
+    resultsContainer.textContent = 'Please enter a search term.';
+    return;
+  }
 
-    resultsContainer.innerHTML = "<p>Searching...</p>";
+  resultsContainer.textContent = 'Searching...';
 
-    const data = await searchMulti(query);
+  try {
+    const results = await searchTMDB(query);
 
-    if (!data || !data.results || data.results.length === 0) {
-      resultsContainer.innerHTML = "<p>No results found.</p>";
+    if (!results || results.length === 0) {
+      resultsContainer.textContent = 'No results found.';
       return;
     }
 
-    resultsContainer.innerHTML = ""; // limpar resultados anteriores
+    resultsContainer.innerHTML = '';
 
-    data.results.forEach(item => {
-      const card = document.createElement("div");
-      card.classList.add("result-card");
+    results.forEach(item => {
+      const title = item.title || item.name || 'Untitled';
+      const mediaType = item.media_type || 'unknown';
+      const date = item.release_date || item.first_air_date || 'Unknown date';
+      const overview = item.overview || 'No synopsis available.';
+      const posterPath = item.poster_path 
+        ? `https://image.tmdb.org/t/p/w200${item.poster_path}` 
+        : 'images/no-image.png';
 
-      const img = document.createElement("img");
-      img.src = item.poster_path
-        ? `https://image.tmdb.org/t/p/w300${item.poster_path}`
-        : "images/no-image.png";
-      img.alt = item.title || item.name || "Untitled";
+      // Create the card content
+      const card = document.createElement('div');
+      card.classList.add('result-card');
 
-      const title = document.createElement("h3");
-      title.textContent = item.title || item.name;
+      card.innerHTML = `
+        <img src="${posterPath}" alt="Poster of ${title}" />
+        <h3>${title}</h3>
+        <p class="media-type">Type: ${mediaType}</p>
+        <p>Date: ${date}</p>
+        <p class="overview">${overview.length > 100 ? overview.slice(0, 100) + '...' : overview}</p>
+      `;
 
-      const type = document.createElement("span");
-      type.classList.add("media-type");
-      type.textContent = item.media_type === "movie"
-        ? "🎬 Movie"
-        : item.media_type === "tv"
-        ? "📺 TV / Anime"
-        : "❓ Unknown";
+      // Wrap the card in a link to details.html with id and type params
+      const cardLink = document.createElement('a');
+      cardLink.href = `details.html?id=${item.id}&type=${mediaType}`;
+      cardLink.classList.add('result-card-link');
+      cardLink.appendChild(card);
 
-      const overview = document.createElement("p");
-      overview.textContent = item.overview
-        ? item.overview
-        : "No description available.";
-
-      card.appendChild(img);
-      card.appendChild(title);
-      card.appendChild(type);
-      card.appendChild(overview);
-      resultsContainer.appendChild(card);
+      resultsContainer.appendChild(cardLink);
     });
-  });
+  } catch (error) {
+    resultsContainer.textContent = 'Error fetching data. Please try again later.';
+    console.error(error);
+  }
 });
