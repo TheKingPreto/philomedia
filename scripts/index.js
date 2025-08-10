@@ -1,4 +1,4 @@
-import { loadContent } from './main.js';
+import { loadContent } from 'scripts/main.js';
 
 async function init() {
   const content = await loadContent();

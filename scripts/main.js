@@ -1,7 +1,6 @@
-import { getPhilosophyQuote } from './philosophyQuoteManager.js';
-import { searchTMDB } from './seriesAPI.js';
+import { getPhilosophyQuote } from 'scripts/philosophyQuoteManager.js';
+import { searchTMDB } from 'scripts/seriesAPI.js';
 
-// Basic English stopwords (you can expand)
 const stopwords = new Set([
   'the', 'and', 'for', 'with', 'that', 'this', 'from', 'have', 'not', 'but', 'you',
   'your', 'are', 'was', 'were', 'they', 'their', 'them', 'what', 'when', 'which',
@@ -27,7 +26,6 @@ export async function loadContent(genresFilter = []) {
   const { quote, author } = await getPhilosophyQuote();
   const keywords = extractKeywords(quote);
 
-  // For each keyword, search TMDB and filter only results whose overview contains the keyword
   const allResultsArrays = await Promise.all(
     keywords.map(async kw => {
       const results = await searchTMDB(kw);
@@ -35,7 +33,6 @@ export async function loadContent(genresFilter = []) {
     })
   );
 
-  // Merge all results, removing duplicates by id
   const allResultsMap = new Map();
   allResultsArrays.flat().forEach(item => {
     if (!allResultsMap.has(item.id)) {
@@ -45,7 +42,6 @@ export async function loadContent(genresFilter = []) {
 
   let results = Array.from(allResultsMap.values());
 
-  // Filter by genres if provided
   if (genresFilter.length > 0) {
     results = results.filter(item => {
       if (!item.genre_ids) return false;
@@ -53,7 +49,6 @@ export async function loadContent(genresFilter = []) {
     });
   }
 
-  // Sort results by the number of keywords found in overview (descending)
   results.sort((a, b) => {
     const aCount = keywords.filter(k => overviewContainsKeyword(a.overview, k)).length;
     const bCount = keywords.filter(k => overviewContainsKeyword(b.overview, k)).length;

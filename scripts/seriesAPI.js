@@ -1,4 +1,4 @@
-import { TMDB_API_KEY } from './config.js';
+import { TMDB_API_KEY } from 'config.js';
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 

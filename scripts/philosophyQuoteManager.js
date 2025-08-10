@@ -1,5 +1,5 @@
-import { getPhilosophyQuote as getMockQuote } from './quotesAPI.js';
-import { getPhilosophyQuote as getRealQuote } from './philosophyAPI.js';
+import { getPhilosophyQuote as getMockQuote } from 'scripts/quotesAPI.js';
+import { getPhilosophyQuote as getRealQuote } from 'scripts/philosophyAPI.js';
 
 export async function getPhilosophyQuote() {
   try {
