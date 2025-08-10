@@ -4,7 +4,7 @@ export async function getPhilosophyQuote() {
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const data = await response.json();
 
-    const quotes = data.results || data; // Ajuste conforme a resposta
+    const quotes = data.results || data;
     if (!quotes.length) throw new Error('No quotes found');
 
     const randomIndex = Math.floor(Math.random() * quotes.length);
@@ -15,6 +15,6 @@ export async function getPhilosophyQuote() {
       author: quote.author || 'Unknown'
     };
   } catch (error) {
-    throw error; // Propaga erro para o wrapper tratar
+    throw error;
   }
 }
