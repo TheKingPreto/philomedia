@@ -1,4 +1,4 @@
-import { searchTMDB } from './seriesAPI.js';
+import { searchTMDB } from './seriesapi.js';
 
 const form = document.getElementById('search-form');
 const input = document.getElementById('search-input');
