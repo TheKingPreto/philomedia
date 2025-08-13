@@ -14,8 +14,10 @@
   box-sizing: border-box;
 }
 
-body {
+html, body {
   margin: 0;
+  max-width: 100%;
+  overflow-x: hidden; 
   background-color: var(--color-light-grey);
   color: var(--color-dark-blue);
   font-family: var(--font-body);
@@ -62,6 +64,7 @@ main {
   padding: 2rem;
   max-width: 900px;
   margin: 0 auto;
+  width: 100%;
 }
 
 #quote-section {
@@ -93,57 +96,107 @@ main {
   color: var(--color-red-pink);
 }
 
-#highlights {
+#highlights,
+#search-results {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 1rem;
+  gap: 1.5rem;
   margin-top: 2rem;
+  align-items: stretch;
+}
+
+#search-form {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 2rem auto;
+  max-width: 600px;
+  width: 90%;
+  gap: 0.5rem;
+}
+
+#search-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border: 2px solid #2E2B5F; 
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+#search-input:focus {
+  border-color: #5A4DAB;
+  box-shadow: 0 0 10px rgba(90, 77, 171, 0.3);
+}
+
+#search-form button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  background: linear-gradient(135deg, #2E2B5F, #5A4DAB);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+}
+
+#search-form button:hover {
+  background: linear-gradient(135deg, #5A4DAB, #2E2B5F);
+  transform: scale(1.05);
+}
+
+a.result-card-link {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
 }
 
 .result-card {
-  background: #fff;
+  background: #FFFFFF;
   border-radius: 8px;
-  padding: 0.5rem;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  border: 1px solid #E0E0E0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
   text-align: center;
+}
+
+a.result-card-link:hover .result-card {
+  transform: scale(1.05);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
 }
 
 .result-card img {
   width: 100%;
-  max-height: 270px;
+  height: auto;
+  aspect-ratio: 2 / 3;
   object-fit: cover;
-  border-radius: 6px;
-  margin-bottom: 0.5rem;
-}
-
-.result-card .overview {
-  font-size: 0.8rem;
-  color: #666;
-  margin-top: 0.5rem;
 }
 
 .result-card h3 {
   font-size: 1rem;
-  margin: 0.25rem 0;
+  font-family: var(--font-title);
+  margin: 1rem 0.75rem 0.5rem 0.75rem;
 }
 
-.media-type, .result-card p {
+.result-card .media-type,
+.result-card p {
   font-size: 0.8rem;
   color: #555;
-  margin: 0;
+  margin: 0.25rem 0.75rem;
 }
 
-#search-results {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 1rem;
-  margin-top: 2rem;
-  max-width: 900px;
-  margin-left: auto;
-  margin-right: auto;
+.result-card .overview {
+  font-size: 0.85rem;
+  color: #333;
+  line-height: 1.5;
+  margin: 0.75rem 0.75rem 1rem 0.75rem;
+  flex-grow: 1;
 }
 
 footer {
@@ -153,6 +206,7 @@ footer {
   padding: 1rem;
   font-size: 0.9rem;
   font-family: var(--font-body);
+  margin-top: auto;
 }
 
 a:focus-visible {
@@ -160,13 +214,44 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
-@media (max-width: 600px) {
+#details-container {
+  display: flex;
+  flex-direction: row; 
+  gap: 20px;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: none; 
+  color: #2E2B5F; 
+  align-items: flex-start; 
+}
+
+.details-poster img {
+  width: 300px;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.details-info {
+  flex: 1;
+  font-size: 1.4rem;
+  line-height: 1.8;  
+}
+
+@media (max-width: 768px) {
   header {
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
-  
+
+  nav {
+    margin-top: 0.5rem;
+  }
+
   nav a {
-    margin-left: 1rem;
+    margin: 0 0.5rem;
     font-size: 1rem;
   }
 
@@ -177,5 +262,39 @@ a:focus-visible {
 
   main {
     padding: 1rem;
+  }
+
+  #highlights,
+  #search-results {
+    grid-template-columns: 1fr; 
+    gap: 1rem;
+  }
+
+  .result-card img {
+    width: 100%;
+    height: auto;
+  }
+  #details-container {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .details-poster img {
+    width: 80%;
+    margin-bottom: 15px;
+  }
+
+  .details-info {
+    width: 100%;
+  }
+
+  #search-form {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  #search-form button {
+    width: 100%;
   }
 }

@@ -1,44 +1,58 @@
-import { loadContent } from 'scripts/main.js';
+import { loadContent } from './main.js';
 
 async function init() {
-  const content = await loadContent();
-
-  const quoteEl = document.getElementById('quote-text');
-  const authorEl = document.getElementById('quote-author');
+  const quoteTextEl = document.getElementById('quote-text');
+  const quoteAuthorEl = document.getElementById('quote-author');
   const highlightsEl = document.getElementById('highlights');
 
-  quoteEl.textContent = `"${content.quote}"`;
-  authorEl.textContent = `— ${content.author}`;
+  highlightsEl.innerHTML = '<p>Finding meaningful connections for you...</p>';
 
-  highlightsEl.innerHTML = '';
+  try {
+    const content = await loadContent();
 
-  if (content.results.length === 0) {
-    highlightsEl.textContent = 'No recommendations found.';
-    return;
+    quoteTextEl.textContent = `"${content.quote}"`;
+    quoteAuthorEl.textContent = `— ${content.author}`;
+
+    highlightsEl.innerHTML = '';
+
+    if (!content.results || content.results.length === 0) {
+      highlightsEl.innerHTML = '<p>No specific recommendations found for this quote. Explore our search!</p>';
+      return;
+    }
+
+    content.results.forEach(item => {
+      const title = item.title || item.name || 'Untitled';
+      const date = item.release_date || item.first_air_date || 'Unknown date';
+      const overview = item.overview || 'No synopsis available.';
+      
+      const mediaType = item.media_type || 'unknown';
+
+      const posterPath = item.poster_path
+        ? `https://image.tmdb.org/t/p/w300${item.poster_path}`
+        : 'images/no-image.png';
+
+      const cardLink = document.createElement('a');
+      cardLink.href = `details.html?id=${item.id}&type=${mediaType}`;
+      cardLink.classList.add('result-card-link'); 
+
+      const card = document.createElement('div');
+      card.classList.add('result-card');
+      
+      card.innerHTML = `
+        <img src="${posterPath}" alt="Poster of ${title}" loading="lazy">
+        <h3>${title}</h3>
+        <p class="media-type">Type: ${mediaType}</p>
+        <p>Date: ${date}</p>
+        <p class="overview">${overview.length > 100 ? overview.slice(0, 100) + '...' : overview}</p>
+      `;
+
+      cardLink.appendChild(card);
+      highlightsEl.appendChild(cardLink);
+    });
+
+  } catch (error) {
+    highlightsEl.innerHTML = '<p>Sorry, something went wrong while loading recommendations. Please try again later.</p>';
   }
-
-  content.results.slice(0, 10).forEach(item => {
-    const title = item.title || item.name || 'Untitled';
-    const mediaType = item.media_type || 'unknown';
-    const date = item.release_date || item.first_air_date || 'Unknown date';
-    const overview = item.overview || 'No synopsis available.';
-    const posterPath = item.poster_path
-      ? `https://image.tmdb.org/t/p/w300${item.poster_path}`
-      : 'images/no-image.png';
-
-    const card = document.createElement('div');
-    card.classList.add('result-card');
-
-    card.innerHTML = `
-      <img src="${posterPath}" alt="Poster of ${title}" />
-      <h3>${title}</h3>
-      <p class="media-type">Type: ${mediaType}</p>
-      <p>Date: ${date}</p>
-      <p class="overview">${overview.length > 150 ? overview.slice(0, 150) + '...' : overview}</p>
-    `;
-
-    highlightsEl.appendChild(card);
-  });
 }
 
 init();

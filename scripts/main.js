@@ -1,59 +1,60 @@
-import { getPhilosophyQuote } from 'scripts/philosophyQuoteManager.js';
-import { searchTMDB } from 'scripts/seriesAPI.js';
+import { getQuotes } from './philosophersapi.js';
+import { getDetailsFromTMDB, getReviewsFromTMDB, discoverDiverseWorks } from './seriesapi.js';
+import { analyzeWorkForThemes } from './hermeneutics.js';
 
-const stopwords = new Set([
-  'the', 'and', 'for', 'with', 'that', 'this', 'from', 'have', 'not', 'but', 'you',
-  'your', 'are', 'was', 'were', 'they', 'their', 'them', 'what', 'when', 'which',
-  'where', 'how', 'why', 'all', 'any', 'can', 'her', 'his', 'our', 'has', 'had',
-  'will', 'would', 'there', 'then', 'she', 'he', 'him', 'its', 'out', 'about',
-  'who', 'get', 'got', 'one', 'two', 'more', 'some', 'than', 'like', 'just', 'also'
-]);
+export async function loadContent() {
 
-function extractKeywords(phrase) {
-  return phrase
-    .toLowerCase()
-    .replace(/[.,;:!?]/g, '')
-    .split(/\s+/)
-    .filter(word => word.length > 3 && !stopwords.has(word));
-}
+  const allQuotes = await getQuotes();
+  if (allQuotes.length === 0) {
+    return { quote: "Could not load quotes at this time.", author: "System", results: [] };
+  }
+  const quoteObject = allQuotes[Math.floor(Math.random() * allQuotes.length)];
 
-function overviewContainsKeyword(overview, keyword) {
-  if (!overview) return false;
-  return overview.toLowerCase().includes(keyword.toLowerCase());
-}
+  let quoteThemes;
+  if (quoteObject.themes && quoteObject.themes.length > 0) {
+    quoteThemes = new Set(quoteObject.themes);
+  } else {
+    console.warn("Quote has no themes from API. Analyzing quote text itself...");
+    const analyzedQuoteThemes = analyzeWorkForThemes(quoteObject.quote);
+    quoteThemes = new Set(analyzedQuoteThemes.map(t => t.theme).slice(0, 2));
+  }
 
-export async function loadContent(genresFilter = []) {
-  const { quote, author } = await getPhilosophyQuote();
-  const keywords = extractKeywords(quote);
+  const candidateWorks = (await discoverDiverseWorks()).slice(0, 500);
 
-  const allResultsArrays = await Promise.all(
-    keywords.map(async kw => {
-      const results = await searchTMDB(kw);
-      return results.filter(item => overviewContainsKeyword(item.overview, kw));
-    })
-  );
+  const analysisPromises = candidateWorks.map(async (work) => {
+    try {
+      const [details, reviews] = await Promise.all([
+        getDetailsFromTMDB(work.id, work.media_type),
+        getReviewsFromTMDB(work.id, work.media_type)
+      ]);
+      const combinedText = (details.overview || '') + ' ' + reviews.map(r => r.content).join(' ');
 
-  const allResultsMap = new Map();
-  allResultsArrays.flat().forEach(item => {
-    if (!allResultsMap.has(item.id)) {
-      allResultsMap.set(item.id, item);
+      const workThemeProfile = analyzeWorkForThemes(combinedText);
+
+      let matchScore = 0;
+      if (workThemeProfile.length > 0 && quoteThemes.size > 0) {
+        workThemeProfile.forEach(themeProfile => {
+          if (quoteThemes.has(themeProfile.theme)) {
+            matchScore += themeProfile.score;
+          }
+        });
+      }
+
+      return { ...details, media_type: work.media_type, matchScore };
+    } catch (error) {
+      return { ...work, matchScore: 0 };
     }
   });
 
-  let results = Array.from(allResultsMap.values());
+  const analyzedWorks = await Promise.all(analysisPromises);
 
-  if (genresFilter.length > 0) {
-    results = results.filter(item => {
-      if (!item.genre_ids) return false;
-      return genresFilter.some(gid => item.genre_ids.includes(gid));
-    });
-  }
+  const bestMatches = analyzedWorks
+    .filter(work => work.matchScore > 20)
+    .sort((a, b) => b.matchScore - a.matchScore);
 
-  results.sort((a, b) => {
-    const aCount = keywords.filter(k => overviewContainsKeyword(a.overview, k)).length;
-    const bCount = keywords.filter(k => overviewContainsKeyword(b.overview, k)).length;
-    return bCount - aCount;
-  });
-
-  return { quote, author, results };
+  return {
+    quote: quoteObject.quote,
+    author: quoteObject.author,
+    results: bestMatches.slice(0, 20)
+  };
 }
