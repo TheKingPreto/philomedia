@@ -34,7 +34,6 @@ form.addEventListener('submit', async (event) => {
         ? `https://image.tmdb.org/t/p/w200${item.poster_path}` 
         : 'images/no-image.png';
 
-      // Create the card content
       const card = document.createElement('div');
       card.classList.add('result-card');
 
@@ -46,7 +45,6 @@ form.addEventListener('submit', async (event) => {
         <p class="overview">${overview.length > 100 ? overview.slice(0, 100) + '...' : overview}</p>
       `;
 
-      // Wrap the card in a link to details.html with id and type params
       const cardLink = document.createElement('a');
       cardLink.href = `details.html?id=${item.id}&type=${mediaType}`;
       cardLink.classList.add('result-card-link');
@@ -56,6 +54,5 @@ form.addEventListener('submit', async (event) => {
     });
   } catch (error) {
     resultsContainer.textContent = 'Error fetching data. Please try again later.';
-    console.error(error);
   }
 });

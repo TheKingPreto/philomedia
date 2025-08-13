@@ -1,31 +1,57 @@
-// Este é o único ponto do seu aplicativo que fala com a API de filósofos.
+import { customQuotes } from './custom-quotes.js';
 
-const API_URL = 'https://philosophersapi.com/api/quotes'; // URL da nova API
+const proxyUrl = 'https://corsproxy.io/?';
+const quotesApiUrl = 'https://philosophersapi.com/api/quotes';
+const philosophersApiUrl = 'https://philosophersapi.com/api/philosophers';
 
-/**
- * Fetches all quotes from the PhilosophersAPI and formats them for the app.
- * @returns {Promise<Array<object>>} A list of formatted quote objects.
- */
-export async function getAllQuotesFromAPI() {
+export async function getQuotes() {
+  let apiQuotes = [];
+
   try {
-    const response = await fetch(API_URL);
-    if (!response.ok) {
-      throw new Error(`API call failed with status: ${response.status}`);
+    const [quotesResponse, philosophersResponse] = await Promise.all([
+      fetch(proxyUrl + encodeURIComponent(quotesApiUrl)),
+      fetch(proxyUrl + encodeURIComponent(philosophersApiUrl))
+    ]);
+
+    if (!quotesResponse.ok || !philosophersResponse.ok) {
+      throw new Error('Failed to fetch data from one or more API endpoints.');
     }
-    const data = await response.json();
 
-    // Adapt the data from the API to the format our app expects: { quote, author, themes }.
-    // IMPORTANT: You may need to adjust the keys ('item.source', 'item.tags') to match the real API response.
-    const formattedQuotes = data.map(item => ({
-      quote: item.quote,
-      author: item.source, // Assuming the API returns author in the 'source' field.
-      themes: item.tags || [] // If the API provides tags/themes, we use them.
-    }));
+    const quotesData = await quotesResponse.json();
+    const philosophersData = await philosophersResponse.json();
 
-    return formattedQuotes;
+    const philosopherMap = new Map();
+    philosophersData.forEach(p => {
+      philosopherMap.set(p.id, p.name);
+    });
+
+    apiQuotes = quotesData.map(quote => {
+      const authorName = quote.philosopher ? philosopherMap.get(quote.philosopher.id) || "Unknown" : "Unknown";
+      
+      return {
+        quote: quote.quote,
+        author: authorName,
+        themes: quote.tags || []
+      };
+    });
+    
+    console.log("Successfully fetched and automatically combined API quotes and authors.");
 
   } catch (error) {
-    console.error("Error fetching from PhilosophersAPI:", error);
-    return []; // Return an empty array on error to prevent the app from crashing.
+    console.warn("Could not fetch from external API, will use only custom quotes. Error:", error.message);
   }
+
+  const combinedMap = new Map();
+
+  customQuotes.forEach(quote => combinedMap.set(quote.quote, quote));
+
+  apiQuotes.forEach(quote => {
+    if (!combinedMap.has(quote.quote)) {
+      combinedMap.set(quote.quote, quote);
+    }
+  });
+
+  const finalQuotes = Array.from(combinedMap.values());
+  
+  return finalQuotes;
 }
