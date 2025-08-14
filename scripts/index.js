@@ -1,4 +1,4 @@
-import { loadContent } from './main.js';
+import { loadContent } from '/philomedia/scripts/main.js';
 
 async function init() {
   const quoteTextEl = document.getElementById('quote-text');

@@ -1,6 +1,6 @@
-import { getQuotes } from './philosophersapi.js';
-import { getDetailsFromTMDB, getReviewsFromTMDB, discoverDiverseWorks } from './seriesapi.js';
-import { analyzeWorkForThemes } from './hermeneutics.js';
+import { getQuotes } from '/philomedia/scripts/philosophersapi.js';
+import { getDetailsFromTMDB, getReviewsFromTMDB, discoverDiverseWorks } from '/philomedia/scripts/seriesapi.js';
+import { analyzeWorkForThemes } from '/philomedia/scripts/hermeneutics.js';
 
 export async function loadContent() {
 

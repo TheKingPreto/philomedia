@@ -1,7 +1,7 @@
-import { getDetailsFromTMDB, getReviewsFromTMDB } from './seriesapi.js';
-import { getQuotes } from './philosophersapi.js';
-import { analyzeWorkForThemes } from './hermeneutics.js';
-import { curatedQuoteMatches } from './curatedmatches.js';
+import { getDetailsFromTMDB, getReviewsFromTMDB } from '/philomedia/scripts/seriesapi.js';
+import { getQuotes } from '/philomedia/scripts/philosophersapi.js';
+import { analyzeWorkForThemes } from '/philomedia/scripts/hermeneutics.js';
+import { curatedQuoteMatches } from '/philomedia/scripts/curatedmatches.js';
 
 function getQueryParams() {
   const params = new URLSearchParams(window.location.search);
