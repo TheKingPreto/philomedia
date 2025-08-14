@@ -1,4 +1,4 @@
-import { customQuotes } from './custom-quotes.js';
+import { customQuotes } from '/philomedia/scripts/custom-quotes.js';
 
 const proxyUrl = 'https://corsproxy.io/?';
 const quotesApiUrl = 'https://philosophersapi.com/api/quotes';

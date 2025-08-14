@@ -1,4 +1,4 @@
-import { searchTMDB } from './seriesapi.js';
+import { searchTMDB } from '/philomedia/scripts/seriesapi.js';
 
 const form = document.getElementById('search-form');
 const input = document.getElementById('search-input');

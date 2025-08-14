@@ -1,4 +1,4 @@
-import { THEME_DATABASE } from './themedatabase.js';
+import { THEME_DATABASE } from '/philomedia/scripts/themedatabase.js';
 
 export function analyzeWorkForThemes(text) {
   if (!text) return [];
