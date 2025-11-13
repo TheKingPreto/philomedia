@@ -1,12 +1,16 @@
 import express from 'express';
-import {getAllMatches, getMatchById, createMatch, updateMatch, deleteMatch 
+import { 
+    getAllMatches, 
+    getMatchById, 
+    createMatch, 
+    updateMatch, 
+    deleteMatch 
 } from '../controllers/MatchController.js'; 
 
 const router = express.Router();
 
 /**
  * @swagger
- * components:
  * tags:
  * name: Matches
  * description: API endpoints for managing curated matches between media and custom quotes.
@@ -118,11 +122,11 @@ const router = express.Router();
  */
 
 router.route('/')
-    .get(getAllMatches) 
+    .get(getAllMatches)
     .post(createMatch);
 
 router.route('/:id')
-    .get(getMatchById) 
+    .get(getMatchById)
     .put(updateMatch)
     .delete(deleteMatch);
 

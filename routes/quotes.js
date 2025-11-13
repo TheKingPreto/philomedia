@@ -1,12 +1,16 @@
 import express from 'express';
-import { getAllQuotes, getQuoteById, createQuote, updateQuote, deleteQuote 
+import { 
+    getAllQuotes, 
+    getQuoteById, 
+    createQuote, 
+    updateQuote, 
+    deleteQuote 
 } from '../controllers/QuoteController.js'; 
 
 const router = express.Router();
 
 /**
  * @swagger
- * components:
  * tags:
  * name: Quotes
  * description: API endpoints for managing custom philosophical quotes.
@@ -118,11 +122,12 @@ const router = express.Router();
  */
 
 router.route('/')
-    .get(getAllQuotes) 
-    .post(createQuote); 
+    .get(getAllQuotes)
+    .post(createQuote);
+
 router.route('/:id')
-    .get(getQuoteById) 
-    .put(updateQuote) 
-    .delete(deleteQuote); 
+    .get(getQuoteById)
+    .put(updateQuote)
+    .delete(deleteQuote);
 
 export default router;
