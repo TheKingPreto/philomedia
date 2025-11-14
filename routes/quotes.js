@@ -33,8 +33,10 @@ const router = express.Router();
  * author: "Socrates"
  * themes: ["self-knowledge", "wisdom", "introspection"]
  * tags:
- * name: Quotes
+ * - name: Quotes
  * description: API to manage philosophical quotes
+ *
+ * paths:
  * /api/quotes:
  * get:
  * summary: Returns a list of all Quotes.
@@ -70,6 +72,7 @@ const router = express.Router();
  * description: Invalid data supplied.
  * 500:
  * description: Server error when creating the quote.
+ *
  * /api/quotes/{id}:
  * get:
  * summary: Returns a Quote by its ID.
