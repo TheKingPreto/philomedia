@@ -1,5 +1,5 @@
 import express from 'express';
-import Match from '../models/Match.js'; // Adjust the path as necessary
+import Match from '../models/Match.js'; 
 
 const router = express.Router();
 
@@ -31,10 +31,11 @@ const router = express.Router();
  * tmdbId: 278
  * quoteId: 1047
  * matchScore: 0.95
- * * tags:
+ * tags:
  * name: Matches
  * description: API to manage associations between media works and quotes (Matches)
- * * /api/matches:
+ * paths:
+ * /api/matches:
  * get:
  * summary: Returns a list of all Matches.
  * tags: [Matches]
@@ -69,7 +70,7 @@ const router = express.Router();
  * description: Invalid data supplied.
  * 500:
  * description: Server error when creating the match.
- * * /api/matches/{id}:
+ * /api/matches/{id}:
  * get:
  * summary: Returns a Match by its ID.
  * tags: [Matches]

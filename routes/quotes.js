@@ -32,10 +32,10 @@ const router = express.Router();
  * quote: "The unexamined life is not worth living."
  * author: "Socrates"
  * themes: ["self-knowledge", "wisdom", "introspection"]
- * * tags:
+ * tags:
  * name: Quotes
  * description: API to manage philosophical quotes
- * * /api/quotes:
+ * /api/quotes:
  * get:
  * summary: Returns a list of all Quotes.
  * tags: [Quotes]
@@ -70,7 +70,7 @@ const router = express.Router();
  * description: Invalid data supplied.
  * 500:
  * description: Server error when creating the quote.
- * * /api/quotes/{id}:
+ * /api/quotes/{id}:
  * get:
  * summary: Returns a Quote by its ID.
  * tags: [Quotes]
