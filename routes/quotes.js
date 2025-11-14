@@ -5,106 +5,122 @@ const router = express.Router();
 
 /**
  * @swagger
- * paths:
  * /api/quotes:
- * get:
- * summary: Returns a list of all Quotes.
- * tags: [Quotes]
- * responses:
- * 200:
- * description: The list of quotes returned successfully.
- * content:
- * application/json:
- * schema:
- * type: array
- * items:
- * $ref: '#/components/schemas/Quote'
- * 500:
- * description: Server error when retrieving quotes.
- * post:
- * summary: Creates a new Quote.
- * tags: [Quotes]
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * $ref: '#/components/schemas/Quote'
- * responses:
- * 201:
- * description: Quote created successfully.
- * content:
- * application/json:
- * schema:
- * $ref: '#/components/schemas/Quote'
- * 400:
- * description: Invalid data supplied.
- * 500:
- * description: Server error when creating the quote.
- *
- * /api/quotes/{id}:
- * get:
- * summary: Returns a Quote by its ID.
- * tags: [Quotes]
- * parameters:
- * - in: path
- * name: id
- * schema:
- * type: string
- * required: true
- * description: The ID of the Quote.
- * responses:
- * 200:
- * description: Quote returned successfully.
- * content:
- * application/json:
- * schema:
- * $ref: '#/components/schemas/Quote'
- * 404:
- * description: Quote not found.
- * put:
- * summary: Updates a Quote by its ID.
- * tags: [Quotes]
- * parameters:
- * - in: path
- * name: id
- * schema:
- * type: string
- * required: true
- * description: The ID of the Quote to update.
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * $ref: '#/components/schemas/Quote'
- * responses:
- * 200:
- * description: Quote updated successfully.
- * content:
- * application/json:
- * schema:
- * $ref: '#/components/schemas/Quote'
- * 404:
- * description: Quote not found.
- * 400:
- * description: Invalid data supplied for update.
- * delete:
- * summary: Deletes a Quote by its ID.
- * tags: [Quotes]
- * parameters:
- * - in: path
- * name: id
- * schema:
- * type: string
- * required: true
- * description: The ID of the Quote to delete.
- * responses:
- * 200:
- * description: Quote deleted successfully.
- * 404:
- * description: Quote not found.
+ *   get:
+ *     summary: Returns a list of all quotes.
+ *     tags: [Quotes]
+ *     responses:
+ *       200:
+ *         description: List of quotes returned successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Quote'
+ *       500:
+ *         description: Error retrieving quotes.
  */
+
+/**
+ * @swagger
+ * /api/quotes:
+ *   post:
+ *     summary: Creates a new quote.
+ *     tags: [Quotes]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Quote'
+ *     responses:
+ *       201:
+ *         description: Quote created successfully.
+ *       400:
+ *         description: Invalid quote data.
+ *       500:
+ *         description: Error creating quote.
+ */
+
+/**
+ * @swagger
+ * /api/quotes/{id}:
+ *   get:
+ *     summary: Returns a quote by ID.
+ *     tags: [Quotes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Quote ID
+ *     responses:
+ *       200:
+ *         description: Quote returned successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Quote'
+ *       404:
+ *         description: Quote not found.
+ *       500:
+ *         description: Error retrieving quote.
+ */
+
+/**
+ * @swagger
+ * /api/quotes/{id}:
+ *   put:
+ *     summary: Updates a quote by ID.
+ *     tags: [Quotes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Quote ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Quote'
+ *     responses:
+ *       200:
+ *         description: Quote updated successfully.
+ *       404:
+ *         description: Quote not found.
+ *       400:
+ *         description: Invalid quote data.
+ *       500:
+ *         description: Error updating quote.
+ */
+
+/**
+ * @swagger
+ * /api/quotes/{id}:
+ *   delete:
+ *     summary: Deletes a quote by ID.
+ *     tags: [Quotes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Quote ID
+ *     responses:
+ *       200:
+ *         description: Quote deleted successfully.
+ *       404:
+ *         description: Quote not found.
+ *       500:
+ *         description: Error deleting quote.
+ */
+
 
 router.get('/', async (req, res) => {
   try {
