@@ -9,7 +9,7 @@ const options = {
       description: 'A RESTful API for managing PhiloMedia content: custom philosophical Quotes and Curated Matches between media and philosophy.',
       contact: {
         name: 'PhiloMedia Support',
-        url: 'http://localhost:8080', // Substitua pelo link do Render depois
+        url: 'https://philomedia.onrender.com', 
       },
     },
     servers: [
@@ -66,6 +66,16 @@ const options = {
         },
       },
     },
+    tags: [
+      {
+        name: 'Quotes',
+        description: 'API to manage philosophical quotes',
+      },
+      {
+        name: 'Matches',
+        description: 'API to manage associations between media works and quotes',
+      }
+    ],
   },
   apis: ['./routes/*.js'],
 };

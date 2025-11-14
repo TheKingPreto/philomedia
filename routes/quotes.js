@@ -5,37 +5,6 @@ const router = express.Router();
 
 /**
  * @swagger
- * components:
- * schemas:
- * Quote:
- * type: object
- * required:
- * - quote
- * - author
- * properties:
- * id:
- * type: string
- * description: The auto-generated ID by MongoDB.
- * quote:
- * type: string
- * description: The text of the philosophical quote.
- * author:
- * type: string
- * description: The author of the quote.
- * themes:
- * type: array
- * items:
- * type: string
- * description: List of associated philosophical themes.
- * example:
- * id: 60d05562d9b62f001c238c9c
- * quote: "The unexamined life is not worth living."
- * author: "Socrates"
- * themes: ["self-knowledge", "wisdom", "introspection"]
- * tags:
- * - name: Quotes
- * description: API to manage philosophical quotes
- *
  * paths:
  * /api/quotes:
  * get:
@@ -83,7 +52,7 @@ const router = express.Router();
  * schema:
  * type: string
  * required: true
- * description: The ID of the Quote (usually MongoDB ObjectId).
+ * description: The ID of the Quote.
  * responses:
  * 200:
  * description: Quote returned successfully.

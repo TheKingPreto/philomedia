@@ -5,36 +5,6 @@ const router = express.Router();
 
 /**
  * @swagger
- * components:
- * schemas:
- * Match:
- * type: object
- * required:
- * - tmdbId
- * - quoteId
- * properties:
- * id:
- * type: string
- * description: The auto-generated ID by MongoDB.
- * tmdbId:
- * type: string
- * description: The ID of the movie/series/anime on TMDB.
- * quoteId:
- * type: integer
- * description: The ID of the philosophical quote.
- * matchScore:
- * type: number
- * format: float
- * description: Relevance score of the connection.
- * example:
- * id: 60d05562d9b62f001c238c9c
- * tmdbId: 278
- * quoteId: 1047
- * matchScore: 0.95
- * tags:
- * - name: Matches
- * description: API to manage associations between media works and quotes
- *
  * paths:
  * /api/matches:
  * get:
@@ -82,7 +52,7 @@ const router = express.Router();
  * schema:
  * type: string
  * required: true
- * description: The ID of the Match (usually MongoDB ObjectId).
+ * description: The ID of the Match.
  * responses:
  * 200:
  * description: Match returned successfully.
