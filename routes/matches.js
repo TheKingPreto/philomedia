@@ -32,8 +32,9 @@ const router = express.Router();
  * quoteId: 1047
  * matchScore: 0.95
  * tags:
- * name: Matches
- * description: API to manage associations between media works and quotes (Matches)
+ * - name: Matches
+ * description: API to manage associations between media works and quotes
+ *
  * paths:
  * /api/matches:
  * get:
@@ -70,6 +71,7 @@ const router = express.Router();
  * description: Invalid data supplied.
  * 500:
  * description: Server error when creating the match.
+ *
  * /api/matches/{id}:
  * get:
  * summary: Returns a Match by its ID.
