@@ -48,7 +48,7 @@ const options = {
         },
         Match: {
           type: 'object',
-          required: ['tmdbId', 'quoteId'],
+          required: ['tmdbId', 'quoteId', 'mediaType'],
           properties: {
             tmdbId: {
               type: 'string',
