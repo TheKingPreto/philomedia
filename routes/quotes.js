@@ -1,30 +1,47 @@
 import express from 'express';
-import { 
-    getAllQuotes, 
-    getQuoteById, 
-    createQuote, 
-    updateQuote, 
-    deleteQuote 
-} from '../controllers/QuoteController.js'; 
+import Quote from '../models/Quote.js';
 
 const router = express.Router();
 
 /**
  * @swagger
- * tags:
+ * components:
+ * schemas:
+ * Quote:
+ * type: object
+ * required:
+ * - quote
+ * - author
+ * properties:
+ * id:
+ * type: string
+ * description: The auto-generated ID by MongoDB.
+ * quote:
+ * type: string
+ * description: The text of the philosophical quote.
+ * author:
+ * type: string
+ * description: The author of the quote.
+ * themes:
+ * type: array
+ * items:
+ * type: string
+ * description: List of associated philosophical themes.
+ * example:
+ * id: 60d05562d9b62f001c238c9c
+ * quote: "The unexamined life is not worth living."
+ * author: "Socrates"
+ * themes: ["self-knowledge", "wisdom", "introspection"]
+ * * tags:
  * name: Quotes
- * description: API endpoints for managing custom philosophical quotes.
- */
-
-/**
- * @swagger
- * /api/quotes:
+ * description: API to manage philosophical quotes
+ * * /api/quotes:
  * get:
- * summary: Retrieve a list of all custom quotes.
+ * summary: Returns a list of all Quotes.
  * tags: [Quotes]
  * responses:
  * 200:
- * description: A list of quotes.
+ * description: The list of quotes returned successfully.
  * content:
  * application/json:
  * schema:
@@ -32,9 +49,9 @@ const router = express.Router();
  * items:
  * $ref: '#/components/schemas/Quote'
  * 500:
- * description: Internal Server Error.
+ * description: Server error when retrieving quotes.
  * post:
- * summary: Create a new custom quote.
+ * summary: Creates a new Quote.
  * tags: [Quotes]
  * requestBody:
  * required: true
@@ -44,22 +61,18 @@ const router = express.Router();
  * $ref: '#/components/schemas/Quote'
  * responses:
  * 201:
- * description: The created quote.
+ * description: Quote created successfully.
  * content:
  * application/json:
  * schema:
  * $ref: '#/components/schemas/Quote'
  * 400:
- * description: Validation Error (Missing required fields).
+ * description: Invalid data supplied.
  * 500:
- * description: Internal Server Error.
- */
-
-/**
- * @swagger
- * /api/quotes/{id}:
+ * description: Server error when creating the quote.
+ * * /api/quotes/{id}:
  * get:
- * summary: Get a quote by ID.
+ * summary: Returns a Quote by its ID.
  * tags: [Quotes]
  * parameters:
  * - in: path
@@ -67,10 +80,10 @@ const router = express.Router();
  * schema:
  * type: string
  * required: true
- * description: The Quote ID (MongoDB ObjectID).
+ * description: The ID of the Quote (usually MongoDB ObjectId).
  * responses:
  * 200:
- * description: The quote object.
+ * description: Quote returned successfully.
  * content:
  * application/json:
  * schema:
@@ -78,7 +91,7 @@ const router = express.Router();
  * 404:
  * description: Quote not found.
  * put:
- * summary: Update an existing quote by ID.
+ * summary: Updates a Quote by its ID.
  * tags: [Quotes]
  * parameters:
  * - in: path
@@ -86,7 +99,7 @@ const router = express.Router();
  * schema:
  * type: string
  * required: true
- * description: The Quote ID (MongoDB ObjectID).
+ * description: The ID of the Quote to update.
  * requestBody:
  * required: true
  * content:
@@ -95,17 +108,17 @@ const router = express.Router();
  * $ref: '#/components/schemas/Quote'
  * responses:
  * 200:
- * description: The updated quote.
+ * description: Quote updated successfully.
  * content:
  * application/json:
  * schema:
  * $ref: '#/components/schemas/Quote'
- * 400:
- * description: Invalid ID or Validation Error.
  * 404:
  * description: Quote not found.
+ * 400:
+ * description: Invalid data supplied for update.
  * delete:
- * summary: Delete a quote by ID.
+ * summary: Deletes a Quote by its ID.
  * tags: [Quotes]
  * parameters:
  * - in: path
@@ -113,21 +126,65 @@ const router = express.Router();
  * schema:
  * type: string
  * required: true
- * description: The Quote ID (MongoDB ObjectID).
+ * description: The ID of the Quote to delete.
  * responses:
  * 200:
- * description: Quote successfully deleted.
+ * description: Quote deleted successfully.
  * 404:
  * description: Quote not found.
  */
 
-router.route('/')
-    .get(getAllQuotes)
-    .post(createQuote);
+router.get('/', async (req, res) => {
+  try {
+    const quotes = await Quote.find();
+    res.json(quotes);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
-router.route('/:id')
-    .get(getQuoteById)
-    .put(updateQuote)
-    .delete(deleteQuote);
+router.get('/:id', async (req, res) => {
+  try {
+    const quote = await Quote.findById(req.params.id);
+    if (!quote) return res.status(404).json({ message: 'Quote not found' });
+    res.json(quote);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/', async (req, res) => {
+  const quote = new Quote(req.body);
+  try {
+    const newQuote = await quote.save();
+    res.status(201).json(newQuote);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  try {
+    const updatedQuote = await Quote.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!updatedQuote) return res.status(404).json({ message: 'Quote not found' });
+    res.json(updatedQuote);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const deletedQuote = await Quote.findByIdAndDelete(req.params.id);
+    if (!deletedQuote) return res.status(404).json({ message: 'Quote not found' });
+    res.json({ message: 'Quote deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 export default router;

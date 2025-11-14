@@ -1,30 +1,46 @@
 import express from 'express';
-import { 
-    getAllMatches, 
-    getMatchById, 
-    createMatch, 
-    updateMatch, 
-    deleteMatch 
-} from '../controllers/MatchController.js'; 
+import Match from '../models/Match.js'; // Adjust the path as necessary
 
 const router = express.Router();
 
 /**
  * @swagger
- * tags:
+ * components:
+ * schemas:
+ * Match:
+ * type: object
+ * required:
+ * - tmdbId
+ * - quoteId
+ * properties:
+ * id:
+ * type: string
+ * description: The auto-generated ID by MongoDB.
+ * tmdbId:
+ * type: string
+ * description: The ID of the movie/series/anime on TMDB.
+ * quoteId:
+ * type: integer
+ * description: The ID of the philosophical quote.
+ * matchScore:
+ * type: number
+ * format: float
+ * description: Relevance score of the connection.
+ * example:
+ * id: 60d05562d9b62f001c238c9c
+ * tmdbId: 278
+ * quoteId: 1047
+ * matchScore: 0.95
+ * * tags:
  * name: Matches
- * description: API endpoints for managing curated matches between media and custom quotes.
- */
-
-/**
- * @swagger
- * /api/matches:
+ * description: API to manage associations between media works and quotes (Matches)
+ * * /api/matches:
  * get:
- * summary: Retrieve a list of all curated matches.
+ * summary: Returns a list of all Matches.
  * tags: [Matches]
  * responses:
  * 200:
- * description: A list of curated matches.
+ * description: The list of matches returned successfully.
  * content:
  * application/json:
  * schema:
@@ -32,9 +48,9 @@ const router = express.Router();
  * items:
  * $ref: '#/components/schemas/Match'
  * 500:
- * description: Internal Server Error.
+ * description: Server error when retrieving matches.
  * post:
- * summary: Create a new curated match.
+ * summary: Creates a new Match (association between work and quote).
  * tags: [Matches]
  * requestBody:
  * required: true
@@ -44,22 +60,18 @@ const router = express.Router();
  * $ref: '#/components/schemas/Match'
  * responses:
  * 201:
- * description: The created match.
+ * description: Match created successfully.
  * content:
  * application/json:
  * schema:
  * $ref: '#/components/schemas/Match'
  * 400:
- * description: Validation Error (Missing required fields or duplicate TMDB ID).
+ * description: Invalid data supplied.
  * 500:
- * description: Internal Server Error.
- */
-
-/**
- * @swagger
- * /api/matches/{id}:
+ * description: Server error when creating the match.
+ * * /api/matches/{id}:
  * get:
- * summary: Get a curated match by MongoDB ID.
+ * summary: Returns a Match by its ID.
  * tags: [Matches]
  * parameters:
  * - in: path
@@ -67,10 +79,10 @@ const router = express.Router();
  * schema:
  * type: string
  * required: true
- * description: The Match ID (MongoDB ObjectID).
+ * description: The ID of the Match (usually MongoDB ObjectId).
  * responses:
  * 200:
- * description: The match object.
+ * description: Match returned successfully.
  * content:
  * application/json:
  * schema:
@@ -78,7 +90,7 @@ const router = express.Router();
  * 404:
  * description: Match not found.
  * put:
- * summary: Update an existing match by ID.
+ * summary: Updates a Match by its ID.
  * tags: [Matches]
  * parameters:
  * - in: path
@@ -86,7 +98,7 @@ const router = express.Router();
  * schema:
  * type: string
  * required: true
- * description: The Match ID (MongoDB ObjectID).
+ * description: The ID of the Match to update.
  * requestBody:
  * required: true
  * content:
@@ -95,17 +107,17 @@ const router = express.Router();
  * $ref: '#/components/schemas/Match'
  * responses:
  * 200:
- * description: The updated match.
+ * description: Match updated successfully.
  * content:
  * application/json:
  * schema:
  * $ref: '#/components/schemas/Match'
- * 400:
- * description: Invalid ID or Validation Error.
  * 404:
  * description: Match not found.
+ * 400:
+ * description: Invalid data supplied for update.
  * delete:
- * summary: Delete a curated match by ID.
+ * summary: Deletes a Match by its ID.
  * tags: [Matches]
  * parameters:
  * - in: path
@@ -113,21 +125,65 @@ const router = express.Router();
  * schema:
  * type: string
  * required: true
- * description: The Match ID (MongoDB ObjectID).
+ * description: The ID of the Match to delete.
  * responses:
  * 200:
- * description: Match successfully deleted.
+ * description: Match deleted successfully.
  * 404:
  * description: Match not found.
  */
 
-router.route('/')
-    .get(getAllMatches)
-    .post(createMatch);
+router.get('/', async (req, res) => {
+  try {
+    const matches = await Match.find();
+    res.json(matches);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
-router.route('/:id')
-    .get(getMatchById)
-    .put(updateMatch)
-    .delete(deleteMatch);
+router.get('/:id', async (req, res) => {
+  try {
+    const match = await Match.findById(req.params.id);
+    if (!match) return res.status(404).json({ message: 'Match not found' });
+    res.json(match);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/', async (req, res) => {
+  const match = new MatchModel(req.body);
+  try {
+    const newMatch = await match.save();
+    res.status(201).json(newMatch);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  try {
+    const updatedMatch = await Match.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!updatedMatch) return res.status(404).json({ message: 'Match not found' });
+    res.json(updatedMatch);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const deletedMatch = await Match.findByIdAndDelete(req.params.id);
+    if (!deletedMatch) return res.status(404).json({ message: 'Match not found' });
+    res.json({ message: 'Match deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 export default router;
