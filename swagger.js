@@ -26,7 +26,7 @@ const options = {
       schemas: {
         Quote: {
           type: 'object',
-          required: ['quoteText', 'authorName'],
+          required: ['quoteText', 'authorName','themes'],
           properties: {
             quoteText: {
               type: 'string',
