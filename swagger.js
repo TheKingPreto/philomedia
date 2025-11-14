@@ -14,7 +14,7 @@ const options = {
     },
     servers: [
       {
-        url: 'https://philomedia.onrender.com/api', 
+        url: 'https://philomedia.onrender.com', 
         description: 'Production Server',
       },
       {
