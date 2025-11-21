@@ -1,5 +1,6 @@
 import express from 'express';
 import Quote from '../models/Quote.js';
+import { isAuthenticated } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -9,6 +10,8 @@ const router = express.Router();
  *   get:
  *     summary: Returns a list of all quotes.
  *     tags: [Quotes]
+ *      security:
+ *      - CookieAuth: []
  *     responses:
  *       200:
  *         description: List of quotes returned successfully.
@@ -18,6 +21,8 @@ const router = express.Router();
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/Quote'
+ *       401:
+ *         description: Authentication required.
  *       500:
  *         description: Error retrieving quotes.
  */
@@ -28,6 +33,8 @@ const router = express.Router();
  *   post:
  *     summary: Creates a new quote.
  *     tags: [Quotes]
+ *       security:
+ *      - CookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -39,6 +46,8 @@ const router = express.Router();
  *         description: Quote created successfully.
  *       400:
  *         description: Invalid quote data.
+ *        401:
+ *         description: Authentication required.
  *       500:
  *         description: Error creating quote.
  */
@@ -49,6 +58,8 @@ const router = express.Router();
  *   get:
  *     summary: Returns a quote by ID.
  *     tags: [Quotes]
+ *       security:
+ *      - CookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -63,6 +74,8 @@ const router = express.Router();
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Quote'
+ *        401:
+ *         description: Authentication required.
  *       404:
  *         description: Quote not found.
  *       500:
@@ -75,6 +88,8 @@ const router = express.Router();
  *   put:
  *     summary: Updates a quote by ID.
  *     tags: [Quotes]
+ *       security:
+ *      - CookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -95,6 +110,8 @@ const router = express.Router();
  *         description: Quote not found.
  *       400:
  *         description: Invalid quote data.
+ *        401:
+ *         description: Authentication required.
  *       500:
  *         description: Error updating quote.
  */
@@ -105,6 +122,8 @@ const router = express.Router();
  *   delete:
  *     summary: Deletes a quote by ID.
  *     tags: [Quotes]
+ *       security:
+ *      - CookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -115,6 +134,8 @@ const router = express.Router();
  *     responses:
  *       200:
  *         description: Quote deleted successfully.
+ *        401:
+ *         description: Authentication required.
  *       404:
  *         description: Quote not found.
  *       500:
@@ -141,7 +162,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', isAuthenticated, async (req, res) => {
   const quote = new Quote(req.body);
   try {
     const newQuote = await quote.save();
@@ -151,7 +172,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', isAuthenticated, async (req, res) => {
   try {
     const updatedQuote = await Quote.findByIdAndUpdate(
       req.params.id,
@@ -165,7 +186,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', isAuthenticated, async (req, res) => {
   try {
     const deletedQuote = await Quote.findByIdAndDelete(req.params.id);
     if (!deletedQuote) return res.status(404).json({ message: 'Quote not found' });

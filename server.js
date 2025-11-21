@@ -3,8 +3,12 @@ import mongoose from 'mongoose';
 import * as dotenv from 'dotenv'; 
 import quoteRoutes from './routes/quotes.js';
 import matchRoutes from './routes/matches.js';
+import authRoutes from './routes/auth.js';
 import swaggerUi from 'swagger-ui-express';
 import { specs } from './swagger.js';
+import session from 'express-session';
+import passport from 'passport';
+import './passport.js';
 
 dotenv.config();
 
@@ -14,6 +18,18 @@ const MONGODB_URI = process.env.MONGODB_URI;
 
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true }));
+
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,              
+    saveUninitialized: false,     
+    cookie: { 
+        maxAge: 24 * 60 * 60 * 1000,
+    }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 mongoose.connect(MONGODB_URI)
   .then(() => {
@@ -39,6 +55,8 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 app.get('/', (req, res) => {
   res.send('Welcome to the PhiloMedia REST API! Check the documentation route for endpoints.');
 });
+
+app.use('/auth', authRoutes);
 
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/matches', matchRoutes);

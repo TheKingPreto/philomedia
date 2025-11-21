@@ -67,6 +67,14 @@ const options = {
                 example: 'movie',
             }
           },
+          securitySchemes: {
+        CookieAuth: {
+          type: 'apiKey',
+          in: 'cookie',
+          name: 'connect.sid', 
+          description: 'Authentication via session cookie. Log in via /auth/google first.'
+        }
+        },
         },
       },
     },
