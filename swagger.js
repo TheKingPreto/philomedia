@@ -23,6 +23,13 @@ const options = {
       },
     ],
     components: {
+       securitySchemes: {
+    CookieAuth: {
+      type: 'apiKey',
+      in: 'cookie',
+      name: 'connect.sid',
+    }
+  },
       schemas: {
         Quote: {
           type: 'object',
@@ -67,14 +74,6 @@ const options = {
                 example: 'movie',
             }
           },
-          securitySchemes: {
-        CookieAuth: {
-          type: 'apiKey',
-          in: 'cookie',
-          name: 'connect.sid', 
-          description: 'Authentication via session cookie.'
-        }
-        },
         },
       },
     },
