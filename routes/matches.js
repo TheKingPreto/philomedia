@@ -1,5 +1,5 @@
 import express from 'express';
-import Match from '../models/Match.js'; 
+import Match from '../models/Match.js';
 import { isAuthenticated } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -29,8 +29,8 @@ const router = express.Router();
  *   post:
  *     summary: Creates a new match.
  *     tags: [Matches]
- *      security:
- *      - CookieAuth: []
+ *     security:
+ *       - CookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -54,8 +54,8 @@ const router = express.Router();
  *   get:
  *     summary: Returns a match by ID.
  *     tags: [Matches]
- *     * security: 
- *     - CookieAuth: []
+ *     security:
+ *       - CookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -71,7 +71,7 @@ const router = express.Router();
  *             schema:
  *               $ref: '#/components/schemas/Match'
  *       401:
- *       description: Authentication required.
+ *         description: Authentication required.
  *       404:
  *         description: Match not found.
  *       500:
@@ -84,8 +84,8 @@ const router = express.Router();
  *   put:
  *     summary: Updates a match by ID.
  *     tags: [Matches]
- *     security: 
- *     - CookieAuth: []
+ *     security:
+ *       - CookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -118,8 +118,8 @@ const router = express.Router();
  *   delete:
  *     summary: Deletes a match by ID.
  *     tags: [Matches]
- *     security: 
- *     - CookieAuth: []
+ *     security:
+ *       - CookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id

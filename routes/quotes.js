@@ -8,10 +8,8 @@ const router = express.Router();
  * @swagger
  * /api/quotes:
  *   get:
- *     summary: Returns a list of all quotes.
+ *     summary: Returns all quotes.
  *     tags: [Quotes]
- *      security:
- *      - CookieAuth: []
  *     responses:
  *       200:
  *         description: List of quotes returned successfully.
@@ -21,8 +19,6 @@ const router = express.Router();
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/Quote'
- *       401:
- *         description: Authentication required.
  *       500:
  *         description: Error retrieving quotes.
  */
@@ -33,8 +29,8 @@ const router = express.Router();
  *   post:
  *     summary: Creates a new quote.
  *     tags: [Quotes]
- *       security:
- *      - CookieAuth: []
+ *     security:
+ *       - CookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -46,7 +42,7 @@ const router = express.Router();
  *         description: Quote created successfully.
  *       400:
  *         description: Invalid quote data.
- *        401:
+ *       401:
  *         description: Authentication required.
  *       500:
  *         description: Error creating quote.
@@ -58,15 +54,6 @@ const router = express.Router();
  *   get:
  *     summary: Returns a quote by ID.
  *     tags: [Quotes]
- *       security:
- *      - CookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Quote ID
  *     responses:
  *       200:
  *         description: Quote returned successfully.
@@ -74,8 +61,6 @@ const router = express.Router();
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Quote'
- *        401:
- *         description: Authentication required.
  *       404:
  *         description: Quote not found.
  *       500:
@@ -88,8 +73,8 @@ const router = express.Router();
  *   put:
  *     summary: Updates a quote by ID.
  *     tags: [Quotes]
- *       security:
- *      - CookieAuth: []
+ *     security:
+ *       - CookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -110,7 +95,7 @@ const router = express.Router();
  *         description: Quote not found.
  *       400:
  *         description: Invalid quote data.
- *        401:
+ *       401:
  *         description: Authentication required.
  *       500:
  *         description: Error updating quote.
@@ -122,8 +107,8 @@ const router = express.Router();
  *   delete:
  *     summary: Deletes a quote by ID.
  *     tags: [Quotes]
- *       security:
- *      - CookieAuth: []
+ *     security:
+ *       - CookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -134,14 +119,13 @@ const router = express.Router();
  *     responses:
  *       200:
  *         description: Quote deleted successfully.
- *        401:
- *         description: Authentication required.
  *       404:
  *         description: Quote not found.
+ *       401:
+ *         description: Authentication required.
  *       500:
  *         description: Error deleting quote.
  */
-
 
 router.get('/', async (req, res) => {
   try {
