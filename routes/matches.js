@@ -1,5 +1,6 @@
 import express from 'express';
 import Match from '../models/Match.js'; 
+import { isAuthenticated } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -28,6 +29,8 @@ const router = express.Router();
  *   post:
  *     summary: Creates a new match.
  *     tags: [Matches]
+ *      security:
+ *      - CookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -39,6 +42,8 @@ const router = express.Router();
  *         description: Match created successfully.
  *       400:
  *         description: Invalid match data.
+ *       401:
+ *         description: Authentication required.
  *       500:
  *         description: Error creating match.
  */
@@ -49,6 +54,8 @@ const router = express.Router();
  *   get:
  *     summary: Returns a match by ID.
  *     tags: [Matches]
+ *     * security: 
+ *     - CookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -63,6 +70,8 @@ const router = express.Router();
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Match'
+ *       401:
+ *       description: Authentication required.
  *       404:
  *         description: Match not found.
  *       500:
@@ -75,6 +84,8 @@ const router = express.Router();
  *   put:
  *     summary: Updates a match by ID.
  *     tags: [Matches]
+ *     security: 
+ *     - CookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -93,6 +104,8 @@ const router = express.Router();
  *         description: Match updated successfully.
  *       400:
  *         description: Invalid match data.
+ *       401:
+ *         description: Authentication required.
  *       404:
  *         description: Match not found.
  *       500:
@@ -105,6 +118,8 @@ const router = express.Router();
  *   delete:
  *     summary: Deletes a match by ID.
  *     tags: [Matches]
+ *     security: 
+ *     - CookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -115,6 +130,8 @@ const router = express.Router();
  *     responses:
  *       200:
  *         description: Match deleted successfully.
+ *       401:
+ *         description: Authentication required.
  *       404:
  *         description: Match not found.
  *       500:
@@ -140,7 +157,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', isAuthenticated, async (req, res) => {
   const match = new Match(req.body);
   try {
     const newMatch = await match.save();
@@ -150,7 +167,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', isAuthenticated, async (req, res) => {
   try {
     const updatedMatch = await Match.findByIdAndUpdate(
       req.params.id,
@@ -164,7 +181,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', isAuthenticated, async (req, res) => {
   try {
     const deletedMatch = await Match.findByIdAndDelete(req.params.id);
     if (!deletedMatch) return res.status(404).json({ message: 'Match not found' });
