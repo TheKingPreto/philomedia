@@ -72,7 +72,7 @@ const options = {
           type: 'apiKey',
           in: 'cookie',
           name: 'connect.sid', 
-          description: 'Authentication via session cookie. Log in via /auth/google first.'
+          description: 'Authentication via session cookie.'
         }
         },
         },
