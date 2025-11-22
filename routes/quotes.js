@@ -7,71 +7,71 @@ const router = express.Router();
 /**
  * @swagger
  * /api/quotes:
- * get:
- * summary: Returns all quotes.
- * tags: [Quotes]
- * responses:
- * 200:
- * description: List of quotes returned successfully.
- * content:
- * application/json:
- * schema:
- * type: array
- * items:
- * $ref: '#/components/schemas/Quote'
- * 500:
- * description: Error retrieving quotes.
+ *  get:
+ *    summary: Returns all quotes.
+ *    tags: [Quotes]
+ *    responses:
+ *      200:
+ *        description: List of quotes returned successfully.
+ *    content:
+ *      application/json:
+ *        schema:
+ *          type: array
+ *      items:
+ *        $ref: '#/components/schemas/Quote'
+ *      500:
+ *        description: Error retrieving quotes.
  */
 
 /**
  * @swagger
  * /api/quotes:
- * post:
- * summary: Creates a new quote.
- * tags: [Quotes]
- * security:
- * - CookieAuth: []
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * $ref: '#/components/schemas/Quote'
- * responses:
- * 201:
- * description: Quote created successfully.
- * 400:
- * description: Invalid quote data.
- * 401:
- * description: Authentication required.
- * 500:
- * description: Error creating quote.
+ *  post:
+ *    summary: Creates a new quote.
+ *    tags: [Quotes]
+ *    security:
+ *      - CookieAuth: []
+ *    requestBody:
+ *      required: true
+ *      content:
+ *        application/json:
+ *          schema:
+ *            $ref: '#/components/schemas/Quote'
+ *    responses:
+ *      201:
+ *        description: Quote created successfully.
+ *      400:
+ *        description: Invalid quote data.
+ *      401:
+ *        description: Authentication required.
+ *      500:
+ *        description: Error creating quote.
  */
 
 /**
  * @swagger
  * /api/quotes/{id}:
- * get:
- * summary: Returns a quote by ID.
- * tags: [Quotes]
- * parameters:
- * - in: path
- * name: id
- * required: true
- * schema:
- * type: string
- * description: Quote ID
- * content:
- * application/json:
- * schema:
- * $ref: '#/components/schemas/Quote'
- * responses:
- * 200:
- * description: Quote returned successfully.
- * 404:
- * description: Quote not found.
- * 500:
- * description: Error retrieving quote.
+ *  get:
+ *    summary: Returns a quote by ID.
+ *    tags: [Quotes]
+ *    parameters:
+ *      - in: path
+ *        name: id
+ *        required: true
+ *        schema:
+ *          type: string
+ *        description: Quote ID
+ *    content:
+ *      application/json:
+ *        schema:
+ *          $ref: '#/components/schemas/Quote'
+ *    responses:
+ *      200:
+ *        description: Quote returned successfully.
+ *      404:
+ *        description: Quote not found.
+ *      500:
+ *        description: Error retrieving quote.
  */
 
 /**
