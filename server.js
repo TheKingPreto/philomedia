@@ -32,17 +32,12 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 mongoose.connect(MONGODB_URI)
-  .then(() => {
-    console.log('✅ Connection Success!!');
-    app.listen(PORT, () => {
-      console.log(`PhiloMedia server running on: ${PORT}`);
-      console.log(`Link local: http://localhost: ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('❌ ERROR to connect with MongoDB:', err.message);
-    process.exit(1); 
-  });
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch(err => console.error('❌ MongoDB error:', err.message));
+
+app.listen(PORT, () => {
+  console.log(`PhiloMedia server running on: ${PORT}`);
+});
 
 
 app.get('/api-docs/swagger.json', (req, res) => {
