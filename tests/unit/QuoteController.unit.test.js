@@ -1,13 +1,12 @@
 import { jest } from '@jest/globals';
 import Quote from '../../src/models/Quote.js';
-import * as QuoteController from '../../controllers/QuoteController.js';
+import * as QuoteController from '../../src/controllers/QuoteController.js';
 
 describe('QuoteController unit tests (mocked model)', () => {
   test('getAllQuotes returns quotes from Quote.find', async () => {
     const fakeQuotes = [{ quoteText: 'A', authorName: 'X' }];
     const findSpy = jest.spyOn(Quote, 'find').mockResolvedValueOnce(fakeQuotes);
 
-    // mock req, res, next
     const req = {};
     const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
     const next = jest.fn();
