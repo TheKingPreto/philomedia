@@ -1,8 +1,17 @@
 import express from 'express';
 import Match from '../models/Match.js';
-import { isAuthenticated } from '../middleware/authMiddleware.js';
+import { isAuthenticated } from '../../middleware/authMiddleware.js';
+import { body, param, validationResult } from 'express-validator';
 
 const router = express.Router();
+
+const validateRequest = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  next();
+};
 
 /**
  * @swagger
@@ -140,16 +149,16 @@ const router = express.Router();
 
 router.get('/', async (req, res) => {
   try {
-    const matches = await Match.find();
+    const matches = await Match.find().populate('quoteId');
     res.json(matches);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', param('id').isMongoId().withMessage('Invalid match id'), validateRequest, async (req, res) => {
   try {
-    const match = await Match.findById(req.params.id);
+    const match = await Match.findById(req.params.id).populate('quoteId');
     if (!match) return res.status(404).json({ message: 'Match not found' });
     res.json(match);
   } catch (error) {
@@ -157,31 +166,52 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', isAuthenticated, async (req, res) => {
-  const match = new Match(req.body);
-  try {
-    const newMatch = await match.save();
-    res.status(201).json(newMatch);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
+router.post(
+  '/',
+  isAuthenticated,
+  [
+    body('tmdbId').isString().notEmpty().withMessage('tmdbId is required'),
+    body('quoteId').isMongoId().withMessage('quoteId must be a valid ObjectId'),
+    body('mediaType').optional().isIn(['movie', 'tv', 'anime', 'unknown']).withMessage('Invalid mediaType'),
+  ],
+  validateRequest,
+  async (req, res) => {
+    const match = new Match(req.body);
+    try {
+      const newMatch = await match.save();
+      res.status(201).json(newMatch);
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
   }
-});
+);
 
-router.put('/:id', isAuthenticated, async (req, res) => {
-  try {
-    const updatedMatch = await Match.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-    if (!updatedMatch) return res.status(404).json({ message: 'Match not found' });
-    res.json(updatedMatch);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
+router.put(
+  '/:id',
+  isAuthenticated,
+  [
+    param('id').isMongoId().withMessage('Invalid match id'),
+    body('tmdbId').optional().isString().notEmpty().withMessage('tmdbId is required'),
+    body('quoteId').optional().isMongoId().withMessage('quoteId must be a valid ObjectId'),
+    body('mediaType').optional().isIn(['movie', 'tv', 'anime', 'unknown']).withMessage('Invalid mediaType'),
+  ],
+  validateRequest,
+  async (req, res) => {
+    try {
+      const updatedMatch = await Match.findByIdAndUpdate(
+        req.params.id,
+        req.body,
+        { new: true, runValidators: true }
+      );
+      if (!updatedMatch) return res.status(404).json({ message: 'Match not found' });
+      res.json(updatedMatch);
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
   }
-});
+);
 
-router.delete('/:id', isAuthenticated, async (req, res) => {
+router.delete('/:id', isAuthenticated, param('id').isMongoId().withMessage('Invalid match id'), validateRequest, async (req, res) => {
   try {
     const deletedMatch = await Match.findByIdAndDelete(req.params.id);
     if (!deletedMatch) return res.status(404).json({ message: 'Match not found' });

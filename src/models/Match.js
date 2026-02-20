@@ -9,9 +9,9 @@ const matchSchema = new mongoose.Schema({
   },
 
   quoteId: {
-    type: String, 
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Quote',
     required: [true, 'Quote ID is required for the match.'],
-    trim: true
   },
   mediaType: {
     type: String,
