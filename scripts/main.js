@@ -1,60 +1,73 @@
-import { getQuotes } from '/philomedia/scripts/philosophersapi.js';
-import { getDetailsFromTMDB, getReviewsFromTMDB, discoverDiverseWorks } from '/philomedia/scripts/seriesapi.js';
-import { analyzeWorkForThemes } from '/philomedia/scripts/hermeneutics.js';
+/**
+ * Home page content: quote (API local ou fallback) + destaques (discover TMDB).
+ * Fluxo leve: sem centenas de chamadas details/reviews.
+ */
+const API_BASE = '/api';
 
-export async function loadContent() {
-
+async function getQuoteForHome() {
+  try {
+    const res = await fetch(`${API_BASE}/quotes`);
+    if (!res.ok) throw new Error('Quotes API error');
+    const quotes = await res.json();
+    if (Array.isArray(quotes) && quotes.length > 0) {
+      const q = quotes[Math.floor(Math.random() * quotes.length)];
+      return {
+        quote: q.quoteText || q.quote,
+        author: q.authorName || q.author,
+        themes: q.themes || [],
+      };
+    }
+  } catch (e) {
+    console.warn('Local quotes failed, using fallback:', e.message);
+  }
+  const { getQuotes } = await import('/scripts/philosophersapi.js');
   const allQuotes = await getQuotes();
   if (allQuotes.length === 0) {
-    return { quote: "Could not load quotes at this time.", author: "System", results: [] };
+    return { quote: 'Think deeply, watch meaningfully.', author: 'PhiloMedia', themes: [] };
   }
-  const quoteObject = allQuotes[Math.floor(Math.random() * allQuotes.length)];
+  const q = allQuotes[Math.floor(Math.random() * allQuotes.length)];
+  return { quote: q.quote, author: q.author, themes: q.themes || [] };
+}
 
-  let quoteThemes;
-  if (quoteObject.themes && quoteObject.themes.length > 0) {
-    quoteThemes = new Set(quoteObject.themes);
-  } else {
-    console.warn("Quote has no themes from API. Analyzing quote text itself...");
-    const analyzedQuoteThemes = analyzeWorkForThemes(quoteObject.quote);
-    quoteThemes = new Set(analyzedQuoteThemes.map(t => t.theme).slice(0, 2));
-  }
+async function getFeaturedMedia() {
+  try {
+    const randomMoviePage = Math.floor(Math.random() * 10) + 1;
+    const randomTvPage = Math.floor(Math.random() * 10) + 1;
 
-  const candidateWorks = (await discoverDiverseWorks()).slice(0, 500);
-
-  const analysisPromises = candidateWorks.map(async (work) => {
-    try {
-      const [details, reviews] = await Promise.all([
-        getDetailsFromTMDB(work.id, work.media_type),
-        getReviewsFromTMDB(work.id, work.media_type)
-      ]);
-      const combinedText = (details.overview || '') + ' ' + reviews.map(r => r.content).join(' ');
-
-      const workThemeProfile = analyzeWorkForThemes(combinedText);
-
-      let matchScore = 0;
-      if (workThemeProfile.length > 0 && quoteThemes.size > 0) {
-        workThemeProfile.forEach(themeProfile => {
-          if (quoteThemes.has(themeProfile.theme)) {
-            matchScore += themeProfile.score;
-          }
-        });
+    const [movieRes, tvRes] = await Promise.all([
+      fetch(`${API_BASE}/tmdb/discover?media=movie&page=${randomMoviePage}`),
+      fetch(`${API_BASE}/tmdb/discover?media=tv&page=${randomTvPage}`),
+    ]);
+    const movies = movieRes.ok ? await movieRes.json() : [];
+    const tv = tvRes.ok ? await tvRes.json() : [];
+    const combined = [
+      ...(movies || []).map((m) => ({ ...m, media_type: 'movie' })),
+      ...(tv || []).map((m) => ({ ...m, media_type: 'tv' })),
+    ];
+    // Remove duplicados por id e embaralha para variar recomendações
+    const byId = new Map();
+    combined.forEach((item) => {
+      if (item && item.id != null) {
+        byId.set(item.id, item);
       }
+    });
+    const unique = Array.from(byId.values());
+    unique.sort(() => Math.random() - 0.5);
+    return unique.slice(0, 12);
+  } catch (e) {
+    console.warn('Discover failed:', e.message);
+    return [];
+  }
+}
 
-      return { ...details, media_type: work.media_type, matchScore };
-    } catch (error) {
-      return { ...work, matchScore: 0 };
-    }
-  });
-
-  const analyzedWorks = await Promise.all(analysisPromises);
-
-  const bestMatches = analyzedWorks
-    .filter(work => work.matchScore > 20)
-    .sort((a, b) => b.matchScore - a.matchScore);
-
+export async function loadContent() {
+  const [quoteData, results] = await Promise.all([
+    getQuoteForHome(),
+    getFeaturedMedia(),
+  ]);
   return {
-    quote: quoteObject.quote,
-    author: quoteObject.author,
-    results: bestMatches.slice(0, 20)
+    quote: quoteData.quote,
+    author: quoteData.author,
+    results: Array.isArray(results) ? results : [],
   };
 }

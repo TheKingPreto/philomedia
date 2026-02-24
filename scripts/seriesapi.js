@@ -4,9 +4,12 @@ export async function searchTMDB(query) {
   if (!query) return [];
   const url = `${API_BASE}/search?query=${encodeURIComponent(query)}`;
   const response = await fetch(url);
-  if (!response.ok) throw new Error('Error fetching TMDB search');
-  const data = await response.json();
-  return data;
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const msg = (data && data.error) || (data && data.message) || 'Search unavailable';
+    throw new Error(msg);
+  }
+  return Array.isArray(data) ? data : (data.results || []);
 }
 
 export async function getDetailsFromTMDB(id, type) {
