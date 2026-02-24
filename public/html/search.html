@@ -6,26 +6,30 @@
   <meta name="author" content="Lucas Silva">
   <title>Search</title>
 
-  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="/css/styles/base.css">
+  <link rel="stylesheet" href="/css/styles/animations.css">
 </head>
 <body>
   <header>
     <h1>Search</h1>
     <nav>
-      <a href="index.html">Home</a>
-      <a href="search.html">Search</a>
+      <a href="/html/index.html">Home</a>
+      <a href="/html/search.html">Search</a>
     </nav>
   </header>
 
   <main>
-    <form id="search-form">
-      <input type="text" id="search-input" placeholder="Search movies, series or anime..." />
-      <button type="submit">Search</button>
-    </form>
-
+    <section class="search-section">
+      <h2 class="section-title">Find movies &amp; series</h2>
+      <p class="section-subtitle">Search by title to discover works and their philosophical connections.</p>
+      <form id="search-form">
+        <input type="text" id="search-input" placeholder="e.g. Interstellar, Breaking Bad..." autocomplete="off" />
+        <button type="submit">Search</button>
+      </form>
+    </section>
     <div id="search-results" class="results-grid"></div>
   </main>
 
-  <script type="module" src="scripts/search.js"></script>
+  <script type="module" src="/scripts/search.js"></script>
 </body>
 </html>
