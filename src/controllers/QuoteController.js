@@ -1,8 +1,5 @@
 import Quote from '../models/Quote.js';
-
-const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
-};
+import asyncHandler from '../utils/asyncHandler.js';
 
 export const getAllQuotes = asyncHandler(async (req, res, next) => {
   const quotes = await Quote.find({});

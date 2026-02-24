@@ -17,10 +17,47 @@ const quoteSchema = new mongoose.Schema({
     type: [String],
     default: [],
   },
+
+  // ─── Campos de geração por IA (opcionais — backward compatible) ───────────
+  isGenerated: {
+    type: Boolean,
+    default: false,
+  },
+  generationContext: {
+    mode: {
+      type: String,
+      enum: ['by-theme', 'by-philosopher', 'by-media-context'],
+    },
+    inputThemes: {
+      type: [String],
+      default: undefined,
+    },
+    inputPhilosopher: {
+      type: String,
+      default: undefined,
+    },
+    mediaContext: {
+      tmdbId: { type: String },
+      mediaType: { type: String },
+      title: { type: String },
+    },
+    model: {
+      type: String,
+      default: undefined,
+    },
+    generatedAt: {
+      type: Date,
+      default: undefined,
+    },
+  },
+
   createdAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
+
+// Índice para facilitar buscas por citações geradas por IA
+quoteSchema.index({ isGenerated: 1 });
 
 export default mongoose.model('Quote', quoteSchema);

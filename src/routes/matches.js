@@ -69,10 +69,8 @@ router.get('/', getAllMatches);
  * @swagger
  * /api/matches/{id}:
  *   get:
- *     summary: Returns a match by ID.
+ *     summary: Returns a match by ID (public, no auth required).
  *     tags: [Matches]
- *     security:
- *       - CookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -87,8 +85,6 @@ router.get('/', getAllMatches);
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Match'
- *       401:
- *         description: Authentication required.
  *       404:
  *         description: Match not found.
  *       500:

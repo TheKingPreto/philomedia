@@ -1,8 +1,5 @@
 import Match from '../models/Match.js';
-
-const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
-};
+import asyncHandler from '../utils/asyncHandler.js';
 
 export const getAllMatches = asyncHandler(async (req, res) => {
   const matches = await Match.find({}).populate('quoteId');
