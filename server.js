@@ -5,6 +5,7 @@ import quoteRoutes from './src/routes/quotes.js';
 import matchRoutes from './src/routes/matches.js';
 import authRoutes from './src/routes/auth.js';
 import tmdbRoutes from './src/routes/tmdb.js';
+import aiQuoteRoutes from './src/routes/aiQuotes.js';
 import swaggerUi from 'swagger-ui-express';
 import { specs } from './config/swagger.js';
 import session from 'express-session';
@@ -19,6 +20,9 @@ import morgan from 'morgan';
 // Load environment file except during tests to avoid noisy tips/logs
 if (process.env.NODE_ENV !== 'test') {
   dotenv.config();
+  if (!process.env.TMDB_API_KEY) {
+    console.warn('TMDB_API_KEY is not set. TMDB proxy endpoints will fail.');
+  }
 }
 
 // ─── Environment validation ───────────────────────────────────────────────────
@@ -29,6 +33,7 @@ const REQUIRED_ENV_VARS = [
   'SESSION_SECRET',
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
+  'GOOGLE_AI_API_KEY',
 ];
 
 if (process.env.NODE_ENV !== 'test') {
@@ -51,10 +56,38 @@ const MONGODB_URI = process.env.MONGODB_URI;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(helmet());
+// Defina CSP manualmente (única vez)
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+  })
+);
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      // JS
+      "script-src 'self'",
+      // CSS (Google Fonts)
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      // Imagens (TMDB)
+      "img-src 'self' data: https://image.tmdb.org",
+      // Fetch / APIs
+      "connect-src 'self' https://api.themoviedb.org https://corsproxy.io https://philosophersapi.com",
+      // Fontes
+      "font-src 'self' https://fonts.gstatic.com https://r2cdn.perplexity.ai",
+      // Segurança extra
+      "object-src 'none'",
+    ].join('; ')
+  );
+  next();
+});
 app.use(compression());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
+// In production set CORS_ORIGIN to your front origin (e.g. https://yourdomain.com).
+// With origin '*' browsers will not send credentials; use a specific origin for cookie/session auth.
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN || '*',
@@ -109,6 +142,15 @@ if (process.env.NODE_ENV !== 'test') {
     .catch((err) => console.error('❌ MongoDB error:', err.message));
 }
 
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+
+// ─── Static files (public + scripts) ───────────────────────────────────────────
+app.use(express.static('public'));
+app.use('/scripts', express.static('scripts'));
+
 // ─── Docs ─────────────────────────────────────────────────────────────────────
 app.get('/api-docs/swagger.json', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
@@ -126,6 +168,7 @@ app.use('/auth', authRoutes);
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/tmdb', tmdbRoutes);
+app.use('/api/ai/quotes', aiQuoteRoutes);
 
 // ─── Error handlers ───────────────────────────────────────────────────────────
 app.use((req, res, next) => {
