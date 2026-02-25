@@ -1,28 +1,81 @@
-.result-card {
-  animation: fadeInUp 0.6s ease-in-out;
-  animation-fill-mode: both;
-}
+/* ──────────────────────────────────────────────────────────────────────────────
+   PhiloMedia — animations.css  (v2)
+────────────────────────────────────────────────────────────────────────────── */
 
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* ─── Keyframes ─────────────────────────────────────────────────────────────── */
 
-#quote-text, #quote-author {
-    animation: fadeIn 1.2s ease-in-out;
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes goldPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 168, 76, 0); }
+  50%       { box-shadow: 0 0 20px 4px rgba(201, 168, 76, 0.15); }
+}
+
+/* ─── Page Load — staggered reveals ────────────────────────────────────────── */
+
+header {
+  animation: fadeIn 0.4s ease both;
+}
+
+#quote-section {
+  animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+
+#highlights-section,
+.search-section {
+  animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+}
+
+/* Details page */
+#details-container {
+  animation: fadeUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+}
+
+#philosophy-quote {
+  animation: fadeUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+}
+
+/* ─── Card entrance (applied via JS when cards are added to DOM) ────────────── */
+.card-enter {
+  animation: fadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Stagger helper classes — apply to nth cards */
+.card-enter:nth-child(1)  { animation-delay: 0.00s; }
+.card-enter:nth-child(2)  { animation-delay: 0.04s; }
+.card-enter:nth-child(3)  { animation-delay: 0.08s; }
+.card-enter:nth-child(4)  { animation-delay: 0.12s; }
+.card-enter:nth-child(5)  { animation-delay: 0.16s; }
+.card-enter:nth-child(6)  { animation-delay: 0.20s; }
+.card-enter:nth-child(7)  { animation-delay: 0.24s; }
+.card-enter:nth-child(8)  { animation-delay: 0.28s; }
+.card-enter:nth-child(9)  { animation-delay: 0.32s; }
+.card-enter:nth-child(10) { animation-delay: 0.36s; }
+.card-enter:nth-child(11) { animation-delay: 0.40s; }
+.card-enter:nth-child(12) { animation-delay: 0.44s; }
+
+/* ─── Quote highlight pulse ─────────────────────────────────────────────────── */
+#philosophy-quote.highlight {
+  animation: goldPulse 1.2s ease-in-out;
+}
+
+/* ─── Reduce motion ─────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
