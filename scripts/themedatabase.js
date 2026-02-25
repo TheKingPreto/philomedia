@@ -38,7 +38,7 @@ export const THEME_DATABASE = {
   'utopia-dystopia': { 'utopia': 10, 'dystopia': 10, 'perfect society': 9, 'social control': 9, 'rebellion': 8, 'totalitarianism': 8, 'apocalypse': 7, 'oppression': 8, 'future': 6, 'society': 7, 'world': 6, 'control': 8, 'rebel': 8, 'class': 7, 'poor': 7, 'rich': 7 },
   'power-corruption': { 'power': 10, 'corruption': 9, 'absolute power': 10, 'tyrant': 8, 'authority': 7, 'control': 8, 'oppression': 8, 'greed': 9, 'ambition': 8 },
   'feminism-equality': { 'women': 10, 'rights': 10, 'equality': 9, 'justice': 8, 'gender': 8, 'power': 7, 'liberation': 8, 'suffrage': 7, 'man': -6, 'woman': 10, 'patriarchy': 9 },
-  'marxism-socialism': { 'class': 10, 'struggle': 10, 'bourgeoisie': 9, 'proletariat': 9, 'capital': 8, 'labor': 7, 'revolution': 8, 'worker': 7, 'system': 6, 'inequality': 9, 'socialism': 10 },
+  'marxism-socialism': { 'school': -8, 'student': -8, 'classroom': -9, 'class': 10, 'struggle': 10, 'bourgeoisie': 9, 'proletariat': 9, 'capital': 8, 'labor': 7, 'revolution': 8, 'worker': 7, 'system': 6, 'inequality': 9, 'socialism': 10 },
   'social-contract': { 'society': 10, 'government': 8, 'law': 9, 'rights': 8, 'justice': 7, 'state of nature': 9, 'liberty': 7 },
   'anarchism': { 'anarchism': 10, 'no government': 9, 'anti-state': 9, 'voluntary': 7, 'mutual aid': 7, 'direct action': 6, 'anti-authority': 8, 'libertarian socialism': 8 },
   'scapegoat-outcast': { 'scapegoat': 10, 'outcast': 9, 'exile': 8, 'blame': 9, 'pariah': 8, 'shunned': 7, 'outsider': 8, 'witch hunt': 9 },

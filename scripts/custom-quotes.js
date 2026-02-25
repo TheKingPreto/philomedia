@@ -8,7 +8,7 @@ export const customQuotes = [
     // Plato
     { id: 1006, quote: "The beginning is the most important part of the work.", author: "Plato", themes: ["metaphysics", "virtue"] },
     { id: 1007, quote: "Opinion is the medium between knowledge and ignorance.", author: "Plato", themes: ["epistemology", "truth-deception"] },
-    { id: 1008, quote: "We can easily forgive a child who is afraid of the dark; the real tragedy of life is when men are afraid of the light.", author: "Plato", themes: ["tragedy", "truth-deception", "courage"] },
+    { id: 1008, quote: "We can easily forgive a child who is afraid of the dark; the real tragedy of life is when men are afraid of the light.", author: "Plato", themes: ["tragedy", "truth-deception", "courage", "humanism", "redemption-forgiveness", "suffering", "memory-time"] },
     { id: 1009, quote: "Wise men speak because they have something to say; fools because they have to say something.", author: "Plato", themes: ["wisdom", "language-semiotics"] },
     { id: 1010, quote: "The heaviest penalty for declining to rule is to be ruled by someone inferior to yourself.", author: "Plato", themes: ["political-philosophy", "power-corruption"] },
     // Aristotle

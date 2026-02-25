@@ -1,0 +1,86 @@
+/* ──────────────────────────────────────────────────────────────────────────────
+   details-loading.css
+   Styles for the loading overlay and error state injected by details.js.
+   Add this file and link it in details.html.
+────────────────────────────────────────────────────────────────────────────── */
+
+/* Loading Overlay
+   ─────────────────────────────────────────────────────────────────────────── */
+
+#loading-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem 1rem;
+  color: #555;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #ddd;
+  border-top-color: #2c3173;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error State
+   ─────────────────────────────────────────────────────────────────────────── */
+
+#details-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 2rem;
+  background: #fff5f5;
+  border-left: 4px solid #e53e3e;
+  border-radius: 6px;
+  margin: 1.5rem 0;
+}
+
+#details-error h2 {
+  color: #c53030;
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+#details-error p {
+  color: #555;
+  margin: 0;
+}
+
+.btn-back {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.45rem 1rem;
+  background: #2c3173;
+  color: #fff;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: background 0.2s ease;
+}
+
+.btn-back:hover {
+  background: #1a1e4a;
+}
+
+/* No Poster Placeholder
+   ─────────────────────────────────────────────────────────────────────────── */
+
+#details-image.no-poster {
+  background: #e2e4f0;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
