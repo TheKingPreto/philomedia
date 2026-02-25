@@ -1,11 +1,12 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { THEME_DATABASE } from '../../scripts/themedatabase.js';
 import * as tmdbClient from './tmdbClient.js';
 
+
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const MODEL_NAME = 'gemini-1.5-flash-latest';
-const MAX_OUTPUT_TOKENS = 512;
+const MODEL_NAME = 'gemini-flash-latest';
+const MAX_OUTPUT_TOKENS = 2048;
 const VALID_THEMES = Object.keys(THEME_DATABASE);
 
 // Caracteres e padrões bloqueados para prevenir prompt injection
@@ -79,6 +80,7 @@ function getGeminiClient() {
       'GOOGLE_AI_API_KEY is not set. Add it to your .env file.'
     );
   }
+  // GoogleGenerativeAI deve estar disponível no escopo global do arquivo
   return new GoogleGenerativeAI(apiKey);
 }
 
@@ -90,23 +92,27 @@ function getGeminiClient() {
 async function callGemini(prompt) {
   const genAI = getGeminiClient();
   const model = genAI.getGenerativeModel({
-    model: MODEL_NAME,
-    generationConfig: {
-      maxOutputTokens: MAX_OUTPUT_TOKENS,
-      temperature: 0.85, // criatividade moderada — filosófico mas não aleatório
-      topP: 0.9,
-    },
-  });
+  model: MODEL_NAME,
+  generationConfig: {
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
+    temperature: 0.3,
+    topP: 0.9,
+    responseMimeType: 'application/json',
+  },
+});
 
   const result = await model.generateContent(prompt);
-  const text = result.response.text().trim();
 
-  if (!text) {
-    throw new Error('AI returned an empty response. Please try again.');
-  }
+  const candidate = result?.response?.candidates?.[0];
+  console.log('finishReason:', candidate?.finishReason);
+  console.log('finishMessage:', candidate?.finishMessage);
+  console.log('usageMetadata:', result?.response?.usageMetadata);
+  console.log('rawText:', result.response.text());
 
-  return text;
+  return result.response.text().trim();
 }
+
+
 
 /**
  * Faz o parse da resposta JSON do Gemini e valida os campos esperados.
@@ -114,24 +120,22 @@ async function callGemini(prompt) {
  * @returns {{ quoteText: string, authorName: string, themes: string[], explanation: string }}
  */
 function parseAIResponse(rawText) {
-  // Remove blocos de markdown (```json ... ```) que o Gemini às vezes inclui
   const cleaned = rawText.replace(/```json|```/g, '').trim();
+
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  const jsonOnly = (start >= 0 && end > start) ? cleaned.slice(start, end + 1) : cleaned;
 
   let parsed;
   try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    throw new Error('AI response could not be parsed as JSON. Please try again.');
-  }
-
+  parsed = JSON.parse(jsonOnly);
+} catch (e) {
+  console.log('RAW FROM GEMINI:', cleaned);
+  throw new Error('AI response could not be parsed as JSON. Please try again.');
+}
   const { quoteText, authorName, themes, explanation } = parsed;
-
-  if (!quoteText || typeof quoteText !== 'string') {
-    throw new Error('AI response missing valid quoteText field.');
-  }
-  if (!authorName || typeof authorName !== 'string') {
-    throw new Error('AI response missing valid authorName field.');
-  }
+  if (!quoteText || typeof quoteText !== 'string') throw new Error('AI response missing valid quoteText field.');
+  if (!authorName || typeof authorName !== 'string') throw new Error('AI response missing valid authorName field.');
 
   return {
     quoteText: quoteText.trim().slice(0, 500),
@@ -140,6 +144,7 @@ function parseAIResponse(rawText) {
     explanation: typeof explanation === 'string' ? explanation.trim() : '',
   };
 }
+
 
 // ─── Serviço público ──────────────────────────────────────────────────────────
 
@@ -280,12 +285,12 @@ const MEDIA_WORK_DELIMITER = '::PHILO::';
  * @param {number} maxContextChars
  * @returns {string}
  */
-function buildMediaContextString(details, reviews, maxContextChars = 3000) {
+function buildMediaContextString(details, reviews, maxContextChars = 2000) {
   const title = details.title || details.name || 'Unknown';
-  const overview = (details.overview || '').slice(0, 800);
+  const overview = (details.overview || '').slice(0, 500);
   const reviewTexts = (reviews || [])
-    .slice(0, 5)
-    .map((r) => (r.content || '').slice(0, 300))
+    .slice(0, 2)
+    .map((r) => (r.content || '').slice(0, 250))
     .filter(Boolean);
   let context = `Title: ${title}\n\nOverview: ${overview}`;
   if (reviewTexts.length > 0) {

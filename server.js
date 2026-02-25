@@ -204,6 +204,14 @@ if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
     console.log(`🚀 PhiloMedia server running on port ${PORT}`);
   });
+
+  app.use((err, req, res, next) => {
+  console.error(err); // <- aqui vai aparecer o motivo real
+  res.status(err.statusCode || 500).json({
+    error: err.message || 'Internal Server Error',
+  });
+});
+
 }
 
 export default app;
