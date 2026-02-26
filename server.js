@@ -1,217 +1,280 @@
-import express from 'express';
-import mongoose from 'mongoose';
-import * as dotenv from 'dotenv';
-import quoteRoutes from './src/routes/quotes.js';
-import matchRoutes from './src/routes/matches.js';
-import authRoutes from './src/routes/auth.js';
-import tmdbRoutes from './src/routes/tmdb.js';
-import aiQuoteRoutes from './src/routes/aiQuotes.js';
-import swaggerUi from 'swagger-ui-express';
-import { specs } from './config/swagger.js';
-import session from 'express-session';
-import MongoStore from 'connect-mongo';
-import passport from 'passport';
-import helmet from 'helmet';
-import cors from 'cors';
-import rateLimit from 'express-rate-limit';
-import compression from 'compression';
-import morgan from 'morgan';
+/**
+ * @file details.js
+ * @description Details page controller for PhiloMedia.
+ *
+ * ── Quote resolution strategy (progressive enhancement) ──────────────────────
+ *
+ *  Phase 1 — Instant (< 50ms):
+ *    Show the best available static quote immediately so the page never blocks.
+ *    Priority: curated match → theme analysis → random fallback.
+ *
+ *  Phase 2 — Background (2-5s, non-blocking):
+ *    Silently call POST /api/ai/quotes/generate/media-context in background.
+ *    When Gemini responds, fade-swap the quote and show the AI badge.
+ *    If the call fails (rate limit, network, etc.) the static quote stays —
+ *    the user never sees an error for something they didn't ask for.
+ *
+ *  This is the standard pattern used by Netflix, Spotify, etc.:
+ *  show something great immediately, then silently upgrade it.
+ */
 
-// Load environment file except during tests to avoid noisy tips/logs
-if (process.env.NODE_ENV !== 'test') {
-  dotenv.config();
-  if (!process.env.TMDB_API_KEY) {
-    console.warn('TMDB_API_KEY is not set. TMDB proxy endpoints will fail.');
+import { getDetailsFromTMDB, getReviewsFromTMDB } from '/scripts/seriesapi.js';
+import { getQuotes } from '/scripts/philosophersapi.js';
+import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
+import { curatedQuoteMatches } from '/scripts/curatedmatches.js';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w400';
+const AI_ENDPOINT     = '/api/ai/quotes/generate/media-context';
+
+// Delay before triggering AI generation — lets the page settle visually first
+const AI_TRIGGER_DELAY_MS = 800;
+
+// ─── URL Params ───────────────────────────────────────────────────────────────
+
+function getQueryParams() {
+  const params = new URLSearchParams(window.location.search);
+  return { id: params.get('id'), type: params.get('type') };
+}
+
+// ─── Loading overlay (page-level) ────────────────────────────────────────────
+
+function setLoading(visible) {
+  let overlay = document.getElementById('loading-overlay');
+
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'loading-overlay';
+    overlay.setAttribute('role', 'status');
+    overlay.setAttribute('aria-live', 'polite');
+    overlay.innerHTML = `
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <p>Loading details...</p>
+    `;
+    document.querySelector('main').prepend(overlay);
+  }
+
+  overlay.style.display = visible ? 'flex' : 'none';
+  overlay.setAttribute('aria-hidden', String(!visible));
+}
+
+// ─── Error state ──────────────────────────────────────────────────────────────
+
+function showError(message) {
+  setLoading(false);
+  document.getElementById('details-container')
+    ?.querySelectorAll('.details-poster, .details-info')
+    .forEach(el => { el.style.display = 'none'; });
+
+  let el = document.getElementById('details-error');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'details-error';
+    el.setAttribute('role', 'alert');
+    document.querySelector('main').appendChild(el);
+  }
+  el.innerHTML = `
+    <h2>Something went wrong</h2>
+    <p>${message}</p>
+    <a href="/html/index.html" class="btn-back">← Back to Home</a>
+  `;
+}
+
+// ─── DOM helpers ──────────────────────────────────────────────────────────────
+
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+// ─── Details population ───────────────────────────────────────────────────────
+
+function populateDetails(details) {
+  document.title = `${details.title || details.name || 'Details'} — PhiloMedia`;
+
+  const img = document.getElementById('details-image');
+  if (img) {
+    if (details.poster_path) {
+      img.src = `${TMDB_IMAGE_BASE}${details.poster_path}`;
+      img.alt = `Poster of ${details.title || details.name}`;
+    } else {
+      img.classList.add('no-poster');
+      img.alt = 'No poster available';
+    }
+  }
+
+  setText('details-title',    details.title || details.name || 'Unknown');
+  setText('details-meta',     `Release: ${details.release_date || details.first_air_date || 'Unknown'}`);
+  setText('details-overview', details.overview || 'No overview available.');
+}
+
+// ─── Static quote resolution ──────────────────────────────────────────────────
+
+async function resolveStaticQuote(id, type, details, allQuotes) {
+  if (!allQuotes?.length) return null;
+
+  // 1 — Curated match (highest quality)
+  const curatedId = curatedQuoteMatches[id];
+  if (curatedId) {
+    const match = allQuotes.find(q => q.id === curatedId);
+    if (match) return match;
+  }
+
+  // 2 — Theme analysis
+  try {
+    const reviews    = await getReviewsFromTMDB(id, type).catch(() => []);
+    const reviewText = Array.isArray(reviews) ? reviews.map(r => r.content || '').join(' ') : '';
+    const combined   = `${details.overview || ''} ${reviewText}`.trim();
+    const profile    = analyzeWorkForThemes(combined);
+
+    let best = null, high = 0;
+    for (const quote of allQuotes) {
+      const themes = new Set(quote.themes);
+      let score = 0;
+      for (const tp of profile) {
+        if (themes.has(tp.theme) && tp.score > score) score = tp.score;
+      }
+      if (score > high) { high = score; best = quote; }
+    }
+    if (best) return best;
+  } catch (err) {
+    console.warn('[PhiloMedia] Theme analysis failed:', err.message);
+  }
+
+  // 3 — Random fallback
+  return allQuotes[Math.floor(Math.random() * allQuotes.length)];
+}
+
+// ─── Quote renderer ───────────────────────────────────────────────────────────
+
+/**
+ * Renders a quote with a smooth fade-swap animation.
+ * Safe to call at any time — cleans up previous AI additions automatically.
+ *
+ * @param {{ text: string, author: string, isAI?: boolean, explanation?: string }} opts
+ */
+function renderQuote({ text, author, isAI = false, explanation = '' }) {
+  const section = document.getElementById('philosophy-quote');
+  if (!section) return;
+
+  section.style.transition = 'opacity 0.35s ease';
+  section.style.opacity    = '0';
+
+  setTimeout(() => {
+    setText('quote-text',   `"${text}"`);
+    setText('quote-author', `— ${author}`);
+
+    // Remove any previous AI-injected elements
+    section.querySelectorAll('.quote-ai-badge, .quote-ai-explanation')
+      .forEach(el => el.remove());
+
+    if (isAI) {
+      const badge = document.createElement('div');
+      badge.className   = 'quote-ai-badge';
+      badge.textContent = 'Generated by Gemini AI';
+      section.appendChild(badge);
+
+      if (explanation) {
+        const expl = document.createElement('p');
+        expl.className   = 'quote-ai-explanation';
+        expl.textContent = explanation;
+        section.appendChild(expl);
+      }
+    }
+
+    section.style.opacity = '1';
+  }, 350);
+}
+
+// ─── AI background enhancement ───────────────────────────────────────────────
+
+/**
+ * Fires the Gemini generation in the background after a short delay.
+ * Completely silent on failure — the static quote remains untouched.
+ *
+ * @param {string} id
+ * @param {string} type
+ */
+function scheduleAIEnhancement(id, type) {
+  setTimeout(async () => {
+    try {
+      const res = await fetch(AI_ENDPOINT, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ tmdbId: id, mediaType: type }),
+      });
+
+      // On rate limit or server error, fail silently — static quote stays
+      if (!res.ok) {
+        console.info(
+          `[PhiloMedia] AI enhancement skipped (${res.status}) — static quote retained.`
+        );
+        return;
+      }
+
+      const data = await res.json();
+      const { quoteText, authorName } = data.quote || {};
+
+      if (!quoteText || !authorName) return;
+
+      renderQuote({
+        text:        quoteText,
+        author:      authorName,
+        isAI:        true,
+        explanation: data.explanation || '',
+      });
+
+    } catch (err) {
+      // Network error, timeout, etc. — fail silently
+      console.info('[PhiloMedia] AI enhancement unavailable:', err.message);
+    }
+  }, AI_TRIGGER_DELAY_MS);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+async function init() {
+  const { id, type } = getQueryParams();
+
+  if (!id || !type || (type !== 'movie' && type !== 'tv')) {
+    showError('Invalid or missing media identifier. Please go back and try again.');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const [details, allQuotes] = await Promise.all([
+      getDetailsFromTMDB(id, type).catch(() => null),
+      getQuotes().catch(() => []),
+    ]);
+
+    if (!details) {
+      showError('Could not load media details. The service may be temporarily unavailable.');
+      return;
+    }
+
+    // Phase 1 — populate everything instantly
+    populateDetails(details);
+
+    const staticQuote = await resolveStaticQuote(id, type, details, allQuotes);
+    if (staticQuote) {
+      renderQuote({ text: staticQuote.quote, author: staticQuote.author });
+    } else {
+      setText('quote-text',   'No philosophical quote available for this work.');
+      setText('quote-author', '');
+    }
+
+    // Phase 2 — silently upgrade to AI in background
+    scheduleAIEnhancement(id, type);
+
+  } catch (err) {
+    console.error('[PhiloMedia] Unexpected error:', err);
+    showError('An unexpected error occurred. Please try again later.');
+  } finally {
+    setLoading(false);
   }
 }
 
-// ─── Environment validation ───────────────────────────────────────────────────
-// Fail fast on startup if any required env variable is missing.
-// Add new required vars here as the project grows (e.g. GOOGLE_AI_API_KEY in Phase 2).
-const REQUIRED_ENV_VARS = [
-  'MONGODB_URI',
-  'SESSION_SECRET',
-  'GOOGLE_CLIENT_ID',
-  'GOOGLE_CLIENT_SECRET',
-  'GOOGLE_AI_API_KEY',
-];
-
-if (process.env.NODE_ENV !== 'test') {
-  const missingVars = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
-  if (missingVars.length > 0) {
-    console.error(
-      `❌ Missing required environment variables: ${missingVars.join(', ')}\n` +
-      '   Copy _env to .env and fill in the missing values before starting the server.'
-    );
-    process.exit(1);
-  }
-}
-
-// ─── App setup ────────────────────────────────────────────────────────────────
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI;
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Defina CSP manualmente (única vez)
-app.use(
-  helmet({
-    contentSecurityPolicy: false,
-  })
-);
-app.use((req, res, next) => {
-  res.setHeader(
-    'Content-Security-Policy',
-    [
-      "default-src 'self'",
-      // JS
-      "script-src 'self'",
-      // CSS (Google Fonts)
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      // Imagens (TMDB)
-      "img-src 'self' data: https://image.tmdb.org",
-      // Fetch / APIs
-      "connect-src 'self' https://api.themoviedb.org https://corsproxy.io https://philosophersapi.com",
-      // Fontes
-      "font-src 'self' https://fonts.gstatic.com https://r2cdn.perplexity.ai",
-      // Segurança extra
-      "object-src 'none'",
-    ].join('; ')
-  );
-  next();
-});
-app.use(compression());
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-
-// In production set CORS_ORIGIN to your front origin (e.g. https://yourdomain.com).
-// With origin '*' browsers will not send credentials; use a specific origin for cookie/session auth.
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN || '*',
-    credentials: true,
-  })
-);
-
-// ─── Rate limiting ────────────────────────────────────────────────────────────
-// Global limiter — protects all endpoints.
-// AI-specific endpoints (Phase 2+) will have their own stricter limiter.
-const globalLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' },
-});
-
-app.use(globalLimiter);
-
-// ─── Auth & session ───────────────────────────────────────────────────────────
-if (process.env.NODE_ENV !== 'test') {
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET,
-      resave: false,
-      saveUninitialized: false,
-      store: MongoStore.create({ mongoUrl: MONGODB_URI }),
-      cookie: {
-        maxAge: 24 * 60 * 60 * 1000,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-      },
-    })
-  );
-
-  app.use(passport.initialize());
-  app.use(passport.session());
-
-  // Dynamically load passport strategy so tests don't construct
-  // OAuth strategies that require real environment variables.
-  import('./config/passport.js').catch((err) =>
-    console.error('Passport load error:', err)
-  );
-}
-
-// ─── Database ─────────────────────────────────────────────────────────────────
-if (process.env.NODE_ENV !== 'test') {
-  mongoose
-    .connect(MONGODB_URI)
-    .then(() => console.log('✅ Connected to MongoDB'))
-    .catch((err) => console.error('❌ MongoDB error:', err.message));
-}
-
-app.use((req, res, next) => {
-  res.setHeader('Cache-Control', 'no-store');
-  next();
-});
-
-// ─── Static files (public + scripts) ───────────────────────────────────────────
-app.use(express.static('public'));
-app.use('/scripts', express.static('scripts'));
-
-// ─── Docs ─────────────────────────────────────────────────────────────────────
-app.get('/api-docs/swagger.json', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(specs);
-});
-
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
-
-// ─── Routes ───────────────────────────────────────────────────────────────────
-app.get('/', (req, res) => {
-  res.send('Welcome to the PhiloMedia REST API! Check the documentation route for endpoints.');
-});
-
-app.use('/auth', authRoutes);
-app.use('/api/quotes', quoteRoutes);
-app.use('/api/matches', matchRoutes);
-app.use('/api/tmdb', tmdbRoutes);
-app.use('/api/ai/quotes', aiQuoteRoutes);
-
-// ─── Error handlers ───────────────────────────────────────────────────────────
-app.use((req, res, next) => {
-  res.status(404).json({
-    error: 'Not Found',
-    message: `The requested endpoint ${req.originalUrl} was not found on this server.`,
-  });
-});
-
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-
-  if (err.name === 'ValidationError') {
-    const messages = Object.values(err.errors).map((val) => val.message);
-    return res.status(400).json({ error: 'Validation Error', messages });
-  }
-
-  if (err.name === 'CastError') {
-    return res.status(400).json({
-      error: 'Invalid ID Format',
-      message: `The ID provided is not valid: ${err.value}`,
-    });
-  }
-
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: 'Something went wrong on the server side. Check the logs.',
-  });
-});
-
-// ─── Start ────────────────────────────────────────────────────────────────────
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`🚀 PhiloMedia server running on port ${PORT}`);
-  });
-
-  app.use((err, req, res, next) => {
-  console.error(err); // <- aqui vai aparecer o motivo real
-  res.status(err.statusCode || 500).json({
-    error: err.message || 'Internal Server Error',
-  });
-});
-
-}
-
-export default app;
+init();
