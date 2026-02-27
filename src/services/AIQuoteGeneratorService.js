@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { THEME_DATABASE } from '../../scripts/themedatabase.js';
+import { THEME_DATABASE } from '../../public/scripts/themedatabase.js';
 import * as tmdbClient from './tmdbClient.js';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
