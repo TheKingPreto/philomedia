@@ -51,6 +51,9 @@
     "testEnvironment": "node",
     "transform": {},
     "forceExit": true,
-    "testTimeout": 30000
+    "testTimeout": 30000,
+    "moduleNameMapper": {
+      "^/scripts/(.*)$": "<rootDir>/tests/__mocks__/browserModule.js"
+    }
   }
 }

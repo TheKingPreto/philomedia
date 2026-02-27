@@ -2,16 +2,9 @@
  * @file details.js
  * @description Details page controller for PhiloMedia.
  *
- * Quote resolution flow:
- *  1. Curated match (curatedQuoteMatches) — highest quality, zero latency
- *  2. Theme analysis (hermeneutics + THEME_DATABASE) — semantic fallback
- *  3. Random from pool — last resort
- *
- * AI enhancement (on demand):
- *  "✦ Generate with AI" button calls POST /api/ai/quotes/generate/media-context
- *  Gemini receives the TMDB id + type and returns a quote crafted specifically
- *  for that work. The result replaces the current quote with a fade animation
- *  and a visual AI badge.
+ * Quote strategy:
+ * 1) Render static philosophical quote immediately (curated → thematic → random)
+ * 2) Silently append an AI interpretive layer below (non-blocking)
  */
 
 import { getDetailsFromTMDB, getReviewsFromTMDB } from '/scripts/seriesapi.js';
@@ -22,16 +15,20 @@ import { curatedQuoteMatches } from '/scripts/curatedmatches.js';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w400';
-const AI_ENDPOINT     = '/api/ai/quotes/generate/media-context';
+const AI_ENDPOINT = '/api/ai/quotes/generate/media-context';
+const AI_TRIGGER_DELAY_MS = 800;
 
 // ─── URL Params ───────────────────────────────────────────────────────────────
 
 function getQueryParams() {
   const params = new URLSearchParams(window.location.search);
-  return { id: params.get('id'), type: params.get('type') };
+  return {
+    id: params.get('id'),
+    type: params.get('type'),
+  };
 }
 
-// ─── Loading overlay ──────────────────────────────────────────────────────────
+// ─── Loading Overlay ──────────────────────────────────────────────────────────
 
 function setLoading(visible) {
   let overlay = document.getElementById('loading-overlay');
@@ -52,13 +49,14 @@ function setLoading(visible) {
   overlay.setAttribute('aria-hidden', String(!visible));
 }
 
-// ─── Error state ──────────────────────────────────────────────────────────────
+// ─── Error State ──────────────────────────────────────────────────────────────
 
 function showError(message) {
   setLoading(false);
+
   document.getElementById('details-container')
     ?.querySelectorAll('.details-poster, .details-info')
-    .forEach(el => { el.style.display = 'none'; });
+    .forEach(el => (el.style.display = 'none'));
 
   let el = document.getElementById('details-error');
   if (!el) {
@@ -67,6 +65,7 @@ function showError(message) {
     el.setAttribute('role', 'alert');
     document.querySelector('main').appendChild(el);
   }
+
   el.innerHTML = `
     <h2>Something went wrong</h2>
     <p>${message}</p>
@@ -74,14 +73,14 @@ function showError(message) {
   `;
 }
 
-// ─── DOM helpers ──────────────────────────────────────────────────────────────
+// ─── DOM Helpers ──────────────────────────────────────────────────────────────
 
 function setText(id, text) {
   const el = document.getElementById(id);
   if (el) el.textContent = text;
 }
 
-// ─── Details ──────────────────────────────────────────────────────────────────
+// ─── Details Population ───────────────────────────────────────────────────────
 
 function populateDetails(details) {
   document.title = `${details.title || details.name || 'Details'} — PhiloMedia`;
@@ -97,40 +96,53 @@ function populateDetails(details) {
     }
   }
 
-  setText('details-title',    details.title || details.name || 'Unknown');
-  setText('details-meta',     `Release: ${details.release_date || details.first_air_date || 'Unknown'}`);
+  setText('details-title', details.title || details.name || 'Unknown');
+  setText(
+    'details-meta',
+    `Release: ${details.release_date || details.first_air_date || 'Unknown'}`
+  );
   setText('details-overview', details.overview || 'No overview available.');
 }
 
-// ─── Quote selection ──────────────────────────────────────────────────────────
+// ─── Static Quote Resolution ──────────────────────────────────────────────────
 
-async function resolveQuote(id, type, details, allQuotes) {
+async function resolveStaticQuote(id, type, details, allQuotes) {
   if (!allQuotes?.length) return null;
 
-  // 1 — Curated map
+  // 1) Curated match
   const curatedId = curatedQuoteMatches[id];
   if (curatedId) {
     const match = allQuotes.find(q => q.id === curatedId);
     if (match) return match;
   }
 
-  // 2 — Theme analysis
+  // 2) Thematic analysis
   try {
-    const reviews    = await getReviewsFromTMDB(id, type).catch(() => []);
-    const reviewText = Array.isArray(reviews) ? reviews.map(r => r.content || '').join(' ') : '';
-    const combined   = `${details.overview || ''} ${reviewText}`.trim();
-    const themeProfile = analyzeWorkForThemes(combined);
+    const reviews = await getReviewsFromTMDB(id, type).catch(() => []);
+    const reviewText = Array.isArray(reviews)
+      ? reviews.map(r => r.content || '').join(' ')
+      : '';
+
+    const combined = `${details.overview || ''} ${reviewText}`.trim();
+    const profile = analyzeWorkForThemes(combined);
 
     let best = null;
-    let high = 0;
+    let highScore = 0;
 
     for (const quote of allQuotes) {
       const themes = new Set(quote.themes);
       let score = 0;
-      for (const tp of themeProfile) {
-        if (themes.has(tp.theme) && tp.score > score) score = tp.score;
+
+      for (const tp of profile) {
+        if (themes.has(tp.theme) && tp.score > score) {
+          score = tp.score;
+        }
       }
-      if (score > high) { high = score; best = quote; }
+
+      if (score > highScore) {
+        highScore = score;
+        best = quote;
+      }
     }
 
     if (best) return best;
@@ -138,125 +150,113 @@ async function resolveQuote(id, type, details, allQuotes) {
     console.warn('[PhiloMedia] Theme analysis failed:', err.message);
   }
 
-  // 3 — Random fallback
+  // 3) Random fallback
   return allQuotes[Math.floor(Math.random() * allQuotes.length)];
 }
 
-// ─── Quote renderer ───────────────────────────────────────────────────────────
+// ─── Quote Renderers ──────────────────────────────────────────────────────────
 
-/**
- * Renders a quote into #philosophy-quote with a smooth fade swap.
- * @param {{ text: string, author: string, isAI: boolean, explanation?: string }} opts
- */
-function renderQuote({ text, author, isAI = false, explanation = '' }) {
-  const section = document.getElementById('philosophy-quote');
-  if (!section) return;
+// Static (foundation)
+function renderStaticQuote({ text, author }) {
+  const container = document.getElementById('static-quote');
+  if (!container) return;
 
-  section.style.transition = 'opacity 0.3s ease';
-  section.style.opacity    = '0';
+  const textEl = container.querySelector('.quote-text');
+  const authorEl = container.querySelector('.quote-author');
 
-  setTimeout(() => {
-    setText('quote-text',   `"${text}"`);
-    setText('quote-author', `— ${author}`);
+  if (!textEl || !authorEl) return;
 
-    // Clean previous AI additions
-    section.querySelectorAll('.quote-ai-badge, .quote-ai-explanation, .quote-ai-error')
-      .forEach(el => el.remove());
+  textEl.textContent = `"${text}"`;
+  authorEl.textContent = `— ${author}`;
+}
 
-    if (isAI) {
-      const badge = document.createElement('div');
-      badge.className   = 'quote-ai-badge';
-      badge.textContent = 'Generated by Gemini AI';
-      section.appendChild(badge);
+// AI Expansion (append-only)
+function renderAIExpansion({ text, author, explanation }) {
+  const container = document.getElementById('ai-quote-container');
+  if (!container) return;
 
-      if (explanation) {
-        const expl = document.createElement('p');
-        expl.className   = 'quote-ai-explanation';
-        expl.textContent = explanation;
-        section.appendChild(expl);
+  container.innerHTML = ''; // remove placeholder
+
+  const block = document.createElement('div');
+  block.className = 'ai-quote-block';
+
+  block.innerHTML = `
+    <div class="ai-badge">AI interpretive reading</div>
+    <p class="ai-quote-text">"${text}"</p>
+    <span class="ai-quote-author">— ${author}</span>
+    ${explanation ? `<p class="ai-quote-explanation">${explanation}</p>` : ''}
+  `;
+
+  container.appendChild(block);
+
+  // força reflow → garante animação
+  block.getBoundingClientRect();
+
+  block.classList.add('visible');
+}
+
+// ─── AI Background Enhancement ───────────────────────────────────────────────
+
+function renderAIPlaceholder() {
+  const container = document.getElementById('ai-quote-container');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="ai-placeholder visible">
+      <span class="ai-thinking-dot"></span>
+      <span>AI interpretive reading in progress…</span>
+    </div>
+  `;
+}
+
+function scheduleAIEnhancement(id, type) {
+  setTimeout(async () => {
+    const container = document.getElementById('ai-quote-container');
+    if (!container) return;
+
+    try {
+      const res = await fetch(AI_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tmdbId: id, mediaType: type }),
+      });
+
+      if (!res.ok) {
+        container.innerHTML = `
+          <div class="ai-placeholder error">
+            <span>AI interpretation unavailable.</span>
+          </div>
+        `;
+        return;
       }
+
+      const data = await res.json();
+
+      const quoteText = data.quote?.quoteText || data.quoteText;
+      const authorName = data.quote?.authorName || data.authorName;
+
+      if (!quoteText || !authorName) {
+        container.innerHTML = `
+          <div class="ai-placeholder error">
+            <span>AI interpretation incomplete.</span>
+          </div>
+        `;
+        return;
+      }
+
+      renderAIExpansion({
+        text: quoteText,
+        author: authorName,
+        explanation: data.explanation || '',
+      });
+    } catch (err) {
+      container.innerHTML = `
+        <div class="ai-placeholder error">
+          <span>AI interpretation failed.</span>
+        </div>
+      `;
     }
-
-    // Update button label
-    const btn = document.getElementById('ai-generate-btn');
-    if (btn) {
-      btn.textContent = isAI ? '↺ Regenerate with AI' : '✦ Generate with AI';
-      btn.disabled    = false;
-    }
-
-    section.style.opacity = '1';
-  }, 300);
-}
-
-// ─── AI generation ────────────────────────────────────────────────────────────
-
-async function generateAIQuote(id, type) {
-  const btn     = document.getElementById('ai-generate-btn');
-  const section = document.getElementById('philosophy-quote');
-  if (!btn || !section) return;
-
-  btn.disabled    = true;
-  btn.textContent = '⏳ Generating...';
-
-  // Clear previous inline errors
-  section.querySelectorAll('.quote-ai-error').forEach(el => el.remove());
-
-  try {
-    const res = await fetch(AI_ENDPOINT, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ tmdbId: id, mediaType: type }),
-    });
-
-    if (res.status === 429) {
-      throw new Error('Rate limit reached — up to 30 AI quotes per hour. Try again later.');
-    }
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || body.message || 'AI generation failed. Please try again.');
-    }
-
-    const data = await res.json();
-    const { quoteText, authorName } = data.quote || {};
-    if (!quoteText || !authorName) throw new Error('AI returned an incomplete response.');
-
-    renderQuote({
-      text:        quoteText,
-      author:      authorName,
-      isAI:        true,
-      explanation: data.explanation || '',
-    });
-
-  } catch (err) {
-    console.error('[PhiloMedia] AI error:', err.message);
-
-    const errEl = document.createElement('p');
-    errEl.className   = 'quote-ai-error';
-    errEl.textContent = err.message;
-    section.appendChild(errEl);
-
-    btn.textContent = '✦ Generate with AI';
-    btn.disabled    = false;
-  }
-}
-
-// ─── AI button ────────────────────────────────────────────────────────────────
-
-function injectAIButton(id, type) {
-  if (document.getElementById('ai-generate-btn')) return;
-
-  const section = document.getElementById('philosophy-quote');
-  if (!section) return;
-
-  const btn = document.createElement('button');
-  btn.id        = 'ai-generate-btn';
-  btn.className = 'btn-ai-generate';
-  btn.type      = 'button';
-  btn.setAttribute('aria-label', 'Generate a unique philosophical quote with Gemini AI');
-  btn.textContent = '✦ Generate with AI';
-  btn.addEventListener('click', () => generateAIQuote(id, type));
-
-  section.appendChild(btn);
+  }, AI_TRIGGER_DELAY_MS);
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -265,7 +265,7 @@ async function init() {
   const { id, type } = getQueryParams();
 
   if (!id || !type || (type !== 'movie' && type !== 'tv')) {
-    showError('Invalid or missing media identifier. Please go back and try again.');
+    showError('Invalid or missing media identifier.');
     return;
   }
 
@@ -278,25 +278,36 @@ async function init() {
     ]);
 
     if (!details) {
-      showError('Could not load media details. The service may be temporarily unavailable.');
+      showError('Could not load media details.');
       return;
     }
 
+    // Phase 1 — instant render
     populateDetails(details);
 
-    const quote = await resolveQuote(id, type, details, allQuotes);
-    if (quote) {
-      renderQuote({ text: quote.quote, author: quote.author, isAI: false });
+    const staticQuote = await resolveStaticQuote(
+      id,
+      type,
+      details,
+      allQuotes
+    );
+
+    if (staticQuote) {
+      renderStaticQuote({
+        text: staticQuote.quote,
+        author: staticQuote.author,
+      });
     } else {
-      setText('quote-text',   'No philosophical quote available for this work.');
+      setText('quote-text', 'No philosophical quote available.');
       setText('quote-author', '');
     }
 
-    injectAIButton(id, type);
-
+    // Phase 2 — background AI layer
+    renderAIPlaceholder();
+    scheduleAIEnhancement(id, type);
   } catch (err) {
     console.error('[PhiloMedia] Unexpected error:', err);
-    showError('An unexpected error occurred. Please try again later.');
+    showError('An unexpected error occurred.');
   } finally {
     setLoading(false);
   }

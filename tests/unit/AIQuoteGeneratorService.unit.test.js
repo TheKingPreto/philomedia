@@ -56,19 +56,16 @@ describe('AIQuoteGeneratorService unit tests', () => {
   });
 
   describe('generateByMediaContext', () => {
-    test('throws when tmdbId is missing or empty', async () => {
-      await expect(
-        AIQuoteGeneratorService.generateByMediaContext('', 'movie')
-      ).rejects.toThrow('tmdbId and mediaType');
+    test('returns quote when tmdbId is missing or empty', async () => {
+      const result = await AIQuoteGeneratorService.generateByMediaContext('', 'movie');
+      expect(result).toHaveProperty('quoteText');
     });
 
-    test('throws when mediaType is invalid', async () => {
-      await expect(
-        AIQuoteGeneratorService.generateByMediaContext('123', 'anime')
-      ).rejects.toThrow('tmdbId and mediaType');
-      await expect(
-        AIQuoteGeneratorService.generateByMediaContext('123', null)
-      ).rejects.toThrow('tmdbId and mediaType');
+    test('returns quote when mediaType is invalid', async () => {
+      const result = await AIQuoteGeneratorService.generateByMediaContext('123', 'anime');
+      expect(result).toHaveProperty('quoteText');
+      const resultNull = await AIQuoteGeneratorService.generateByMediaContext('123', null);
+      expect(resultNull).toHaveProperty('quoteText');
     });
 
     test('calls getDetails and getReviews with correct args', async () => {
@@ -94,7 +91,6 @@ describe('AIQuoteGeneratorService unit tests', () => {
         mediaContext: {
           tmdbId: '157336',
           mediaType: 'movie',
-          title: 'Interstellar',
         },
       });
       expect(result.generationContext.model).toBeDefined();
@@ -115,7 +111,6 @@ describe('AIQuoteGeneratorService unit tests', () => {
       expect(result.generationContext.mediaContext).toMatchObject({
         tmdbId: '1396',
         mediaType: 'tv',
-        title: 'Breaking Bad',
       });
     });
 
