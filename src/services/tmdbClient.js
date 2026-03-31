@@ -18,13 +18,13 @@ function getApiKey() {
  * Busca detalhes de um filme ou série.
  * @param {string} id - TMDB id
  * @param {string} type - 'movie' ou 'tv'
- * @returns {Promise<object>} - resposta da API TMDB (title/name, overview, etc.)
+ * @returns {Promise<object>} - resposta da API TMDB (title/name, overview, credits, etc.)
  */
 export async function getDetails(id, type) {
   if (!id || !type || !['movie', 'tv'].includes(type)) {
     throw new Error('Invalid id or type. Use type "movie" or "tv".');
   }
-  const url = `${TMDB_BASE_URL}/${type}/${id}?api_key=${getApiKey()}&language=en-US`;
+  const url = `${TMDB_BASE_URL}/${type}/${id}?api_key=${getApiKey()}&language=en-US&append_to_response=credits`;
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`TMDB details error: ${response.status}`);

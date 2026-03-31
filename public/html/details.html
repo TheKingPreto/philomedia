@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="author" content="Lucas Silva">
-  <title>Details</title>
+  <title>PhiloMedia | Details</title>
   <link rel="stylesheet" href="/css/styles/base.css">
   <link rel="stylesheet" href="/css/styles/animations.css">
   <link rel="stylesheet" href="/css/styles/details-loading.css">
   <link rel="stylesheet" href="/css/styles/details.css">
 </head>
-<body>
+<body class="details-page">
   <header>
     <h1>PhiloMedia - Details</h1>
     <nav>
@@ -26,6 +26,7 @@
       <div class="details-info">
         <h2 id="details-title"></h2>
         <p id="details-meta"></p>
+        <div id="details-facts" class="details-facts" aria-label="Work details"></div>
         <p id="details-overview"></p>
       </div>
     </section>
@@ -34,8 +35,8 @@
       <h2>Related Philosophical Reading</h2>
 
       <div id="static-quote">
-        <p class="quote-text"></p>
-        <span class="quote-author"></span>
+        <p id="quote-text" class="quote-text"></p>
+        <span id="quote-author" class="quote-author"></span>
       </div>
 
       <div id="ai-quote-container">

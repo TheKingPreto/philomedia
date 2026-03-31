@@ -21,7 +21,10 @@ router.get('/search', async (req, res) => {
     const response = await fetch(url);
     if (!response.ok) throw new Error('TMDB search error');
     const data = await response.json();
-    res.json(data.results);
+    const results = Array.isArray(data.results)
+      ? data.results.filter(item => ['movie', 'tv'].includes(item.media_type))
+      : [];
+    res.json(results);
   } catch (err) {
     console.error('TMDB proxy search error:', err.message);
     res.status(502).json({ error: 'Failed to fetch from TMDB' });
@@ -34,7 +37,7 @@ router.get('/details', async (req, res) => {
   const { id, type } = req.query;
   if (!id || !type) return res.status(400).json({ message: 'Missing id or type' });
 
-  const url = `${TMDB_BASE_URL}/${type}/${id}?api_key=${apiKey}&language=en-US`;
+  const url = `${TMDB_BASE_URL}/${type}/${id}?api_key=${apiKey}&language=en-US&append_to_response=credits`;
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error('TMDB details error');

@@ -1,115 +1,163 @@
-# PhiloMedia 🎭
+# PhiloMedia
 
-> Personal project | AI-powered philosophy quote generator for media content
+PhiloMedia is a media discovery project that connects films and TV series to philosophical quotes. The current MVP lets you browse featured works, search TMDB, open a details page with richer work metadata, and receive both a curated philosophical quote and an AI-generated interpretive reading for the selected title.
 
-An intelligent web application that automatically generates relevant philosophical or psychological quotes for any piece of media content (books, movies, music, etc.), providing deeper context and meaning.
+## Current Status
 
-## 🎯 The Vision
+PhiloMedia is no longer just a project skeleton. It already has a working search-to-details flow, a quote database, TMDB integration, and an AI interpretation layer.
 
-PhiloMedia bridges philosophy and popular culture by:
-- **Analyzing** any media content (title, synopsis, themes)
-- **Generating** contextually relevant philosophical or psychological quotes
-- **Enriching** the user's experience with deeper insights
-- **Making** philosophy accessible through everyday media
+What works today:
 
-### Example Use Cases
-- Reading a book → Get a relevant Nietzsche quote about its themes
-- Watching a movie → Discover a Jung quote about its psychological aspects
-- Listening to music → Find a Schopenhauer quote about emotions
-- Browsing art → Receive relevant philosophical context
+- Featured movie and TV recommendations on the home page
+- Search powered by TMDB
+- Details page with synopsis, genres, studio or network, creator or director, and TMDB rating
+- Static quote matching with fallback logic
+- AI-generated interpretive reading based on the selected work
+- Quote storage in MongoDB
+- Swagger docs for the REST API
+- Render deployment config
 
-## 🧠 Why This Matters
+What is still incomplete:
 
-Philosophy often feels disconnected from daily life. PhiloMedia makes philosophical wisdom immediately relevant by connecting it to media people already consume.
+- Finished login experience in the UI
+- Favorites and saved user collections
+- Search filters and sorting
+- Richer work metadata beyond the current essentials
+- Community and sharing features
 
-## 🛠️ Tech Stack
+## Product Scope
 
-- **Frontend:** JavaScript, HTML, CSS
-- **Backend:** Node.js, Express
-- **API Integration:** (OpenAI/Anthropic for quote generation)
-- **Database:** MongoDB (for quote caching and favorites)
-- **Deployment:** (Planned: Vercel/Railway)
+The MVP is focused on one main promise:
 
-## 🚧 Development Status
+1. Find a movie or series.
+2. Open its details page.
+3. Read a philosophical quote that resonates with that work.
+4. Get an AI interpretation that expands the connection.
 
-**Current Phase:** Foundation & Core Features
+That core flow is the part of the project that is currently production-shaped. The rest is roadmap.
 
-### ✅ Completed
-- [x] Project architecture and folder structure
-- [x] Basic Express server setup
-- [x] Initial UI design concepts
-- [x] Quote database schema
+## Tech Stack
 
-### 🏗️ In Progress
-- [ ] AI integration for quote generation
-- [ ] Media content analysis algorithm
-- [ ] User interface implementation
-- [ ] Quote relevance scoring system
+- Frontend: HTML, CSS, vanilla JavaScript
+- Backend: Node.js, Express
+- Database: MongoDB with Mongoose
+- AI: Google Gemini
+- External catalog: TMDB
+- Auth foundation: Passport + Google OAuth
+- Docs: Swagger UI
+- Deployment target: Render
 
-### 📅 Planned Features
-- [ ] User accounts and favorites
-- [ ] Social sharing
-- [ ] Browser extension
-- [ ] Mobile app
-- [ ] Community quote ratings
+## Local Setup
 
-## 🎨 Features (Planned)
+1. Install dependencies:
 
-### Core Functionality
-- **Smart Quote Matching:** AI analyzes media content and finds relevant quotes
-- **Philosophy Library:** Curated collection of quotes from major philosophers
-- **Instant Generation:** Real-time quote suggestions
-- **Context Explanation:** Brief explanation of why the quote relates
+```bash
+npm install
+```
 
-### User Features
-- Save favorite quotes
-- Share on social media
-- Request quotes for specific content
-- Rate quote relevance
+2. Copy `.env.example` to `.env`.
 
-## 🧪 Learning Goals
+3. Fill in the required values in `.env`.
 
-This project is helping me develop:
-- **Full-stack architecture:** Planning and building a complete application
-- **AI Integration:** Working with LLM APIs for intelligent content generation
-- **User Experience:** Designing intuitive interfaces for complex functionality
-- **Database Design:** Structuring data for efficient retrieval
-- **API Design:** Creating clean, RESTful endpoints
+4. Start the app in development mode:
 
-## 🎓 Inspiration
+```bash
+npm run dev
+```
 
-Inspired by my interest in philosophy and psychology, combined with a desire to make these fields more accessible to a wider audience through technology.
+5. Open:
 
-## 📝 Development Log
+- App: `http://localhost:3000`
+- API docs: `http://localhost:3000/api-docs`
 
-### November 2025
-- Project conception and initial planning
-- Technology stack research
+## Environment Variables
 
-### Q4 2025 - Q1 2026
-- Core architecture implementation
-- API integrations research
+Required to boot the server:
 
-### Goal: Q3-Q4 2026
-- Beta version launch
-- User testing and feedback
+- `MONGODB_URI`
+- `SESSION_SECRET`
+- `TMDB_API_KEY`
+- `GOOGLE_AI_API_KEY`
 
-## 🤝 Contributing
+Optional for Google login:
 
-While this is a personal learning project, I'm open to feedback and suggestions! Feel free to open an issue if you have ideas.
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
 
-## 📄 License
+Optional for deployment or frontend integration:
 
-MIT License - See LICENSE file for details
+- `PORT`
+- `NODE_ENV`
+- `CORS_ORIGIN`
 
----
+## Quote Data Utilities
 
-## 🔗 Connect
+The project includes utilities for loading and maintaining the quote collection.
 
-Interested in the intersection of philosophy and technology? Let's connect!
+Seed the curated local quotes into MongoDB:
 
-[![LinkedIn](https://img.shields.io/badge/-LinkedIn-0A66C2?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/lucas-oliveira-silva032/)
+```bash
+node public/scripts/seed-quotes.js
+```
 
----
+Import the larger Wikiquote dataset into MongoDB:
 
-*"Philosophy is written in this grand book — I mean the universe — which stands continually open to our gaze, but it cannot be understood unless one first learns to comprehend the language in which it is written." — Galileo Galilei*
+```bash
+node public/scripts/import_quotes_wikiquote.js
+```
+
+## Useful Commands
+
+Run the test suite:
+
+```bash
+npm test
+```
+
+Run tests with open-handle detection:
+
+```bash
+npm run test:detect
+```
+
+Start the production server locally:
+
+```bash
+npm start
+```
+
+## API Surface
+
+Main route groups already available:
+
+- `/api/quotes`
+- `/api/matches`
+- `/api/tmdb`
+- `/api/ai/quotes`
+- `/auth` when Google OAuth credentials are configured
+
+Swagger is available at `/api-docs`.
+
+## Roadmap
+
+Short-term priorities:
+
+- Finish the authentication experience in the frontend
+- Add filters for media search and discovery
+- Improve work metadata depth and presentation
+- Add favorites and user collections
+- Refine the quote relevance logic
+
+Long-term ideas:
+
+- Social sharing
+- Community feedback on quote relevance
+- Browser extension or companion app
+
+## Deployment
+
+The repository includes a `render.yaml` file for Render. To deploy successfully, configure the same environment variables listed above in the Render dashboard.
+
+## License
+
+ISC

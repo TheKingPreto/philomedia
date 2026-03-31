@@ -13,6 +13,12 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function formatRating(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 'TMDB n/a';
+  return `TMDB ${numeric.toFixed(1)}`;
+}
+
 function setSearchLoading(loading) {
   if (loading) {
     resultsContainer.innerHTML = `
@@ -46,7 +52,7 @@ function setSearchEmpty() {
   `;
 }
 
-form.addEventListener('submit', async (event) => {
+form.addEventListener('submit', async event => {
   event.preventDefault();
 
   const query = input.value.trim();
@@ -67,16 +73,17 @@ form.addEventListener('submit', async (event) => {
       return;
     }
 
-    results.forEach((item, i) => {
+    results.forEach((item, index) => {
       const title = item.title || item.name || 'Untitled';
       const mediaType = item.media_type || 'unknown';
-      const date = item.release_date || item.first_air_date || '—';
+      const date = item.release_date || item.first_air_date || '-';
       const overview = item.overview || 'No synopsis available.';
+      const rating = formatRating(item.vote_average);
       const posterPath = item.poster_path ? `${POSTER_BASE}${item.poster_path}` : null;
 
       const card = document.createElement('div');
       card.classList.add('result-card');
-      card.style.animationDelay = `${i * 0.05}s`;
+      card.style.animationDelay = `${index * 0.05}s`;
 
       const posterHtml = posterPath
         ? `<img class="poster-img" src="${posterPath}" alt="${escapeHtml(title)} poster" loading="lazy">`
@@ -88,9 +95,9 @@ form.addEventListener('submit', async (event) => {
         </div>
         <div class="result-card-body">
           <h3>${escapeHtml(title)}</h3>
-          <p class="media-type">${mediaType}</p>
+          <p class="media-type">${escapeHtml(mediaType)} | ${escapeHtml(rating)}</p>
           <p class="date">${escapeHtml(date)}</p>
-          <p class="overview">${escapeHtml(overview.length > 100 ? overview.slice(0, 100) + '…' : overview)}</p>
+          <p class="overview">${escapeHtml(overview.length > 100 ? overview.slice(0, 100) + '...' : overview)}</p>
         </div>
       `;
 

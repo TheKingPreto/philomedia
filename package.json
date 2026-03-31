@@ -1,27 +1,33 @@
 {
   "name": "philomedia",
   "version": "1.0.0",
-  "description": "",
+  "description": "Connect movies and series to philosophical quotes and AI-generated interpretations.",
   "type": "module",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev": "node --watch server.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit tests/integration tests/app.test.js",
     "test:detect": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --detectOpenHandles",
     "lint": "eslint . --ext .js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TheKingPreto/philomedia.git"
+    "url": "git+https://github.com/Lucassilva027/philomedia.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "philosophy",
+    "quotes",
+    "tmdb",
+    "express",
+    "gemini"
+  ],
+  "author": "Lucas Silva",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/TheKingPreto/philomedia/issues"
+    "url": "https://github.com/Lucassilva027/philomedia/issues"
   },
-  "homepage": "https://github.com/TheKingPreto/philomedia#readme",
+  "homepage": "https://github.com/Lucassilva027/philomedia#readme",
   "dependencies": {
     "@google/genai": "^1.42.0",
     "@google/generative-ai": "^0.24.0",

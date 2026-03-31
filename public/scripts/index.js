@@ -3,6 +3,18 @@ import { loadContent } from '/scripts/main.js';
 const DETAILS_BASE = '/html/details.html';
 const POSTER_BASE = 'https://image.tmdb.org/t/p/w300';
 
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function formatRating(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 'TMDB n/a';
+  return `TMDB ${numeric.toFixed(1)}`;
+}
+
 function setLoading(highlightsEl, loading = true) {
   if (loading) {
     highlightsEl.innerHTML = `
@@ -30,50 +42,47 @@ function renderCards(container, items) {
     `;
     return;
   }
-    items.forEach((item, i) => {
-      const title = item.title || item.name || 'Untitled';
-      const date = item.release_date || item.first_air_date || '—';
-      const overview = item.overview || 'No synopsis available.';
-      // Corrige media_type para garantir movie/tv
-      let mediaType = item.media_type;
-      if (!mediaType && item.title) mediaType = 'movie';
-      if (!mediaType && item.name) mediaType = 'tv';
-      if (!mediaType) mediaType = 'unknown';
-      const posterPath = item.poster_path ? `${POSTER_BASE}${item.poster_path}` : null;
 
-      const cardLink = document.createElement('a');
-      cardLink.href = `${DETAILS_BASE}?id=${item.id}&type=${mediaType}`;
-      cardLink.classList.add('result-card-link');
+  items.forEach((item, index) => {
+    const title = item.title || item.name || 'Untitled';
+    const date = item.release_date || item.first_air_date || '-';
+    const overview = item.overview || 'No synopsis available.';
+    const rating = formatRating(item.vote_average);
 
-      const card = document.createElement('div');
-      card.classList.add('result-card');
-      card.style.animationDelay = `${i * 0.05}s`;
+    let mediaType = item.media_type;
+    if (!mediaType && item.title) mediaType = 'movie';
+    if (!mediaType && item.name) mediaType = 'tv';
+    if (!mediaType) mediaType = 'unknown';
 
-      const posterHtml = posterPath
-        ? `<img class="poster-img" src="${posterPath}" alt="${escapeHtml(title)} poster" loading="lazy">`
-        : '<div class="no-poster" aria-hidden="true">No image</div>';
+    const posterPath = item.poster_path ? `${POSTER_BASE}${item.poster_path}` : null;
 
-      card.innerHTML = `
-        <div class="result-card-poster">
-          ${posterHtml}
-        </div>
-        <div class="result-card-body">
-          <h3>${escapeHtml(title)}</h3>
-          <p class="media-type">${mediaType}</p>
-          <p class="date">${escapeHtml(date)}</p>
-          <p class="overview">${escapeHtml(overview.length > 100 ? overview.slice(0, 100) + '…' : overview)}</p>
-        </div>
-      `;
+    const cardLink = document.createElement('a');
+    cardLink.href = `${DETAILS_BASE}?id=${item.id}&type=${mediaType}`;
+    cardLink.classList.add('result-card-link');
 
-      cardLink.appendChild(card);
-      container.appendChild(cardLink);
-    });
-}
+    const card = document.createElement('div');
+    card.classList.add('result-card');
+    card.style.animationDelay = `${index * 0.05}s`;
 
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+    const posterHtml = posterPath
+      ? `<img class="poster-img" src="${posterPath}" alt="${escapeHtml(title)} poster" loading="lazy">`
+      : '<div class="no-poster" aria-hidden="true">No image</div>';
+
+    card.innerHTML = `
+      <div class="result-card-poster">
+        ${posterHtml}
+      </div>
+      <div class="result-card-body">
+        <h3>${escapeHtml(title)}</h3>
+        <p class="media-type">${escapeHtml(mediaType)} | ${escapeHtml(rating)}</p>
+        <p class="date">${escapeHtml(date)}</p>
+        <p class="overview">${escapeHtml(overview.length > 100 ? overview.slice(0, 100) + '...' : overview)}</p>
+      </div>
+    `;
+
+    cardLink.appendChild(card);
+    container.appendChild(cardLink);
+  });
 }
 
 async function init() {
@@ -88,7 +97,7 @@ async function init() {
 
     quoteTextEl.textContent = `"${content.quote}"`;
     quoteTextEl.setAttribute('aria-busy', 'false');
-    quoteAuthorEl.textContent = `— ${content.author}`;
+    quoteAuthorEl.textContent = `- ${content.author}`;
 
     highlightsEl.querySelector('.loading-message')?.remove();
     highlightsEl.querySelector('.loading-skeleton')?.remove();
