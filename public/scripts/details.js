@@ -5,16 +5,37 @@
  * Quote strategy:
  * 1) Render a static philosophical quote immediately (curated -> thematic -> random)
  * 2) Silently append an AI interpretive layer below (non-blocking)
+ * 3) Rank related works by philosophical affinity instead of relying on raw TMDB similarity
  */
 
-import { getDetailsFromTMDB, getReviewsFromTMDB } from '/scripts/seriesapi.js';
+import {
+  discoverTMDB,
+  getDetailsFromTMDB,
+  getRecommendationsFromTMDB,
+  getReviewsFromTMDB,
+  getSimilarFromTMDB,
+  searchTMDB,
+} from '/scripts/seriesapi.js';
 import { getQuotes } from '/scripts/philosophersapi.js';
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { curatedQuoteMatches } from '/scripts/curatedmatches.js';
 
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w400';
+const DETAILS_BASE = '/html/details.html';
 const AI_ENDPOINT = '/api/ai/quotes/generate/media-context';
 const AI_TRIGGER_DELAY_MS = 800;
+const RELATED_LIMIT = 6;
+
+const NOISE_WORDS = new Set([
+  'about', 'after', 'alive', 'along', 'already', 'another', 'around', 'away',
+  'because', 'before', 'become', 'becomes', 'becoming', 'beginning', 'between',
+  'business', 'character', 'characters', 'city', 'family', 'father', 'find',
+  'finds', 'following', 'friend', 'friends', 'girl', 'girls', 'group', 'help',
+  'helps', 'home', 'japan', 'journey', 'life', 'lives', 'mother', 'movie',
+  'movies', 'must', 'older', 'ordinary', 'school', 'series', 'show', 'story',
+  'student', 'students', 'takes', 'their', 'there', 'these', 'through', 'time',
+  'tries', 'trying', 'under', 'while', 'world', 'years', 'young',
+]);
 
 function getQueryParams() {
   const params = new URLSearchParams(window.location.search);
@@ -72,17 +93,40 @@ function setText(id, text) {
   if (el) el.textContent = text;
 }
 
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function normalizeText(text) {
+  if (!text) return '';
+
+  return text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[\p{P}\p{S}]/gu, ' ')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function getDisplayTitle(details) {
   return details.title || details.name || 'Unknown';
 }
 
-function formatYear(dateString) {
-  if (!dateString) return 'Unknown year';
+function getDisplayDate(item) {
+  return item.release_date || item.first_air_date || '';
+}
 
+function getYear(dateString) {
+  if (!dateString) return null;
   const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return dateString;
+  return Number.isNaN(date.getTime()) ? null : date.getFullYear();
+}
 
-  return String(date.getFullYear());
+function formatYear(dateString) {
+  return getYear(dateString)?.toString() || 'Unknown year';
 }
 
 function formatRuntime(details, type) {
@@ -116,7 +160,7 @@ function formatRating(details) {
   const voteCount = Number(details.vote_count);
 
   if (!Number.isFinite(voteAverage) || voteAverage <= 0) {
-    return 'Not rated yet';
+    return '';
   }
 
   const rounded = voteAverage.toFixed(1);
@@ -125,6 +169,12 @@ function formatRating(details) {
   }
 
   return `${rounded}/10 from ${voteCount.toLocaleString()} votes`;
+}
+
+function formatCardRating(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 'TMDB n/a';
+  return `TMDB ${numeric.toFixed(1)}`;
 }
 
 function joinNames(items, key = 'name', limit = 3) {
@@ -139,14 +189,14 @@ function joinNames(items, key = 'name', limit = 3) {
 
 function getCreativeLead(details, type) {
   if (type === 'tv') {
-    return joinNames(details.created_by, 'name', 3) || 'Not available';
+    return joinNames(details.created_by, 'name', 3);
   }
 
   const directors = Array.isArray(details.credits?.crew)
     ? details.credits.crew.filter(person => person?.job === 'Director')
     : [];
 
-  return joinNames(directors, 'name', 3) || 'Not available';
+  return joinNames(directors, 'name', 3);
 }
 
 function getStudio(details, type) {
@@ -155,42 +205,73 @@ function getStudio(details, type) {
       ? details.networks
       : details.production_companies;
 
-  return joinNames(source, 'name', 3) || 'Not available';
+  return joinNames(source, 'name', 3);
 }
 
 function getGenres(details) {
-  return joinNames(details.genres, 'name', 4) || 'Not available';
+  return joinNames(details.genres, 'name', 4);
+}
+
+function getStreamingProviders(details) {
+  const providers = details.watchProviders?.providers;
+  if (!Array.isArray(providers) || providers.length === 0) return '';
+
+  return providers
+    .map(provider => provider?.provider_name)
+    .filter(Boolean)
+    .slice(0, 4)
+    .join(', ');
+}
+
+function renderAttribution(details) {
+  const attribution = document.getElementById('details-attribution');
+  if (!attribution) return;
+
+  const watchLink = details.watchProviders?.link;
+  const hasProviders = Array.isArray(details.watchProviders?.providers)
+    && details.watchProviders.providers.length > 0;
+
+  if (!hasProviders) {
+    attribution.hidden = true;
+    attribution.innerHTML = '';
+    return;
+  }
+
+  attribution.hidden = false;
+
+  if (watchLink) {
+    attribution.innerHTML = `Streaming availability via <a href="${watchLink}" target="_blank" rel="noreferrer">JustWatch on TMDB</a>.`;
+    return;
+  }
+
+  attribution.textContent = 'Streaming availability via JustWatch on TMDB.';
 }
 
 function renderFacts(details, type) {
   const container = document.getElementById('details-facts');
   if (!container) return;
 
-  const creatorLabel = type === 'tv' ? 'Creator' : 'Director';
-  const studioLabel = type === 'tv' ? 'Network' : 'Studio';
   const facts = [
-    { label: 'TMDB rating', value: formatRating(details) },
-    { label: creatorLabel, value: getCreativeLead(details, type) },
-    { label: studioLabel, value: getStudio(details, type) },
-    { label: 'Genres', value: getGenres(details) },
-  ].filter(fact => fact.value);
+    formatRating(details),
+    getCreativeLead(details, type),
+    getStudio(details, type),
+    getGenres(details),
+    getStreamingProviders(details),
+  ].filter(Boolean);
 
   container.innerHTML = '';
+  container.hidden = facts.length === 0;
 
   facts.forEach(fact => {
-    const card = document.createElement('div');
-    card.className = 'detail-fact';
+    const item = document.createElement('span');
+    item.className = 'detail-fact';
 
-    const label = document.createElement('span');
-    label.className = 'detail-fact-label';
-    label.textContent = fact.label;
-
-    const value = document.createElement('strong');
+    const value = document.createElement('span');
     value.className = 'detail-fact-value';
-    value.textContent = fact.value;
+    value.textContent = fact;
 
-    card.append(label, value);
-    container.appendChild(card);
+    item.appendChild(value);
+    container.appendChild(item);
   });
 }
 
@@ -219,10 +300,302 @@ function populateDetails(details, type) {
     `${mediaLabel} | ${formatYear(releaseDate)} | ${formatRuntime(details, type)}`
   );
   renderFacts(details, type);
+  renderAttribution(details);
   setText('details-overview', details.overview || 'No overview available.');
 }
 
-async function resolveStaticQuote(id, type, details, allQuotes) {
+function buildSourceContext(details, reviews = []) {
+  const parts = [
+    getDisplayTitle(details),
+    details.overview || '',
+    Array.isArray(details.genres) ? details.genres.map(genre => genre?.name).filter(Boolean).join(' ') : '',
+    Array.isArray(reviews) ? reviews.map(review => review.content || '').join(' ') : '',
+  ].filter(Boolean);
+
+  return parts.join(' ').trim();
+}
+
+function extractSalientTokens(text, limit = 10) {
+  const normalized = normalizeText(text);
+  if (!normalized) return [];
+
+  const counts = new Map();
+
+  normalized.split(' ').forEach(token => {
+    if (!token || token.length < 4) return;
+    if (/^\d+$/.test(token)) return;
+    if (NOISE_WORDS.has(token)) return;
+
+    counts.set(token, (counts.get(token) || 0) + 1);
+  });
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)
+    .map(([token]) => token)
+    .slice(0, limit);
+}
+
+function buildSearchQuery(details, reviews) {
+  const contextTokens = extractSalientTokens(buildSourceContext(details, reviews), 6);
+  const titleTokens = extractSalientTokens(getDisplayTitle(details), 2);
+  const queryTokens = [...new Set([...contextTokens, ...titleTokens])].slice(0, 4);
+  return queryTokens.join(' ');
+}
+
+function createThemeWeightMap(themeScores, limit = 6) {
+  const topThemes = themeScores.slice(0, limit);
+  const total = topThemes.reduce((sum, item) => sum + item.score, 0) || 1;
+  return new Map(topThemes.map(item => [item.theme, item.score / total]));
+}
+
+function scoreThemeAlignment(sourceWeights, candidateText) {
+  if (!sourceWeights.size) return 0;
+
+  const candidateThemes = analyzeWorkForThemes(candidateText);
+  const candidateWeights = createThemeWeightMap(candidateThemes);
+
+  let score = 0;
+  for (const [theme, sourceWeight] of sourceWeights.entries()) {
+    const candidateWeight = candidateWeights.get(theme);
+    if (candidateWeight) {
+      score += sourceWeight * candidateWeight * 100;
+    }
+  }
+
+  return score;
+}
+
+function scoreTokenAlignment(sourceTokens, candidateText) {
+  if (!sourceTokens.length) return 0;
+
+  const candidateTokens = new Set(extractSalientTokens(candidateText, 16));
+  let score = 0;
+
+  sourceTokens.forEach((token, index) => {
+    if (candidateTokens.has(token)) {
+      score += Math.max(3, 12 - index * 1.4);
+    }
+  });
+
+  return score;
+}
+
+function scoreGenreAlignment(sourceGenreIds, candidateGenreIds) {
+  if (!sourceGenreIds.length || !Array.isArray(candidateGenreIds) || candidateGenreIds.length === 0) {
+    return 0;
+  }
+
+  const sourceGenreSet = new Set(sourceGenreIds);
+  const overlap = candidateGenreIds.filter(id => sourceGenreSet.has(id)).length;
+  if (!overlap) return 0;
+
+  return (overlap / sourceGenreIds.length) * 16;
+}
+
+function scoreYearAlignment(sourceDate, candidateDate) {
+  const sourceYear = getYear(sourceDate);
+  const candidateYear = getYear(candidateDate);
+
+  if (!sourceYear || !candidateYear) return 0;
+
+  const delta = Math.abs(sourceYear - candidateYear);
+  return Math.max(0, 8 - delta * 0.5);
+}
+
+function scoreLocaleAlignment(details, candidate) {
+  let score = 0;
+
+  if (details.original_language && candidate.original_language === details.original_language) {
+    score += 6;
+  }
+
+  if (Array.isArray(details.origin_country) && Array.isArray(candidate.origin_country)) {
+    const sameCountry = details.origin_country.some(country => candidate.origin_country.includes(country));
+    if (sameCountry) score += 4;
+  }
+
+  return score;
+}
+
+function scoreSourceBoost(candidate) {
+  const sources = Array.isArray(candidate._sources) ? candidate._sources : [];
+  let boost = 0;
+
+  if (sources.includes('recommendation')) boost += 12;
+  if (sources.includes('similar')) boost += 8;
+  if (sources.includes('search')) boost += 7;
+  if (sources.includes('discover')) boost += 4;
+
+  return boost;
+}
+
+function mergeCandidateBuckets(buckets, currentId, type) {
+  const merged = new Map();
+
+  buckets.forEach(({ items, source }) => {
+    (items || []).forEach(item => {
+      if (!item || item.id == null || String(item.id) === String(currentId)) return;
+      if (item.media_type && item.media_type !== type) return;
+
+      const existing = merged.get(String(item.id));
+      if (!existing) {
+        merged.set(String(item.id), {
+          ...item,
+          _sources: [source],
+        });
+        return;
+      }
+
+      const mergedSources = [...new Set([...(existing._sources || []), source])];
+      merged.set(String(item.id), {
+        ...existing,
+        ...item,
+        overview: existing.overview || item.overview || '',
+        poster_path: existing.poster_path || item.poster_path || null,
+        vote_average: Math.max(Number(existing.vote_average) || 0, Number(item.vote_average) || 0),
+        popularity: Math.max(Number(existing.popularity) || 0, Number(item.popularity) || 0),
+        _sources: mergedSources,
+      });
+    });
+  });
+
+  return [...merged.values()];
+}
+
+function rankRelatedCandidates(details, reviews, candidates) {
+  const sourceContext = buildSourceContext(details, reviews);
+  const sourceThemeWeights = createThemeWeightMap(analyzeWorkForThemes(sourceContext), 6);
+  const sourceTokens = extractSalientTokens(sourceContext, 10);
+  const sourceGenreIds = Array.isArray(details.genres)
+    ? details.genres.map(genre => genre?.id).filter(Boolean)
+    : [];
+  const sourceDate = getDisplayDate(details);
+
+  const ranked = candidates
+    .map(candidate => {
+      const candidateContext = `${candidate.title || candidate.name || ''} ${candidate.overview || ''}`.trim();
+      const themeScore = scoreThemeAlignment(sourceThemeWeights, candidateContext);
+      const tokenScore = scoreTokenAlignment(sourceTokens, candidateContext);
+      const genreScore = scoreGenreAlignment(sourceGenreIds, candidate.genre_ids);
+      const localeScore = scoreLocaleAlignment(details, candidate);
+      const yearScore = scoreYearAlignment(sourceDate, getDisplayDate(candidate));
+      const sourceBoost = scoreSourceBoost(candidate);
+      const ratingScore = Math.max(0, Number(candidate.vote_average || 0) - 6) * 1.4;
+      const popularityScore = Math.min(8, (Number(candidate.popularity) || 0) / 35);
+      const weakMatchPenalty = themeScore < 14 && tokenScore < 10 ? 18 : 0;
+      const noOverviewPenalty = candidate.overview ? 0 : 10;
+
+      const score =
+        themeScore * 1.3
+        + tokenScore
+        + genreScore
+        + localeScore
+        + yearScore
+        + sourceBoost
+        + ratingScore
+        + popularityScore
+        - weakMatchPenalty
+        - noOverviewPenalty;
+
+      return {
+        ...candidate,
+        _score: score,
+      };
+    })
+    .sort((a, b) => b._score - a._score);
+
+  const strongMatches = ranked.filter(candidate => candidate._score >= 24);
+  return (strongMatches.length >= 3 ? strongMatches : ranked).slice(0, RELATED_LIMIT);
+}
+
+async function loadRelatedWorks(id, type, details, reviews) {
+  const genreIds = Array.isArray(details.genres)
+    ? details.genres.map(genre => genre?.id).filter(Boolean).join(',')
+    : '';
+  const searchQuery = buildSearchQuery(details, reviews);
+
+  const [
+    similarWorks,
+    recommendedWorks,
+    discoveredWorks,
+    searchedWorks,
+  ] = await Promise.all([
+    getSimilarFromTMDB(id, type).catch(() => []),
+    getRecommendationsFromTMDB(id, type).catch(() => []),
+    discoverTMDB(type, {
+      withGenres: genreIds,
+      withOriginalLanguage: details.original_language || '',
+      sortBy: 'popularity.desc',
+    }).catch(() => []),
+    searchQuery
+      ? searchTMDB(searchQuery)
+          .then(items => items.filter(item => item.media_type === type))
+          .catch(() => [])
+      : Promise.resolve([]),
+  ]);
+
+  const merged = mergeCandidateBuckets([
+    { items: recommendedWorks, source: 'recommendation' },
+    { items: similarWorks, source: 'similar' },
+    { items: discoveredWorks, source: 'discover' },
+    { items: searchedWorks, source: 'search' },
+  ], id, type);
+
+  return rankRelatedCandidates(details, reviews, merged);
+}
+
+function renderRelatedWorks(works) {
+  const section = document.getElementById('related-works');
+  const container = document.getElementById('related-results');
+  if (!section || !container) return;
+
+  if (!Array.isArray(works) || works.length === 0) {
+    section.hidden = true;
+    container.innerHTML = '';
+    return;
+  }
+
+  section.hidden = false;
+  container.innerHTML = '';
+
+  works.forEach((item, index) => {
+    const title = item.title || item.name || 'Untitled';
+    const mediaType = item.media_type || 'unknown';
+    const date = getDisplayDate(item) || '-';
+    const overview = item.overview || 'No synopsis available.';
+    const rating = formatCardRating(item.vote_average);
+    const posterPath = item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : null;
+
+    const cardLink = document.createElement('a');
+    cardLink.href = `${DETAILS_BASE}?id=${item.id}&type=${mediaType}`;
+    cardLink.classList.add('result-card-link');
+
+    const card = document.createElement('div');
+    card.classList.add('result-card');
+    card.style.animationDelay = `${index * 0.05}s`;
+
+    const posterHtml = posterPath
+      ? `<img class="poster-img" src="${posterPath}" alt="${escapeHtml(title)} poster" loading="lazy">`
+      : '<div class="no-poster" aria-hidden="true">No image</div>';
+
+    card.innerHTML = `
+      <div class="result-card-poster">
+        ${posterHtml}
+      </div>
+      <div class="result-card-body">
+        <h3>${escapeHtml(title)}</h3>
+        <p class="media-type">${escapeHtml(mediaType)} | ${escapeHtml(rating)}</p>
+        <p class="date">${escapeHtml(date)}</p>
+        <p class="overview">${escapeHtml(overview.length > 110 ? overview.slice(0, 110) + '...' : overview)}</p>
+      </div>
+    `;
+
+    cardLink.appendChild(card);
+    container.appendChild(cardLink);
+  });
+}
+
+async function resolveStaticQuote(id, type, details, allQuotes, reviews) {
   if (!allQuotes?.length) return null;
 
   const curatedId = curatedQuoteMatches[id];
@@ -232,7 +605,6 @@ async function resolveStaticQuote(id, type, details, allQuotes) {
   }
 
   try {
-    const reviews = await getReviewsFromTMDB(id, type).catch(() => []);
     const reviewText = Array.isArray(reviews)
       ? reviews.map(review => review.content || '').join(' ')
       : '';
@@ -370,9 +742,10 @@ async function init() {
   setLoading(true);
 
   try {
-    const [details, allQuotes] = await Promise.all([
+    const [details, allQuotes, reviews] = await Promise.all([
       getDetailsFromTMDB(id, type).catch(() => null),
       getQuotes().catch(() => []),
+      getReviewsFromTMDB(id, type).catch(() => []),
     ]);
 
     if (!details) {
@@ -382,7 +755,12 @@ async function init() {
 
     populateDetails(details, type);
 
-    const staticQuote = await resolveStaticQuote(id, type, details, allQuotes);
+    const [relatedWorks, staticQuote] = await Promise.all([
+      loadRelatedWorks(id, type, details, reviews).catch(() => []),
+      resolveStaticQuote(id, type, details, allQuotes, reviews),
+    ]);
+
+    renderRelatedWorks(relatedWorks);
 
     if (staticQuote) {
       renderStaticQuote({

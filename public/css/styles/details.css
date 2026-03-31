@@ -66,42 +66,64 @@ body.details-page main {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #c9a84c;
-  margin: 0 0 1rem;
+  margin: 0 0 0.45rem;
 }
 
 .details-facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
-  margin: 0 0 1.5rem;
-  max-width: 56rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.8rem;
+  margin: 0 0 0.2rem;
+  max-width: 78ch;
 }
 
 .detail-fact {
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
   gap: 0.35rem;
-  padding: 0.9rem 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+
+.detail-fact::after {
+  content: '|';
+  margin-left: 0.35rem;
+  color: rgba(201, 168, 76, 0.6);
+}
+
+.detail-fact:last-child::after {
+  content: none;
 }
 
 .detail-fact-label {
-  font-family: 'DM Sans', system-ui, sans-serif;
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #8d8a94;
+  display: none;
 }
 
 .detail-fact-value {
   font-family: 'DM Sans', system-ui, sans-serif;
-  font-size: 0.92rem;
+  font-size: 0.72rem;
   font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #c9a84c;
+}
+
+.details-attribution {
+  margin: 0 0 0.95rem;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.72rem;
   line-height: 1.5;
-  color: #e8e6df;
+  color: #6e6b74;
+}
+
+.details-attribution a {
+  color: #8d8a94;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
 
 #details-overview {
@@ -109,7 +131,7 @@ body.details-page main {
   line-height: 1.85;
   color: #9b99a1;
   margin: 0;
-  max-width: 58ch;
+  max-width: 60ch;
 }
 
 /* ─── Philosophy Quote Block ────────────────────────────────────────────────── */
@@ -174,6 +196,20 @@ body.details-page main {
 
 #ai-quote-container {
   margin-top: 2rem;
+}
+
+#related-works {
+  margin-top: 2rem;
+}
+
+.related-header {
+  margin-bottom: 1.25rem;
+}
+
+#related-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1.25rem;
 }
 
 .ai-quote-block {
@@ -347,7 +383,9 @@ body.details-page main {
   .details-poster { width: 60%; max-width: 200px; }
   .details-info   { width: 100%; }
   #details-title  { font-size: 1.75rem; }
-  .details-facts  { grid-template-columns: 1fr; }
+  .details-facts  { gap: 0.35rem 0.65rem; }
+  .details-attribution { margin-bottom: 0.85rem; }
   #philosophy-quote { padding: 1.75rem 1.5rem; }
+  #related-results { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
   #quote-text     { font-size: 1.1rem; }
 }

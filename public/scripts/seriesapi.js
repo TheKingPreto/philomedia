@@ -33,6 +33,51 @@ export async function getReviewsFromTMDB(id, type) {
   return response.json();
 }
 
+export async function getSimilarFromTMDB(id, type) {
+  if (!id || !type || (type !== 'movie' && type !== 'tv')) return [];
+  const url = `${API_BASE}/similar?id=${encodeURIComponent(id)}&type=${encodeURIComponent(type)}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    console.error('Failed to fetch similar works for', id);
+    return [];
+  }
+  return response.json();
+}
+
+export async function getRecommendationsFromTMDB(id, type) {
+  if (!id || !type || (type !== 'movie' && type !== 'tv')) return [];
+  const url = `${API_BASE}/recommendations?id=${encodeURIComponent(id)}&type=${encodeURIComponent(type)}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    console.error('Failed to fetch recommendations for', id);
+    return [];
+  }
+  return response.json();
+}
+
+export async function discoverTMDB(media, options = {}) {
+  if (!media || (media !== 'movie' && media !== 'tv')) return [];
+
+  const params = new URLSearchParams({
+    media,
+    page: String(options.page || 1),
+  });
+
+  if (options.withGenres) params.set('with_genres', options.withGenres);
+  if (options.withOriginalLanguage) {
+    params.set('with_original_language', options.withOriginalLanguage);
+  }
+  if (options.sortBy) params.set('sort_by', options.sortBy);
+
+  const response = await fetch(`${API_BASE}/discover?${params.toString()}`);
+  if (!response.ok) {
+    console.error('Failed to discover works for', media);
+    return [];
+  }
+
+  return response.json();
+}
+
 export async function discoverDiverseWorks() {
   const randomPage = Math.floor(Math.random() * 50) + 1;
   try {

@@ -89,6 +89,7 @@ Optional for deployment or frontend integration:
 - `PORT`
 - `NODE_ENV`
 - `CORS_ORIGIN`
+- `TMDB_WATCH_REGION` (defaults to `BR`)
 
 ## Quote Data Utilities
 

@@ -11,8 +11,11 @@
   <link rel="stylesheet" href="/css/styles/details.css">
 </head>
 <body class="details-page">
-  <header>
-    <h1>PhiloMedia - Details</h1>
+  <header class="details-header">
+    <div class="header-brand">
+      <a href="/html/index.html" class="logo">PhiloMedia</a>
+      <span class="header-context">Media Reading</span>
+    </div>
     <nav>
       <a href="/html/index.html">Home</a>
       <a href="/html/search.html">Search</a>
@@ -24,9 +27,10 @@
         <img id="details-image" src="" alt="" loading="lazy">
       </div>
       <div class="details-info">
-        <h2 id="details-title"></h2>
+        <h1 id="details-title"></h1>
         <p id="details-meta"></p>
         <div id="details-facts" class="details-facts" aria-label="Work details"></div>
+        <p id="details-attribution" class="details-attribution" hidden></p>
         <p id="details-overview"></p>
       </div>
     </section>
@@ -45,7 +49,15 @@
           <span>AI interpretive reading in progress</span>
         </div>
       </div>
-</section>
+    </section>
+
+    <section id="related-works" hidden>
+      <div class="related-header">
+        <h2 class="section-title">Related Works</h2>
+        <p class="section-subtitle">More titles that orbit the same themes, genres, or mood.</p>
+      </div>
+      <div id="related-results"></div>
+    </section>
   </main>
 
   <script type="module" src="/scripts/details.js"></script>
