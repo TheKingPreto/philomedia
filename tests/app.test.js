@@ -32,6 +32,17 @@ describe('Basic API endpoints', () => {
     expect(res.statusCode).toBe(503);
     expect(res.body).toEqual({
       error: 'Authentication is not configured on this server.',
+      oauthEnabled: false,
+    });
+  });
+
+  test('GET /auth/session should expose unauthenticated session state', async () => {
+    const res = await request(app).get('/auth/session');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({
+      authenticated: false,
+      oauthEnabled: false,
+      user: null,
     });
   });
 });

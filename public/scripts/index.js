@@ -1,4 +1,5 @@
 import { loadContent } from '/scripts/main.js';
+import { setupAuthUI } from '/scripts/auth-ui.js';
 
 const DETAILS_BASE = '/html/details.html';
 const POSTER_BASE = 'https://image.tmdb.org/t/p/w300';
@@ -86,6 +87,8 @@ function renderCards(container, items) {
 }
 
 async function init() {
+  setupAuthUI().catch(() => {});
+
   const quoteTextEl = document.getElementById('quote-text');
   const quoteAuthorEl = document.getElementById('quote-author');
   const highlightsTitleEl = document.getElementById('highlights-title');

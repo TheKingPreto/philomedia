@@ -167,6 +167,15 @@ nav {
   gap: 0.25rem;
 }
 
+.nav-auth-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-left: 0.45rem;
+  padding-left: 0.55rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 nav a {
   position: relative;
   display: inline-flex;
@@ -219,6 +228,31 @@ nav a[aria-current="page"] {
 nav a[aria-current="page"]::after {
   opacity: 1;
   transform: scaleX(1);
+}
+
+.nav-user-chip,
+.nav-muted-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0.3rem 0.68rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+
+.nav-user-chip {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.nav-muted-chip {
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 /* ─── Main Layout ───────────────────────────────────────────────────────────── */
@@ -300,11 +334,16 @@ main {
 }
 
 /* ─── Media Grid ────────────────────────────────────────────────────────────── */
+.results-grid,
 #highlights,
 #search-results {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 1.25rem;
+}
+
+#highlights,
+#search-results {
   margin-top: 1.5rem;
 }
 
@@ -646,6 +685,60 @@ a.result-card-link:hover .result-card-poster::after {
   margin-right: auto;
 }
 
+/* ─── Library Page ─────────────────────────────────────────────────────────── */
+.library-shell {
+  max-width: 1080px;
+}
+
+.library-hero {
+  margin-bottom: 2.5rem;
+}
+
+.library-section + .library-section {
+  margin-top: 2rem;
+}
+
+.library-card-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.library-card-actions {
+  display: flex;
+}
+
+.library-card-button,
+.library-cta-button {
+  appearance: none;
+  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition:
+    border-color var(--transition),
+    background var(--transition),
+    color var(--transition);
+}
+
+.library-card-button:hover,
+.library-cta-button:hover {
+  border-color: rgba(201, 168, 76, 0.28);
+  background: rgba(201, 168, 76, 0.08);
+  color: var(--gold-soft);
+}
+
+.library-cta-button {
+  margin-top: 0.25rem;
+  align-self: flex-start;
+}
+
 /* ─── Details Page ──────────────────────────────────────────────────────────── */
 body.details-page main {
   max-width: 1080px;
@@ -875,6 +968,8 @@ footer {
   .logo { font-size: 1.3rem; }
   .header-context { display: none; }
   nav a { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+  .nav-auth-slot { gap: 0.2rem; }
+  .nav-user-chip, .nav-muted-chip { display: none; }
 
   main { padding: 2rem 1.25rem; }
 
@@ -893,7 +988,8 @@ footer {
   .sort-control select { width: 100%; }
 
   #highlights,
-  #search-results { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
+  #search-results,
+  .results-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
 }
 
 @media (max-width: 480px) {

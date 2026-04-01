@@ -19,6 +19,13 @@ import {
 import { getQuotes } from '/scripts/philosophersapi.js';
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { curatedQuoteMatches } from '/scripts/curatedmatches.js';
+import { getSession, redirectToLogin, setupAuthUI } from '/scripts/auth-ui.js';
+import {
+  buildLibraryItem,
+  getLibraryStatus,
+  removeLibraryItem,
+  saveLibraryItem,
+} from '/scripts/library-api.js';
 
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w400';
 const DETAILS_BASE = '/html/details.html';
@@ -245,6 +252,126 @@ function renderAttribution(details) {
   }
 
   attribution.textContent = 'Streaming availability via JustWatch on TMDB.';
+}
+
+function setActionButtonState(button, { active, loading, activeLabel, idleLabel }) {
+  if (!button) return;
+
+  button.disabled = Boolean(loading);
+  button.classList.toggle('is-active', Boolean(active));
+  button.classList.toggle('is-loading', Boolean(loading));
+  button.textContent = loading
+    ? 'Saving...'
+    : (active ? activeLabel : idleLabel);
+}
+
+async function initializeLibraryActions(details, type) {
+  const actions = document.getElementById('details-actions');
+  const watchlistButton = document.getElementById('watchlist-button');
+  const favoriteButton = document.getElementById('favorite-button');
+  const hint = document.getElementById('details-actions-hint');
+
+  if (!actions || !watchlistButton || !favoriteButton || !hint) return;
+
+  const session = await getSession();
+  if (!session.oauthEnabled) {
+    actions.hidden = true;
+    hint.hidden = true;
+    return;
+  }
+
+  const item = buildLibraryItem(details, type);
+  let status = {
+    inWatchlist: false,
+    inFavorites: false,
+  };
+  let feedbackMessage = '';
+
+  const render = ({ loadingWatchlist = false, loadingFavorites = false } = {}) => {
+    actions.hidden = false;
+    hint.hidden = false;
+
+    setActionButtonState(watchlistButton, {
+      active: status.inWatchlist,
+      loading: loadingWatchlist,
+      activeLabel: 'Saved to watchlist',
+      idleLabel: 'Save to watchlist',
+    });
+
+    setActionButtonState(favoriteButton, {
+      active: status.inFavorites,
+      loading: loadingFavorites,
+      activeLabel: 'Saved to favorites',
+      idleLabel: 'Add to favorites',
+    });
+
+    if (feedbackMessage) {
+      hint.textContent = feedbackMessage;
+      return;
+    }
+
+    if (!session.authenticated) {
+      hint.textContent = 'Sign in with Google to save this work to your personal library.';
+      return;
+    }
+
+    if (status.inWatchlist || status.inFavorites) {
+      hint.textContent = 'This work is already saved in your library.';
+      return;
+    }
+
+    hint.textContent = 'Use your library to keep track of titles you want to revisit.';
+  };
+
+  if (session.authenticated) {
+    status = await getLibraryStatus(item.tmdbId, item.mediaType).catch(() => status);
+  }
+
+  render();
+
+  watchlistButton.addEventListener('click', async () => {
+    if (!session.authenticated) {
+      redirectToLogin();
+      return;
+    }
+
+    render({ loadingWatchlist: true });
+
+    try {
+      const payload = status.inWatchlist
+        ? await removeLibraryItem('watchlist', item.tmdbId, item.mediaType)
+        : await saveLibraryItem('watchlist', item);
+
+      status = payload.status || status;
+      feedbackMessage = '';
+      render();
+    } catch (error) {
+      feedbackMessage = 'We could not update your watchlist right now.';
+      render();
+    }
+  });
+
+  favoriteButton.addEventListener('click', async () => {
+    if (!session.authenticated) {
+      redirectToLogin();
+      return;
+    }
+
+    render({ loadingFavorites: true });
+
+    try {
+      const payload = status.inFavorites
+        ? await removeLibraryItem('favorites', item.tmdbId, item.mediaType)
+        : await saveLibraryItem('favorites', item);
+
+      status = payload.status || status;
+      feedbackMessage = '';
+      render();
+    } catch (error) {
+      feedbackMessage = 'We could not update your favorites right now.';
+      render();
+    }
+  });
 }
 
 function renderFacts(details, type) {
@@ -732,6 +859,8 @@ function scheduleAIEnhancement(id, type) {
 }
 
 async function init() {
+  setupAuthUI().catch(() => {});
+
   const { id, type } = getQueryParams();
 
   if (!id || !type || (type !== 'movie' && type !== 'tv')) {
@@ -754,6 +883,7 @@ async function init() {
     }
 
     populateDetails(details, type);
+    initializeLibraryActions(details, type).catch(() => {});
 
     const [relatedWorks, staticQuote] = await Promise.all([
       loadRelatedWorks(id, type, details, reviews).catch(() => []),

@@ -1,5 +1,6 @@
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { discoverTMDB, getReviewsFromTMDB, searchTMDB } from '/scripts/seriesapi.js';
+import { setupAuthUI } from '/scripts/auth-ui.js';
 
 const DETAILS_BASE = '/html/details.html';
 const POSTER_BASE = 'https://image.tmdb.org/t/p/w300';
@@ -935,6 +936,7 @@ async function clearFilters() {
 }
 
 function init() {
+  setupAuthUI().catch(() => {});
   renderSortControl();
   renderFilterControls();
   form.addEventListener('submit', handleSubmit);

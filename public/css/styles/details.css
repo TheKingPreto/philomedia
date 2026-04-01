@@ -77,6 +77,56 @@ body.details-page main {
   max-width: 78ch;
 }
 
+.details-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0.45rem 0 0.35rem;
+}
+
+.library-action-button {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.03);
+  color: #d6d4ce;
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.library-action-button:hover {
+  border-color: rgba(201, 168, 76, 0.3);
+  color: #f0dfb0;
+}
+
+.library-action-button.is-active {
+  border-color: rgba(201, 168, 76, 0.34);
+  background: rgba(201, 168, 76, 0.1);
+  color: #f0dfb0;
+}
+
+.library-action-button:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+.details-actions-hint {
+  margin: 0 0 0.85rem;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #7a7780;
+}
+
 .detail-fact {
   display: inline-flex;
   align-items: baseline;
@@ -384,6 +434,8 @@ body.details-page main {
   .details-info   { width: 100%; }
   #details-title  { font-size: 1.75rem; }
   .details-facts  { gap: 0.35rem 0.65rem; }
+  .details-actions { gap: 0.65rem; }
+  .library-action-button { width: 100%; justify-content: center; }
   .details-attribution { margin-bottom: 0.85rem; }
   #philosophy-quote { padding: 1.75rem 1.5rem; }
   #related-results { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }

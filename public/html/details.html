@@ -19,6 +19,8 @@
     <nav>
       <a href="/html/index.html">Home</a>
       <a href="/html/search.html">Search</a>
+      <a href="/html/library.html" data-auth-link="library" hidden>Library</a>
+      <span id="nav-auth-slot" class="nav-auth-slot"></span>
     </nav>
   </header>
   <main>
@@ -30,6 +32,11 @@
         <h1 id="details-title"></h1>
         <p id="details-meta"></p>
         <div id="details-facts" class="details-facts" aria-label="Work details"></div>
+        <div id="details-actions" class="details-actions" hidden>
+          <button type="button" id="watchlist-button" class="library-action-button">Save to watchlist</button>
+          <button type="button" id="favorite-button" class="library-action-button">Add to favorites</button>
+        </div>
+        <p id="details-actions-hint" class="details-actions-hint" hidden></p>
         <p id="details-attribution" class="details-attribution" hidden></p>
         <p id="details-overview"></p>
       </div>

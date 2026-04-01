@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="author" content="Lucas Silva">
+  <title>PhiloMedia | Library</title>
+  <link rel="stylesheet" href="/css/styles/base.css">
+  <link rel="stylesheet" href="/css/styles/animations.css">
+</head>
+<body class="library-page">
+  <header>
+    <div class="header-brand">
+      <a href="/html/index.html" class="logo">PhiloMedia</a>
+      <span class="header-context">Your Library</span>
+    </div>
+    <nav>
+      <a href="/html/index.html">Home</a>
+      <a href="/html/search.html">Search</a>
+      <a href="/html/library.html" data-auth-link="library" aria-current="page" hidden>Library</a>
+      <span id="nav-auth-slot" class="nav-auth-slot"></span>
+    </nav>
+  </header>
+
+  <main class="library-shell">
+    <section class="library-hero">
+      <h1 class="section-title">Your saved works</h1>
+      <p id="library-intro" class="section-subtitle">Build a personal map of films and series to revisit later.</p>
+    </section>
+
+    <section class="library-section">
+      <div class="results-meta">
+        <div class="results-meta-copy">
+          <h2 class="section-title">Watchlist</h2>
+          <p class="section-subtitle">Titles you want to come back to.</p>
+        </div>
+      </div>
+      <div id="watchlist-grid" class="results-grid"></div>
+    </section>
+
+    <section class="library-section">
+      <div class="results-meta">
+        <div class="results-meta-copy">
+          <h2 class="section-title">Favorites</h2>
+          <p class="section-subtitle">Works that stayed with you.</p>
+        </div>
+      </div>
+      <div id="favorites-grid" class="results-grid"></div>
+    </section>
+  </main>
+
+  <script type="module" src="/scripts/library.js"></script>
+</body>
+</html>
