@@ -4,7 +4,7 @@ import { isAuthenticated } from '../middleware/authMiddleware.js';
 import { validateRequest } from '../middleware/requestValidator.js';
 
 const router = express.Router();
-const VALID_COLLECTIONS = new Set(['watchlist', 'favorites']);
+const VALID_COLLECTIONS = new Set(['watchlist', 'favorites', 'watched']);
 
 function toPlainItem(entry) {
   return {
@@ -29,13 +29,18 @@ function buildLibraryPayload(user) {
   const favorites = (user.favorites || [])
     .map(toPlainItem)
     .sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
+  const watched = (user.watched || [])
+    .map(toPlainItem)
+    .sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
 
   return {
     watchlist,
     favorites,
+    watched,
     counts: {
       watchlist: watchlist.length,
       favorites: favorites.length,
+      watched: watched.length,
     },
   };
 }
@@ -44,6 +49,7 @@ function buildStatusPayload(user, tmdbId, mediaType) {
   return {
     inWatchlist: hasLibraryEntry(user.watchlist, tmdbId, mediaType),
     inFavorites: hasLibraryEntry(user.favorites, tmdbId, mediaType),
+    inWatched: hasLibraryEntry(user.watched, tmdbId, mediaType),
   };
 }
 
@@ -92,8 +98,8 @@ const statusRules = [
 
 const entryParamRules = [
   param('collection')
-    .isIn(['watchlist', 'favorites'])
-    .withMessage('collection must be "watchlist" or "favorites"'),
+    .isIn(['watchlist', 'favorites', 'watched'])
+    .withMessage('collection must be "watchlist", "favorites", or "watched"'),
   param('mediaType')
     .isIn(['movie', 'tv'])
     .withMessage('mediaType must be "movie" or "tv"'),
@@ -128,7 +134,9 @@ router.get('/library/status', isAuthenticated, statusRules, validateRequest, (re
 router.post(
   '/library/:collection',
   isAuthenticated,
-  param('collection').isIn(['watchlist', 'favorites']).withMessage('collection must be "watchlist" or "favorites"'),
+  param('collection')
+    .isIn(['watchlist', 'favorites', 'watched'])
+    .withMessage('collection must be "watchlist", "favorites", or "watched"'),
   saveItemRules,
   validateRequest,
   async (req, res, next) => {

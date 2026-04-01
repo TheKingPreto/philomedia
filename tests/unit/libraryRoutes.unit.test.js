@@ -8,6 +8,7 @@ function buildUser(overrides = {}) {
     displayName: 'Test User',
     watchlist: [],
     favorites: [],
+    watched: [],
     save: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -35,7 +36,7 @@ describe('library routes', () => {
     });
   });
 
-  test('GET /api/me/library returns watchlist and favorites for the current user', async () => {
+  test('GET /api/me/library returns all saved collections for the current user', async () => {
     const app = createApp(buildUser({
       watchlist: [
         {
@@ -53,17 +54,32 @@ describe('library routes', () => {
           addedAt: new Date('2026-04-02T12:00:00Z'),
         },
       ],
+      watched: [
+        {
+          tmdbId: '550',
+          mediaType: 'movie',
+          title: 'Fight Club',
+          addedAt: new Date('2026-04-03T12:00:00Z'),
+        },
+      ],
     }));
 
     const response = await request(app).get('/api/me/library');
 
     expect(response.status).toBe(200);
-    expect(response.body.counts).toEqual({ watchlist: 1, favorites: 1 });
+    expect(response.body.counts).toEqual({ watchlist: 1, favorites: 1, watched: 1 });
     expect(response.body.watchlist[0]).toEqual(
       expect.objectContaining({
         tmdbId: '157336',
         mediaType: 'movie',
         title: 'Interstellar',
+      })
+    );
+    expect(response.body.watched[0]).toEqual(
+      expect.objectContaining({
+        tmdbId: '550',
+        mediaType: 'movie',
+        title: 'Fight Club',
       })
     );
   });
@@ -74,6 +90,9 @@ describe('library routes', () => {
         { tmdbId: '157336', mediaType: 'movie', title: 'Interstellar', addedAt: new Date() },
       ],
       favorites: [],
+      watched: [
+        { tmdbId: '157336', mediaType: 'movie', title: 'Interstellar', addedAt: new Date() },
+      ],
     }));
 
     const response = await request(app).get('/api/me/library/status?tmdbId=157336&mediaType=movie');
@@ -82,6 +101,7 @@ describe('library routes', () => {
     expect(response.body).toEqual({
       inWatchlist: true,
       inFavorites: false,
+      inWatched: true,
     });
   });
 
@@ -106,6 +126,28 @@ describe('library routes', () => {
     expect(response.body.status).toEqual({
       inWatchlist: true,
       inFavorites: false,
+      inWatched: false,
+    });
+  });
+
+  test('POST /api/me/library/watched adds a watched item and returns watched status', async () => {
+    const user = buildUser();
+    const app = createApp(user);
+
+    const response = await request(app)
+      .post('/api/me/library/watched')
+      .send({
+        tmdbId: '550',
+        mediaType: 'movie',
+        title: 'Fight Club',
+      });
+
+    expect(response.status).toBe(201);
+    expect(user.watched).toHaveLength(1);
+    expect(response.body.status).toEqual({
+      inWatchlist: false,
+      inFavorites: false,
+      inWatched: true,
     });
   });
 
@@ -155,6 +197,29 @@ describe('library routes', () => {
     expect(response.body.removed).toBe(true);
     expect(user.watchlist).toHaveLength(0);
     expect(user.save).toHaveBeenCalled();
+  });
+
+  test('DELETE /api/me/library/watched/:mediaType/:tmdbId removes watched status', async () => {
+    const user = buildUser({
+      watched: [
+        { tmdbId: '550', mediaType: 'movie', title: 'Fight Club', addedAt: new Date() },
+      ],
+    });
+    const app = createApp(user);
+
+    const response = await request(app).delete('/api/me/library/watched/movie/550');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      removed: true,
+      collection: 'watched',
+      status: {
+        inWatchlist: false,
+        inFavorites: false,
+        inWatched: false,
+      },
+    });
+    expect(user.watched).toHaveLength(0);
   });
 
   test('POST /api/me/library/watchlist validates required payload fields', async () => {

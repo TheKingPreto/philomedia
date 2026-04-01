@@ -1,9 +1,7 @@
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { discoverTMDB, getReviewsFromTMDB, searchTMDB } from '/scripts/seriesapi.js';
 import { setupAuthUI } from '/scripts/auth-ui.js';
-
-const DETAILS_BASE = '/html/details.html';
-const POSTER_BASE = 'https://image.tmdb.org/t/p/w300';
+import { renderMediaCards } from '/scripts/media-card.js';
 
 const LENS_FILTERS = [
   {
@@ -205,12 +203,6 @@ function getMediaType(item) {
   return 'unknown';
 }
 
-function formatRating(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) return 'TMDB n/a';
-  return `TMDB ${numeric.toFixed(1)}`;
-}
-
 function setSearchLoading(message = 'Searching...') {
   resultsMeta.hidden = true;
   searchToolbar.hidden = true;
@@ -378,42 +370,6 @@ function scoreLensTextAffinity(text, lens) {
   });
 
   return score;
-}
-
-function renderCard(item, index) {
-  const title = item.title || item.name || 'Untitled';
-  const mediaType = item.media_type || 'unknown';
-  const date = item.release_date || item.first_air_date || '-';
-  const overview = item.overview || 'No synopsis available.';
-  const rating = formatRating(item.vote_average);
-  const posterPath = item.poster_path ? `${POSTER_BASE}${item.poster_path}` : null;
-
-  const cardLink = document.createElement('a');
-  cardLink.href = `${DETAILS_BASE}?id=${item.id}&type=${mediaType}`;
-  cardLink.classList.add('result-card-link');
-
-  const card = document.createElement('div');
-  card.classList.add('result-card');
-  card.style.animationDelay = `${index * 0.05}s`;
-
-  const posterHtml = posterPath
-    ? `<img class="poster-img" src="${posterPath}" alt="${escapeHtml(title)} poster" loading="lazy">`
-    : '<div class="no-poster" aria-hidden="true">No image</div>';
-
-  card.innerHTML = `
-    <div class="result-card-poster">
-      ${posterHtml}
-    </div>
-    <div class="result-card-body">
-      <h3>${escapeHtml(title)}</h3>
-      <p class="media-type">${escapeHtml(mediaType)} | ${escapeHtml(rating)}</p>
-      <p class="date">${escapeHtml(date)}</p>
-      <p class="overview">${escapeHtml(overview.length > 110 ? `${overview.slice(0, 110)}...` : overview)}</p>
-    </div>
-  `;
-
-  cardLink.appendChild(card);
-  return cardLink;
 }
 
 function renderFilterButton(container, filter, activeId, groupName) {
@@ -592,9 +548,8 @@ function sortVisibleResults(items) {
 }
 
 function renderResults(items) {
-  resultsContainer.innerHTML = '';
-  items.forEach((item, index) => {
-    resultsContainer.appendChild(renderCard(item, index));
+  renderMediaCards(resultsContainer, items, {
+    overviewLength: 110,
   });
 }
 

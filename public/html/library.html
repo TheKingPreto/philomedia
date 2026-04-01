@@ -28,6 +28,24 @@
       <p id="library-intro" class="section-subtitle">Build a personal map of films and series to revisit later.</p>
     </section>
 
+    <section id="library-toolbar" class="library-toolbar" hidden>
+      <label class="library-search-field" for="library-search">
+        <span class="filter-label">Search your library</span>
+        <input type="search" id="library-search" placeholder="Find a saved title..." autocomplete="off">
+      </label>
+      <div class="library-toolbar-row">
+        <div class="filter-cluster library-filter-group">
+          <p class="filter-label">Media</p>
+          <div id="library-media-filters" class="filter-chip-row" aria-label="Filter library by media type"></div>
+        </div>
+        <label class="sort-control" for="library-sort">
+          <span>Sort by</span>
+          <select id="library-sort" aria-label="Sort library works"></select>
+        </label>
+        <button type="button" id="clear-library-filters" class="ghost-button">Clear filters</button>
+      </div>
+    </section>
+
     <section class="library-section">
       <div class="results-meta">
         <div class="results-meta-copy">
@@ -46,6 +64,16 @@
         </div>
       </div>
       <div id="favorites-grid" class="results-grid"></div>
+    </section>
+
+    <section class="library-section">
+      <div class="results-meta">
+        <div class="results-meta-copy">
+          <h2 class="section-title">Watched</h2>
+          <p class="section-subtitle">Works you have already experienced.</p>
+        </div>
+      </div>
+      <div id="watched-grid" class="results-grid"></div>
     </section>
   </main>
 

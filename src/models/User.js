@@ -64,6 +64,10 @@ const userSchema = new mongoose.Schema({
     type: [savedMediaSchema],
     default: [],
   },
+  watched: {
+    type: [savedMediaSchema],
+    default: [],
+  },
   createdAt: {
     type: Date,
     default: Date.now,

@@ -28,12 +28,12 @@ async function requestLibrary(url, options = {}) {
 
 export function buildLibraryItem(details, mediaType) {
   return {
-    tmdbId: String(details.id),
+    tmdbId: String(details.id ?? details.tmdbId),
     mediaType,
     title: details.title || details.name || 'Untitled',
-    posterPath: details.poster_path || '',
-    releaseDate: details.release_date || details.first_air_date || '',
-    voteAverage: Number(details.vote_average) || 0,
+    posterPath: details.poster_path || details.posterPath || '',
+    releaseDate: details.release_date || details.first_air_date || details.releaseDate || '',
+    voteAverage: Number(details.vote_average ?? details.voteAverage) || 0,
   };
 }
 

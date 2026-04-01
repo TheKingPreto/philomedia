@@ -20,6 +20,7 @@ import { getQuotes } from '/scripts/philosophersapi.js';
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { curatedQuoteMatches } from '/scripts/curatedmatches.js';
 import { getSession, redirectToLogin, setupAuthUI } from '/scripts/auth-ui.js';
+import { renderMediaCards } from '/scripts/media-card.js';
 import {
   buildLibraryItem,
   getLibraryStatus,
@@ -28,7 +29,6 @@ import {
 } from '/scripts/library-api.js';
 
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w400';
-const DETAILS_BASE = '/html/details.html';
 const AI_ENDPOINT = '/api/ai/quotes/generate/media-context';
 const AI_TRIGGER_DELAY_MS = 800;
 const RELATED_LIMIT = 6;
@@ -178,12 +178,6 @@ function formatRating(details) {
   return `${rounded}/10 from ${voteCount.toLocaleString()} votes`;
 }
 
-function formatCardRating(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) return 'TMDB n/a';
-  return `TMDB ${numeric.toFixed(1)}`;
-}
-
 function joinNames(items, key = 'name', limit = 3) {
   if (!Array.isArray(items) || items.length === 0) return '';
 
@@ -269,9 +263,10 @@ async function initializeLibraryActions(details, type) {
   const actions = document.getElementById('details-actions');
   const watchlistButton = document.getElementById('watchlist-button');
   const favoriteButton = document.getElementById('favorite-button');
+  const watchedButton = document.getElementById('watched-button');
   const hint = document.getElementById('details-actions-hint');
 
-  if (!actions || !watchlistButton || !favoriteButton || !hint) return;
+  if (!actions || !watchlistButton || !favoriteButton || !watchedButton || !hint) return;
 
   const session = await getSession();
   if (!session.oauthEnabled) {
@@ -284,10 +279,15 @@ async function initializeLibraryActions(details, type) {
   let status = {
     inWatchlist: false,
     inFavorites: false,
+    inWatched: false,
   };
   let feedbackMessage = '';
 
-  const render = ({ loadingWatchlist = false, loadingFavorites = false } = {}) => {
+  const render = ({
+    loadingWatchlist = false,
+    loadingFavorites = false,
+    loadingWatched = false,
+  } = {}) => {
     actions.hidden = false;
     hint.hidden = false;
 
@@ -305,6 +305,13 @@ async function initializeLibraryActions(details, type) {
       idleLabel: 'Add to favorites',
     });
 
+    setActionButtonState(watchedButton, {
+      active: status.inWatched,
+      loading: loadingWatched,
+      activeLabel: 'Marked as watched',
+      idleLabel: 'Mark as watched',
+    });
+
     if (feedbackMessage) {
       hint.textContent = feedbackMessage;
       return;
@@ -315,7 +322,7 @@ async function initializeLibraryActions(details, type) {
       return;
     }
 
-    if (status.inWatchlist || status.inFavorites) {
+    if (status.inWatchlist || status.inFavorites || status.inWatched) {
       hint.textContent = 'This work is already saved in your library.';
       return;
     }
@@ -369,6 +376,28 @@ async function initializeLibraryActions(details, type) {
       render();
     } catch (error) {
       feedbackMessage = 'We could not update your favorites right now.';
+      render();
+    }
+  });
+
+  watchedButton.addEventListener('click', async () => {
+    if (!session.authenticated) {
+      redirectToLogin();
+      return;
+    }
+
+    render({ loadingWatched: true });
+
+    try {
+      const payload = status.inWatched
+        ? await removeLibraryItem('watched', item.tmdbId, item.mediaType)
+        : await saveLibraryItem('watched', item);
+
+      status = payload.status || status;
+      feedbackMessage = '';
+      render();
+    } catch (error) {
+      feedbackMessage = 'We could not update your watched list right now.';
       render();
     }
   });
@@ -683,42 +712,8 @@ function renderRelatedWorks(works) {
   }
 
   section.hidden = false;
-  container.innerHTML = '';
-
-  works.forEach((item, index) => {
-    const title = item.title || item.name || 'Untitled';
-    const mediaType = item.media_type || 'unknown';
-    const date = getDisplayDate(item) || '-';
-    const overview = item.overview || 'No synopsis available.';
-    const rating = formatCardRating(item.vote_average);
-    const posterPath = item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : null;
-
-    const cardLink = document.createElement('a');
-    cardLink.href = `${DETAILS_BASE}?id=${item.id}&type=${mediaType}`;
-    cardLink.classList.add('result-card-link');
-
-    const card = document.createElement('div');
-    card.classList.add('result-card');
-    card.style.animationDelay = `${index * 0.05}s`;
-
-    const posterHtml = posterPath
-      ? `<img class="poster-img" src="${posterPath}" alt="${escapeHtml(title)} poster" loading="lazy">`
-      : '<div class="no-poster" aria-hidden="true">No image</div>';
-
-    card.innerHTML = `
-      <div class="result-card-poster">
-        ${posterHtml}
-      </div>
-      <div class="result-card-body">
-        <h3>${escapeHtml(title)}</h3>
-        <p class="media-type">${escapeHtml(mediaType)} | ${escapeHtml(rating)}</p>
-        <p class="date">${escapeHtml(date)}</p>
-        <p class="overview">${escapeHtml(overview.length > 110 ? overview.slice(0, 110) + '...' : overview)}</p>
-      </div>
-    `;
-
-    cardLink.appendChild(card);
-    container.appendChild(cardLink);
+  renderMediaCards(container, works, {
+    overviewLength: 110,
   });
 }
 
