@@ -88,6 +88,8 @@ function renderCards(container, items) {
 async function init() {
   const quoteTextEl = document.getElementById('quote-text');
   const quoteAuthorEl = document.getElementById('quote-author');
+  const highlightsTitleEl = document.getElementById('highlights-title');
+  const highlightsContextEl = document.getElementById('highlights-context');
   const highlightsEl = document.getElementById('highlights');
 
   setLoading(highlightsEl, true);
@@ -98,6 +100,12 @@ async function init() {
     quoteTextEl.textContent = `"${content.quote}"`;
     quoteTextEl.setAttribute('aria-busy', 'false');
     quoteAuthorEl.textContent = `- ${content.author}`;
+    if (highlightsTitleEl && content.highlightsTitle) {
+      highlightsTitleEl.textContent = content.highlightsTitle;
+    }
+    if (highlightsContextEl && content.highlightsContext) {
+      highlightsContextEl.textContent = content.highlightsContext;
+    }
 
     highlightsEl.querySelector('.loading-message')?.remove();
     highlightsEl.querySelector('.loading-skeleton')?.remove();

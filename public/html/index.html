@@ -11,9 +11,12 @@
 </head>
 <body>
   <header>
-    <h1><a href="/html/index.html" class="logo">PhiloMedia</a></h1>
+    <div class="header-brand">
+      <a href="/html/index.html" class="logo">PhiloMedia</a>
+      <span class="header-context">Daily Pairing</span>
+    </div>
     <nav>
-      <a href="/html/index.html">Home</a>
+      <a href="/html/index.html" aria-current="page">Home</a>
       <a href="/html/search.html">Search</a>
     </nav>
   </header>
@@ -28,7 +31,8 @@
     </section>
 
     <section id="highlights-section" aria-label="Featured media">
-      <h2 class="section-title">Featured for you</h2>
+      <h2 id="highlights-title" class="section-title">Featured for you</h2>
+      <p id="highlights-context" class="section-subtitle">Works selected to resonate with today's quote.</p>
       <div id="highlights"></div>
     </section>
   </main>
