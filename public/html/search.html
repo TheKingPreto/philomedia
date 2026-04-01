@@ -24,13 +24,42 @@
   <main>
     <section class="search-section">
       <h2 class="section-title">Find movies &amp; series</h2>
-      <p class="section-subtitle">Search by title to discover works and their philosophical connections.</p>
+      <p class="section-subtitle">Search by title or start from a philosophical lens to discover works and their connections.</p>
       <form id="search-form">
         <input type="text" id="search-input" placeholder="e.g. Interstellar, Breaking Bad..." autocomplete="off" />
         <button type="submit">Search</button>
       </form>
+      <div class="search-discovery">
+        <div class="filter-cluster">
+          <p class="filter-label">Suggested lenses</p>
+          <div id="lens-suggestions" class="filter-chip-row" aria-label="Suggested philosophical lenses"></div>
+        </div>
+        <div id="search-toolbar" class="search-toolbar" hidden>
+          <div class="filter-cluster">
+            <p class="filter-label">Media</p>
+            <div id="media-filters" class="filter-chip-row" aria-label="Filter by media type"></div>
+          </div>
+          <div class="filter-cluster">
+            <p class="filter-label">Rating</p>
+            <div id="rating-filters" class="filter-chip-row" aria-label="Filter by TMDB rating"></div>
+          </div>
+          <button type="button" id="clear-search-filters" class="ghost-button">Clear filters</button>
+        </div>
+      </div>
     </section>
-    <div id="search-results" class="results-grid"></div>
+    <section id="search-results-section">
+      <div id="search-results-meta" class="results-meta" hidden>
+        <div class="results-meta-copy">
+          <h3 id="search-results-title" class="section-title">Search results</h3>
+          <p id="search-results-summary" class="section-subtitle"></p>
+        </div>
+        <label class="sort-control" for="sort-select">
+          <span>Sort</span>
+          <select id="sort-select" aria-label="Sort results"></select>
+        </label>
+      </div>
+      <div id="search-results" class="results-grid"></div>
+    </section>
   </main>
 
   <script type="module" src="/scripts/search.js"></script>
