@@ -42,7 +42,7 @@ if (process.env.NODE_ENV !== 'test') {
   if (missing.length > 0) {
     console.error(
       `❌ Missing required environment variables: ${missing.join(', ')}\n` +
-      '   Copy .env.example to .env and fill in the missing values before starting.'
+      '   Add the missing values to your .env before starting the server.'
     );
     process.exit(1);
   }

@@ -55,9 +55,9 @@ That core flow is the part of the project that is currently production-shaped. T
 npm install
 ```
 
-2. Copy `.env.example` to `.env`.
+2. Create or update your `.env`.
 
-3. Fill in the required values in `.env`.
+3. Fill in the required values there.
 
 4. Start the app in development mode:
 

@@ -26,4 +26,12 @@ describe('Basic API endpoints', () => {
     expect(res.statusCode).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
+
+  test('GET /auth should return 503 when OAuth is not configured', async () => {
+    const res = await request(app).get('/auth');
+    expect(res.statusCode).toBe(503);
+    expect(res.body).toEqual({
+      error: 'Authentication is not configured on this server.',
+    });
+  });
 });
