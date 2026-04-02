@@ -4,27 +4,40 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Explore deep philosophical quotes paired with your favorite series, movies, and animes.">
+  <meta name="theme-color" content="#0d0e14">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="index,follow">
   <meta name="author" content="Lucas Silva">
+  <meta property="og:title" content="PhiloMedia | Home">
+  <meta property="og:description" content="Explore deep philosophical quotes paired with your favorite series, movies, and animes.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="PhiloMedia">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="PhiloMedia | Home">
+  <meta name="twitter:description" content="Explore deep philosophical quotes paired with your favorite series, movies, and animes.">
   <title>PhiloMedia | Home</title>
+  <link rel="canonical" href="/html/index.html">
   <link rel="stylesheet" href="/css/styles/base.css">
   <link rel="stylesheet" href="/css/styles/animations.css">
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
   <header>
     <div class="header-brand">
       <a href="/html/index.html" class="logo">PhiloMedia</a>
       <span class="header-context">Daily Pairing</span>
     </div>
-    <nav>
+    <nav aria-label="Primary">
       <a href="/html/index.html" aria-current="page">Home</a>
       <a href="/html/search.html">Search</a>
+      <a href="/html/philosophers.html">Philosophers</a>
       <a href="/html/library.html" data-auth-link="library" hidden>Library</a>
       <span id="nav-auth-slot" class="nav-auth-slot"></span>
     </nav>
   </header>
 
-  <main>
-    <section id="quote-section">
+  <main id="main-content">
+    <section id="quote-section" aria-live="polite">
       <h2>Philosophical Quote of the Day</h2>
       <div id="quote-container">
         <p id="quote-text">Loading quote...</p>

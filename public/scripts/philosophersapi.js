@@ -15,10 +15,21 @@
 
 import { customQuotes } from '/scripts/custom-quotes.js';
 
-const API_QUOTES_ENDPOINT  = '/api/quotes';
-const PROXY_URL            = 'https://corsproxy.io/?';
+const API_QUOTES_ENDPOINT = '/api/quotes';
+const API_QUOTES_CATALOG_ENDPOINT = '/api/quotes/catalog';
+const API_PHILOSOPHERS_ENDPOINT = '/api/philosophers';
+const PROXY_URL = 'https://corsproxy.io/?';
 const PHILOSOPHERS_API_URL = 'https://philosophersapi.com/api/quotes';
-const PHILOSOPHERS_URL     = 'https://philosophersapi.com/api/philosophers';
+const PHILOSOPHERS_URL = 'https://philosophersapi.com/api/philosophers';
+const WIKIPEDIA_SUMMARY_ENDPOINTS = [
+  'https://en.wikipedia.org/api/rest_v1/page/summary/',
+  'https://pt.wikipedia.org/api/rest_v1/page/summary/',
+];
+
+const quoteCatalogPromises = new Map();
+let philosopherDirectoryPromise = null;
+let submittedPhilosophersPromise = null;
+const referenceLookupCache = new Map();
 
 // ─── Source 1: MongoDB via backend API ───────────────────────────────────────
 
@@ -44,6 +55,22 @@ async function fetchFromDB() {
     quote:  doc.quoteText,
     author: doc.authorName,
     themes: doc.themes || [],
+  }));
+}
+
+async function fetchQuoteCatalogFromBackend(lang = 'en') {
+  const res = await fetch(`${API_QUOTES_CATALOG_ENDPOINT}?lang=${encodeURIComponent(lang)}`);
+  if (!res.ok) throw new Error(`/api/quotes/catalog responded ${res.status}`);
+
+  const docs = await res.json();
+  if (!Array.isArray(docs) || docs.length === 0) throw new Error('Empty quote catalog');
+
+  return docs.map(doc => ({
+    id: doc.id,
+    quote: doc.quote,
+    author: doc.author,
+    themes: doc.themes || [],
+    source: doc.source || 'catalog',
   }));
 }
 
@@ -113,4 +140,241 @@ export async function getQuotes() {
     console.warn('[PhiloMedia] All quote sources failed:', err.message);
     return [];
   }
+}
+
+export async function getQuoteCatalog(lang = 'en') {
+  const locale = String(lang || 'en').trim().toLowerCase();
+
+  if (!quoteCatalogPromises.has(locale)) {
+    quoteCatalogPromises.set(locale, fetchQuoteCatalogFromBackend(locale)
+      .catch(err => {
+        console.warn('[PhiloMedia] Quote catalog unavailable, falling back to regular quotes:', err.message);
+        return getQuotes();
+      }));
+  }
+
+  return quoteCatalogPromises.get(locale);
+}
+
+function normalizePortraitUrl(rawUrl) {
+  if (!rawUrl) return '';
+  if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) return rawUrl;
+  if (rawUrl.startsWith('/')) return `https://philosophersapi.com${rawUrl}`;
+  return `https://philosophersapi.com/${rawUrl.replace(/^\/+/, '')}`;
+}
+
+function normalizePhilosopherEntry(entry) {
+  const portraitUrl =
+    normalizePortraitUrl(entry?.images?.faceImages?.face500x500)
+    || normalizePortraitUrl(entry?.images?.faceImages?.face250x250)
+    || '';
+
+  return {
+    id: entry.id,
+    name: entry.name,
+    life: entry.life || '',
+    school: entry.school || '',
+    interests: Array.isArray(entry.interests) ? entry.interests : [],
+    topicalDescription: entry.topicalDescription || '',
+    birthYear: entry.birthYear || '',
+    deathYear: entry.deathYear || '',
+    wikiTitle: entry.wikiTitle || '',
+    portraitUrl,
+  };
+}
+
+export async function getPhilosopherDirectory() {
+  if (!philosopherDirectoryPromise) {
+    philosopherDirectoryPromise = fetch(PROXY_URL + encodeURIComponent(PHILOSOPHERS_URL))
+      .then(async response => {
+        if (!response.ok) throw new Error(`Philosophers API responded ${response.status}`);
+        const data = await response.json();
+        if (!Array.isArray(data)) throw new Error('Invalid philosopher directory payload');
+        return data.map(normalizePhilosopherEntry).filter(entry => entry.name);
+      })
+      .catch(error => {
+        console.warn('[PhiloMedia] Philosopher directory unavailable:', error.message);
+        return [];
+      });
+  }
+
+  return philosopherDirectoryPromise;
+}
+
+export async function getSubmittedPhilosophers() {
+  if (!submittedPhilosophersPromise) {
+    submittedPhilosophersPromise = fetch(API_PHILOSOPHERS_ENDPOINT, {
+      credentials: 'same-origin',
+    })
+      .then(async response => {
+        if (!response.ok) throw new Error(`Philosophers endpoint responded ${response.status}`);
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      })
+      .catch(error => {
+        console.warn('[PhiloMedia] Submitted philosophers unavailable:', error.message);
+        return [];
+      });
+  }
+
+  return submittedPhilosophersPromise;
+}
+
+export async function submitPhilosopherContribution(payload) {
+  const response = await fetch(API_PHILOSOPHERS_ENDPOINT, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(result.message || result.error || 'Could not submit philosopher.');
+    error.status = response.status;
+    error.details = result.errors || [];
+    throw error;
+  }
+
+  submittedPhilosophersPromise = null;
+  return result;
+}
+
+function buildSummaryCandidates(title) {
+  const value = String(title || '').trim();
+  if (!value) return [];
+
+  const underscoreTitle = value.replace(/\s+/g, '_');
+  const normalized = value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/\s+/g, '_');
+
+  return [...new Set([underscoreTitle, normalized])];
+}
+
+function normalizeWhitespace(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function splitSentences(text) {
+  return normalizeWhitespace(text)
+    .split(/(?<=[.!?])\s+/)
+    .map(sentence => sentence.trim())
+    .filter(Boolean);
+}
+
+function extractLifeRange(text) {
+  const matches = normalizeWhitespace(text).match(/\b\d{3,4}\b/g) || [];
+  const uniqueYears = [...new Set(matches)];
+
+  if (uniqueYears.length >= 2) {
+    return `${uniqueYears[0]}-${uniqueYears[1]}`;
+  }
+
+  return uniqueYears[0] || '';
+}
+
+function buildDescriptor(description) {
+  const cleanDescription = normalizeWhitespace(description).replace(/\.$/, '');
+  if (!cleanDescription) return '';
+
+  const shortened = cleanDescription
+    .split(',')[0]
+    .split(/\s+and\s+/i)[0]
+    .trim();
+
+  if (!shortened) return '';
+
+  return shortened.charAt(0).toUpperCase() + shortened.slice(1);
+}
+
+function buildSummary(name, description, extract) {
+  const cleanDescription = normalizeWhitespace(description).replace(/\.$/, '');
+  if (cleanDescription) {
+    const normalizedExtract = ` ${normalizeWhitespace(extract).toLowerCase()} `;
+    const copula = normalizedExtract.includes(' is ') && !normalizedExtract.includes(' was ') ? 'is' : 'was';
+    const lowered = cleanDescription.charAt(0).toLowerCase() + cleanDescription.slice(1);
+    return `${name} ${copula} ${lowered}.`;
+  }
+
+  return splitSentences(extract)[0] || '';
+}
+
+function buildFocus(extract) {
+  const sentences = splitSentences(extract);
+  if (sentences.length >= 2) {
+    return sentences.slice(1, 3).join(' ');
+  }
+
+  return sentences[0] || '';
+}
+
+function normalizeReferencePayload(name, payload) {
+  if (!payload) return null;
+
+  const portraitUrl = payload?.originalimage?.source || payload?.thumbnail?.source || '';
+  const description = normalizeWhitespace(payload?.description || '');
+  const extract = normalizeWhitespace(payload?.extract || '');
+  const periodDescriptor = buildDescriptor(description);
+  const lifeRange = extractLifeRange(extract);
+
+  return {
+    portraitUrl,
+    description,
+    extract,
+    period: periodDescriptor && lifeRange
+      ? `${periodDescriptor} · ${lifeRange}`
+      : (periodDescriptor || lifeRange),
+    summary: buildSummary(name, description, extract),
+    focus: buildFocus(extract),
+  };
+}
+
+async function fetchReferenceFromSummaryEndpoint(name, title) {
+  const candidates = buildSummaryCandidates(title);
+
+  for (const baseUrl of WIKIPEDIA_SUMMARY_ENDPOINTS) {
+    for (const candidate of candidates) {
+      try {
+        const response = await fetch(PROXY_URL + encodeURIComponent(`${baseUrl}${encodeURIComponent(candidate)}`));
+        if (!response.ok) continue;
+
+        const data = await response.json();
+        const reference = normalizeReferencePayload(name, data);
+        if (reference?.portraitUrl || reference?.summary || reference?.period || reference?.focus) {
+          return reference;
+        }
+      } catch (error) {
+        continue;
+      }
+    }
+  }
+
+  return '';
+}
+
+export async function getPhilosopherReference(title, wikiTitle = '') {
+  const cacheKey = `${title}::${wikiTitle}`;
+  if (!referenceLookupCache.has(cacheKey)) {
+    referenceLookupCache.set(cacheKey, (async () => {
+      const titles = [wikiTitle, title].filter(Boolean);
+      for (const candidate of titles) {
+        const reference = await fetchReferenceFromSummaryEndpoint(title, candidate);
+        if (reference) return reference;
+      }
+      return null;
+    })());
+  }
+
+  return referenceLookupCache.get(cacheKey);
+}
+
+export async function getPhilosopherPortrait(title, wikiTitle = '') {
+  const reference = await getPhilosopherReference(title, wikiTitle);
+  return reference?.portraitUrl || '';
 }

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Browse the philosophers whose ideas shape the quotes, readings, and media pairings inside PhiloMedia.">
+  <meta name="theme-color" content="#0d0e14">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="index,follow">
+  <meta name="author" content="Lucas Silva">
+  <meta property="og:title" content="PhiloMedia | Philosophers">
+  <meta property="og:description" content="Browse the philosophers whose ideas shape the quotes, readings, and media pairings inside PhiloMedia.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="PhiloMedia">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="PhiloMedia | Philosophers">
+  <meta name="twitter:description" content="Browse the philosophers whose ideas shape the quotes, readings, and media pairings inside PhiloMedia.">
+  <title>PhiloMedia | Philosophers</title>
+  <link rel="canonical" href="/html/philosophers.html">
+  <link rel="stylesheet" href="/css/styles/base.css">
+  <link rel="stylesheet" href="/css/styles/animations.css">
+</head>
+<body class="philosophers-page">
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header>
+    <div class="header-brand">
+      <a href="/html/index.html" class="logo">PhiloMedia</a>
+      <span class="header-context">Philosophers</span>
+    </div>
+    <nav aria-label="Primary">
+      <a href="/html/index.html">Home</a>
+      <a href="/html/search.html">Search</a>
+      <a href="/html/philosophers.html" aria-current="page">Philosophers</a>
+      <a href="/html/library.html" data-auth-link="library" hidden>Library</a>
+      <span id="nav-auth-slot" class="nav-auth-slot"></span>
+    </nav>
+  </header>
+
+  <main id="main-content" class="philosophers-shell">
+    <section class="philosophers-hero">
+      <p class="profile-eyebrow">Philosopher index</p>
+      <h1 class="section-title">Thinkers behind the readings</h1>
+      <p class="section-subtitle">Browse the voices whose ideas shape the quotes, lenses, and related works across PhiloMedia.</p>
+      <div id="philosophers-stats" class="profile-stats" aria-label="Philosopher collection stats"></div>
+    </section>
+
+    <section class="philosophers-section">
+      <div class="results-meta">
+        <div class="results-meta-copy">
+          <h2 class="section-title">Browse philosophers</h2>
+          <p class="section-subtitle">Each page gathers quotes, recurring themes, and works that already resonate with that thinker inside the site.</p>
+        </div>
+      </div>
+      <div id="philosophers-pagination-summary" class="section-subtitle"></div>
+      <div id="philosophers-grid" class="philosopher-card-grid"></div>
+      <div id="philosophers-pagination" class="philosopher-pagination" hidden></div>
+    </section>
+  </main>
+
+  <script type="module" src="/scripts/philosophers.js"></script>
+</body>
+</html>

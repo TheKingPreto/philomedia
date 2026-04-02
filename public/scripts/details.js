@@ -21,6 +21,8 @@ import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { curatedQuoteMatches } from '/scripts/curatedmatches.js';
 import { getSession, redirectToLogin, setupAuthUI } from '/scripts/auth-ui.js';
 import { renderMediaCards } from '/scripts/media-card.js';
+import { getDisplayAuthorName, getPhilosopherUrlByAuthor } from '/scripts/philosopher-data.js';
+import { updatePageSeo } from '/scripts/seo.js';
 import {
   buildLibraryItem,
   getLibraryStatus,
@@ -73,6 +75,12 @@ function setLoading(visible) {
 
 function showError(message) {
   setLoading(false);
+  updatePageSeo({
+    title: 'PhiloMedia | Details unavailable',
+    description: 'The requested PhiloMedia media page could not be loaded right now.',
+    path: window.location.pathname,
+    type: 'article',
+  });
 
   document.getElementById('details-container')
     ?.querySelectorAll('.details-poster, .details-info')
@@ -432,13 +440,16 @@ function renderFacts(details, type) {
 }
 
 function populateDetails(details, type) {
-  document.title = `${getDisplayTitle(details)} - PhiloMedia`;
-
   const img = document.getElementById('details-image');
+  const title = getDisplayTitle(details);
+  const mediaLabel = type === 'tv' ? 'Series' : 'Movie';
+  const releaseDate = type === 'tv' ? details.first_air_date : details.release_date;
+  const posterUrl = details.poster_path ? `${TMDB_IMAGE_BASE}${details.poster_path}` : '';
+
   if (img) {
     if (details.poster_path) {
-      img.src = `${TMDB_IMAGE_BASE}${details.poster_path}`;
-      img.alt = `Poster of ${getDisplayTitle(details)}`;
+      img.src = posterUrl;
+      img.alt = `Poster of ${title}`;
       img.classList.remove('no-poster');
     } else {
       img.removeAttribute('src');
@@ -447,10 +458,15 @@ function populateDetails(details, type) {
     }
   }
 
-  const mediaLabel = type === 'tv' ? 'Series' : 'Movie';
-  const releaseDate = type === 'tv' ? details.first_air_date : details.release_date;
+  updatePageSeo({
+    title: `${title} | PhiloMedia`,
+    description: details.overview || `${title} receives a philosophical reading, contextual quote pairing, and related works inside PhiloMedia.`,
+    path: `${window.location.pathname}?id=${encodeURIComponent(details.id)}&type=${encodeURIComponent(type)}`,
+    image: posterUrl,
+    type: 'article',
+  });
 
-  setText('details-title', getDisplayTitle(details));
+  setText('details-title', title);
   setText(
     'details-meta',
     `${mediaLabel} | ${formatYear(releaseDate)} | ${formatRuntime(details, type)}`
@@ -768,7 +784,20 @@ function renderStaticQuote({ text, author }) {
   if (!textEl || !authorEl) return;
 
   textEl.textContent = `"${text}"`;
-  authorEl.textContent = `- ${author}`;
+  authorEl.textContent = '';
+
+  const displayName = getDisplayAuthorName(author);
+  const url = getPhilosopherUrlByAuthor(author);
+
+  if (!url) {
+    authorEl.textContent = `- ${displayName}`;
+    return;
+  }
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.textContent = `- ${displayName}`;
+  authorEl.appendChild(link);
 }
 
 function renderAIExpansion({ text, author, explanation }) {
@@ -779,11 +808,16 @@ function renderAIExpansion({ text, author, explanation }) {
 
   const block = document.createElement('div');
   block.className = 'ai-quote-block';
+  const displayName = getDisplayAuthorName(author);
+  const authorUrl = getPhilosopherUrlByAuthor(author);
+  const authorMarkup = authorUrl
+    ? `<a href="${authorUrl}">- ${escapeHtml(displayName)}</a>`
+    : `- ${escapeHtml(displayName)}`;
 
   block.innerHTML = `
     <div class="ai-badge">AI interpretive reading</div>
     <p class="ai-quote-text">"${text}"</p>
-    <span class="ai-quote-author">- ${author}</span>
+    <span class="ai-quote-author">${authorMarkup}</span>
     ${explanation ? `<p class="ai-quote-explanation">${explanation}</p>` : ''}
   `;
 

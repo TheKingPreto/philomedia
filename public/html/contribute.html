@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Add new thinkers or contribute quotes to existing philosopher pages in PhiloMedia.">
+  <meta name="theme-color" content="#0d0e14">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="author" content="Lucas Silva">
+  <title>PhiloMedia | Contribute</title>
+  <link rel="canonical" href="/html/contribute.html">
+  <link rel="stylesheet" href="/css/styles/base.css">
+  <link rel="stylesheet" href="/css/styles/animations.css">
+</head>
+<body class="contribute-page">
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header>
+    <div class="header-brand">
+      <a href="/html/index.html" class="logo">PhiloMedia</a>
+      <span class="header-context">Contribute</span>
+    </div>
+    <nav aria-label="Primary">
+      <a href="/html/index.html">Home</a>
+      <a href="/html/search.html">Search</a>
+      <a href="/html/philosophers.html">Philosophers</a>
+      <a href="/html/library.html" data-auth-link="library" hidden>Library</a>
+      <span id="nav-auth-slot" class="nav-auth-slot"></span>
+    </nav>
+  </header>
+
+  <main id="main-content" class="profile-shell contribute-shell">
+    <section id="contribute-gate"></section>
+
+    <section id="contribute-content" hidden>
+      <section class="profile-hero contribute-hero">
+        <div class="profile-copy">
+          <p class="profile-eyebrow">Community archive</p>
+          <h1 class="section-title">Add a thinker and their quotes</h1>
+          <p class="profile-summary">Logged-in readers can extend PhiloMedia with new philosophers, psychologists, and thinkers, or deepen an existing profile with more quotes.</p>
+        </div>
+      </section>
+
+      <section class="profile-panel contribute-panel">
+        <form id="contribution-form" class="contribution-form" novalidate>
+          <div class="results-meta contribute-section-meta">
+            <div class="results-meta-copy">
+              <h2 class="section-title">Choose contribution mode</h2>
+              <p class="section-subtitle">Create a new thinker page or select someone already on the site to add more English quotes to that profile.</p>
+            </div>
+          </div>
+
+          <div class="filter-chip-row contribution-mode-tabs" role="tablist" aria-label="Contribution mode">
+            <button type="button" class="filter-chip contribution-mode-tab is-active" data-contribution-mode="new" aria-selected="true">New thinker</button>
+            <button type="button" class="filter-chip contribution-mode-tab" data-contribution-mode="existing" aria-selected="false">Existing thinker</button>
+          </div>
+
+          <section id="existing-thinker-panel" class="contribution-existing-panel" hidden>
+            <div class="contribution-grid">
+              <div class="contribution-field contribution-field-wide">
+                <label for="existing-thinker-input">Select an existing thinker</label>
+                <input id="existing-thinker-input" type="text" list="existing-thinker-options" maxlength="160" placeholder="Search for an existing philosopher, psychologist, or thinker" aria-describedby="existing-thinker-help">
+                <datalist id="existing-thinker-options"></datalist>
+                <p id="existing-thinker-help" class="contribution-help-text">Choose someone already in PhiloMedia and any new quotes will be attached to that profile.</p>
+              </div>
+            </div>
+            <div id="existing-thinker-feedback" class="contribution-inline-feedback" data-tone="muted" aria-live="polite" hidden></div>
+            <article id="existing-thinker-preview" class="contribution-profile-preview" hidden></article>
+          </section>
+
+          <div id="new-thinker-fields" class="contribution-grid">
+            <div class="contribution-field contribution-field-wide">
+              <label for="contribution-name">Thinker name</label>
+              <input id="contribution-name" name="name" type="text" maxlength="120" placeholder="e.g. Albert Camus" required>
+            </div>
+            <div class="contribution-field">
+              <label for="contribution-period">Period</label>
+              <input id="contribution-period" name="period" type="text" maxlength="160" placeholder="e.g. 20th-century France · 1913-1960">
+            </div>
+            <div class="contribution-field">
+              <label for="contribution-wiki-title">Wikipedia title</label>
+              <input id="contribution-wiki-title" name="wikiTitle" type="text" maxlength="180" placeholder="e.g. Albert Camus">
+            </div>
+            <div class="contribution-field contribution-field-wide">
+              <label for="contribution-summary">Summary</label>
+              <textarea id="contribution-summary" name="summary" rows="3" maxlength="600" placeholder="A short English overview of how this thinker thinks."></textarea>
+            </div>
+            <div class="contribution-field contribution-field-wide">
+              <label for="contribution-focus">PhiloMedia focus</label>
+              <textarea id="contribution-focus" name="focus" rows="3" maxlength="600" placeholder="How this thinker should resonate with the site's readings and related works."></textarea>
+            </div>
+            <div class="contribution-field contribution-field-wide">
+              <label for="contribution-portrait-url">Portrait URL</label>
+              <input id="contribution-portrait-url" name="portraitUrl" type="url" maxlength="400" placeholder="Optional https:// image URL">
+            </div>
+            <div class="contribution-field contribution-field-wide">
+              <label for="contribution-aliases">Aliases</label>
+              <input id="contribution-aliases" name="aliases" type="text" maxlength="500" placeholder="Comma-separated names or spellings">
+            </div>
+          </div>
+
+          <div class="results-meta contribute-section-meta">
+            <div class="results-meta-copy">
+              <h2 class="section-title">Quotes</h2>
+              <p id="quotes-section-subtitle" class="section-subtitle">Add one or more English quotes. Optional themes help the first match, but the site also analyzes the quote text.</p>
+            </div>
+          </div>
+
+          <div id="quote-list" class="quote-list"></div>
+
+          <div class="contribution-actions">
+            <button type="button" id="add-quote-button" class="ghost-button">Add another quote</button>
+            <button type="submit" id="submit-contribution-button" class="profile-action-link">Publish thinker</button>
+          </div>
+
+          <div id="contribution-feedback" class="contribution-feedback" aria-live="polite"></div>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="/scripts/contribute.js"></script>
+</body>
+</html>

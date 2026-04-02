@@ -107,6 +107,13 @@ export async function setupAuthUI() {
 
   if (session.authenticated && session.user) {
     authSlot.appendChild(
+      createNavLink({
+        href: '/html/contribute.html',
+        text: 'Contribute',
+        dataRole: 'contribute',
+      })
+    );
+    authSlot.appendChild(
       createChipLink({
         href: '/html/profile.html',
         text: getFirstName(session.user.displayName),

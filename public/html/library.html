@@ -3,26 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Manage your personal watchlist, favorites, and watched works inside PhiloMedia.">
+  <meta name="theme-color" content="#0d0e14">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex,nofollow">
   <meta name="author" content="Lucas Silva">
   <title>PhiloMedia | Library</title>
+  <link rel="canonical" href="/html/library.html">
   <link rel="stylesheet" href="/css/styles/base.css">
   <link rel="stylesheet" href="/css/styles/animations.css">
 </head>
 <body class="library-page">
+  <a class="skip-link" href="#main-content">Skip to content</a>
   <header>
     <div class="header-brand">
       <a href="/html/index.html" class="logo">PhiloMedia</a>
       <span class="header-context">Your Library</span>
     </div>
-    <nav>
+    <nav aria-label="Primary">
       <a href="/html/index.html">Home</a>
       <a href="/html/search.html">Search</a>
+      <a href="/html/philosophers.html">Philosophers</a>
       <a href="/html/library.html" data-auth-link="library" aria-current="page" hidden>Library</a>
       <span id="nav-auth-slot" class="nav-auth-slot"></span>
     </nav>
   </header>
 
-  <main class="library-shell">
+  <main id="main-content" class="library-shell">
     <section class="library-hero">
       <h1 class="section-title">Your saved works</h1>
       <p id="library-intro" class="section-subtitle">Build a personal map of films and series to revisit later.</p>

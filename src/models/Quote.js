@@ -17,6 +17,22 @@ const quoteSchema = new mongoose.Schema({
     type: [String],
     default: [],
   },
+  submissionSource: {
+    type: String,
+    enum: ['system', 'import', 'user-submitted'],
+    default: 'system',
+  },
+  submittedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
+  quoteLanguage: {
+    type: String,
+    default: 'en',
+    trim: true,
+    lowercase: true,
+  },
 
   // ─── Compatibilidade com curatedmatches.js ───────────────────────────────
   // Preserva o ID numérico original do custom-quotes.js (1001–1051).

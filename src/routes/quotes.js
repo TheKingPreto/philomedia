@@ -4,6 +4,7 @@ import { isAuthenticated } from '../middleware/authMiddleware.js';
 import { validateRequest } from '../middleware/requestValidator.js';
 import {
   getAllQuotes,
+  getQuoteCatalog,
   getQuoteById,
   createQuote,
   updateQuote,
@@ -68,6 +69,8 @@ const updateQuoteRules = [
  *         description: Error retrieving quotes.
  */
 router.get('/', getAllQuotes);
+
+router.get('/catalog', getQuoteCatalog);
 
 /**
  * @swagger

@@ -1,6 +1,7 @@
 import { loadContent } from '/scripts/main.js';
 import { setupAuthUI } from '/scripts/auth-ui.js';
 import { renderMediaCards } from '/scripts/media-card.js';
+import { getDisplayAuthorName, getPhilosopherUrlByAuthor } from '/scripts/philosopher-data.js';
 
 function setLoading(highlightsEl, loading = true) {
   if (loading) {
@@ -16,6 +17,25 @@ function setLoading(highlightsEl, loading = true) {
       <p class="loading-message">Finding meaningful connections for you...</p>
     `;
   }
+}
+
+function renderQuoteAuthor(container, author) {
+  if (!container) return;
+
+  const displayName = getDisplayAuthorName(author);
+  const url = getPhilosopherUrlByAuthor(author);
+
+  container.textContent = '';
+
+  if (!url) {
+    container.textContent = `- ${displayName}`;
+    return;
+  }
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.textContent = `- ${displayName}`;
+  container.appendChild(link);
 }
 
 async function init() {
@@ -34,7 +54,7 @@ async function init() {
 
     quoteTextEl.textContent = `"${content.quote}"`;
     quoteTextEl.setAttribute('aria-busy', 'false');
-    quoteAuthorEl.textContent = `- ${content.author}`;
+    renderQuoteAuthor(quoteAuthorEl, content.author);
     if (highlightsTitleEl && content.highlightsTitle) {
       highlightsTitleEl.textContent = content.highlightsTitle;
     }

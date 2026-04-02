@@ -3,26 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="View your PhiloMedia profile, library stats, and recent activity.">
+  <meta name="theme-color" content="#0d0e14">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex,nofollow">
   <meta name="author" content="Lucas Silva">
   <title>PhiloMedia | Profile</title>
+  <link rel="canonical" href="/html/profile.html">
   <link rel="stylesheet" href="/css/styles/base.css">
   <link rel="stylesheet" href="/css/styles/animations.css">
 </head>
 <body class="profile-page">
+  <a class="skip-link" href="#main-content">Skip to content</a>
   <header>
     <div class="header-brand">
       <a href="/html/index.html" class="logo">PhiloMedia</a>
       <span class="header-context">Your Profile</span>
     </div>
-    <nav>
+    <nav aria-label="Primary">
       <a href="/html/index.html">Home</a>
       <a href="/html/search.html">Search</a>
+      <a href="/html/philosophers.html">Philosophers</a>
       <a href="/html/library.html" data-auth-link="library" hidden>Library</a>
       <span id="nav-auth-slot" class="nav-auth-slot"></span>
     </nav>
   </header>
 
-  <main class="profile-shell">
+  <main id="main-content" class="profile-shell">
     <section id="profile-gate"></section>
 
     <section id="profile-content" hidden>
@@ -43,6 +50,7 @@
           <p id="profile-summary" class="profile-summary"></p>
           <div class="profile-actions">
             <a href="/html/library.html" class="profile-action-link">Open library</a>
+            <a href="/html/contribute.html" class="profile-action-link profile-action-link-secondary">Add philosopher</a>
             <a href="/html/search.html" class="profile-action-link profile-action-link-secondary">Discover more works</a>
           </div>
         </div>

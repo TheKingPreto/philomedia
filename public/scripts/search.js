@@ -891,6 +891,52 @@ async function clearFilters() {
   }
 }
 
+async function hydrateFromQueryParams() {
+  const params = new URLSearchParams(window.location.search);
+  const query = params.get('q')?.trim() || '';
+  const requestedLens = params.get('lens')?.trim() || '';
+  const lens = getLensById(requestedLens)?.id || '';
+
+  if (!query && !lens) {
+    return;
+  }
+
+  if (query) {
+    input.value = query;
+  }
+
+  if (lens) {
+    state.filters.lens = lens;
+    renderFilterControls();
+  }
+
+  if (query) {
+    try {
+      await runSearch(query);
+
+      if (!state.rawResults.length) {
+        setSearchEmpty('Try another title or use a philosophical lens to explore.');
+        return;
+      }
+
+      await renderFilteredState();
+    } catch (error) {
+      const is502 = error.message && (error.message.includes('TMDB') || error.message.includes('unavailable'));
+      setSearchError(error.message || 'Error fetching data. Please try again.', is502);
+    }
+    return;
+  }
+
+  if (lens) {
+    try {
+      await runThemeDiscovery(lens);
+    } catch (error) {
+      const is502 = error.message && (error.message.includes('TMDB') || error.message.includes('unavailable'));
+      setSearchError(error.message || 'Error fetching data. Please try again.', is502);
+    }
+  }
+}
+
 function init() {
   setupAuthUI().catch(() => {});
   resultsMeta.hidden = true;
@@ -902,6 +948,7 @@ function init() {
   ratingFiltersContainer.addEventListener('click', handleToolbarClick);
   sortSelect.addEventListener('change', handleSortChange);
   clearFiltersButton.addEventListener('click', clearFilters);
+  hydrateFromQueryParams().catch(() => {});
 }
 
 init();

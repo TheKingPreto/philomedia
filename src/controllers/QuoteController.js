@@ -1,8 +1,14 @@
 import Quote from '../models/Quote.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { buildQuoteCatalog } from '../services/quoteCatalog.js';
 
 export const getAllQuotes = asyncHandler(async (req, res, next) => {
   const quotes = await Quote.find({});
+  res.status(200).json(quotes);
+});
+
+export const getQuoteCatalog = asyncHandler(async (req, res, next) => {
+  const quotes = await buildQuoteCatalog(req.query.lang || 'en');
   res.status(200).json(quotes);
 });
 
