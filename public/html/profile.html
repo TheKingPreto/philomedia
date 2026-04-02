@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="author" content="Lucas Silva">
+  <title>PhiloMedia | Profile</title>
+  <link rel="stylesheet" href="/css/styles/base.css">
+  <link rel="stylesheet" href="/css/styles/animations.css">
+</head>
+<body class="profile-page">
+  <header>
+    <div class="header-brand">
+      <a href="/html/index.html" class="logo">PhiloMedia</a>
+      <span class="header-context">Your Profile</span>
+    </div>
+    <nav>
+      <a href="/html/index.html">Home</a>
+      <a href="/html/search.html">Search</a>
+      <a href="/html/library.html" data-auth-link="library" hidden>Library</a>
+      <span id="nav-auth-slot" class="nav-auth-slot"></span>
+    </nav>
+  </header>
+
+  <main class="profile-shell">
+    <section id="profile-gate"></section>
+
+    <section id="profile-content" hidden>
+      <section class="profile-hero">
+        <div class="profile-avatar-column">
+          <div class="profile-avatar" id="profile-avatar" aria-hidden="true"></div>
+          <div class="profile-avatar-tools">
+            <input type="file" id="avatar-file-input" accept="image/*" hidden>
+            <button type="button" id="avatar-upload-button" class="ghost-button">Upload photo</button>
+            <button type="button" id="avatar-remove-button" class="ghost-button" hidden>Remove photo</button>
+            <p id="avatar-feedback" class="profile-avatar-feedback">Square photos work best. We will crop and compress the image for you.</p>
+          </div>
+        </div>
+        <div class="profile-copy">
+          <p class="profile-eyebrow">Personal profile</p>
+          <h1 id="profile-name" class="section-title">Your profile</h1>
+          <p id="profile-email" class="section-subtitle"></p>
+          <p id="profile-summary" class="profile-summary"></p>
+          <div class="profile-actions">
+            <a href="/html/library.html" class="profile-action-link">Open library</a>
+            <a href="/html/search.html" class="profile-action-link profile-action-link-secondary">Discover more works</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="profile-stats" class="profile-stats" aria-label="Library stats"></section>
+
+      <section class="profile-grid">
+        <article class="profile-panel">
+          <div class="results-meta">
+            <div class="results-meta-copy">
+              <h2 class="section-title">Recent activity</h2>
+              <p class="section-subtitle">Your latest additions across watchlist, favorites, and watched.</p>
+            </div>
+          </div>
+          <div id="profile-activity"></div>
+        </article>
+
+        <article class="profile-panel">
+          <div class="results-meta">
+            <div class="results-meta-copy">
+              <h2 class="section-title">Library overview</h2>
+              <p class="section-subtitle">Quick shortcuts to the parts of your library you use most.</p>
+            </div>
+          </div>
+          <div id="profile-overview" class="profile-overview"></div>
+        </article>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="/scripts/profile.js"></script>
+</body>
+</html>

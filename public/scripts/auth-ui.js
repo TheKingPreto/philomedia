@@ -66,6 +66,14 @@ function createNavLink({ href, text, dataRole }) {
   return link;
 }
 
+function createChipLink({ href, text, className }) {
+  const link = document.createElement('a');
+  link.href = href;
+  link.className = className;
+  link.textContent = text;
+  return link;
+}
+
 function createTextChip(text, className) {
   const chip = document.createElement('span');
   chip.className = className;
@@ -99,7 +107,11 @@ export async function setupAuthUI() {
 
   if (session.authenticated && session.user) {
     authSlot.appendChild(
-      createTextChip(getFirstName(session.user.displayName), 'nav-user-chip')
+      createChipLink({
+        href: '/html/profile.html',
+        text: getFirstName(session.user.displayName),
+        className: 'nav-user-chip',
+      })
     );
     authSlot.appendChild(
       createNavLink({

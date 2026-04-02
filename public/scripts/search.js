@@ -807,6 +807,7 @@ async function handleSubmit(event) {
       return;
     }
 
+    resultsMeta.hidden = true;
     resultsContainer.innerHTML = '<p class="inline-message">Enter a title or choose one of the suggested lenses.</p>';
     return;
   }
@@ -892,6 +893,7 @@ async function clearFilters() {
 
 function init() {
   setupAuthUI().catch(() => {});
+  resultsMeta.hidden = true;
   renderSortControl();
   renderFilterControls();
   form.addEventListener('submit', handleSubmit);

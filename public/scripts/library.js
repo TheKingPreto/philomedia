@@ -1,8 +1,6 @@
 import { getFirstName, getSession, redirectToLogin, setupAuthUI } from '/scripts/auth-ui.js';
-import { getLibrary, removeLibraryItem, saveLibraryItem } from '/scripts/library-api.js';
-
-const DETAILS_BASE = '/html/details.html';
-const POSTER_BASE = 'https://image.tmdb.org/t/p/w300';
+import { getLibrary } from '/scripts/library-api.js';
+import { createMediaCard, hydrateMediaCards, primeLibraryContext } from '/scripts/media-card.js';
 
 const MEDIA_FILTERS = [
   { id: 'all', label: 'All' },
@@ -43,16 +41,6 @@ function normalizeText(text) {
     .trim();
 }
 
-function formatRating(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) return 'TMDB n/a';
-  return `TMDB ${numeric.toFixed(1)}`;
-}
-
-function getItemKey(item) {
-  return `${item.mediaType}:${item.tmdbId}`;
-}
-
 function getReleaseTimestamp(item) {
   const timestamp = Date.parse(item.releaseDate || '');
   return Number.isFinite(timestamp) ? timestamp : 0;
@@ -61,41 +49,6 @@ function getReleaseTimestamp(item) {
 function getAddedTimestamp(item) {
   const timestamp = Date.parse(item.addedAt || '');
   return Number.isFinite(timestamp) ? timestamp : 0;
-}
-
-function getStatusLookup(library) {
-  return {
-    watchlist: new Set((library.watchlist || []).map(getItemKey)),
-    favorites: new Set((library.favorites || []).map(getItemKey)),
-    watched: new Set((library.watched || []).map(getItemKey)),
-  };
-}
-
-function getStatusForItem(item, lookup) {
-  const key = getItemKey(item);
-  return {
-    inWatchlist: lookup.watchlist.has(key),
-    inFavorites: lookup.favorites.has(key),
-    inWatched: lookup.watched.has(key),
-  };
-}
-
-function createStatusBadges(status) {
-  const badges = [];
-
-  if (status.inWatchlist) {
-    badges.push('<span class="result-status-badge is-watchlist">Watchlist</span>');
-  }
-
-  if (status.inFavorites) {
-    badges.push('<span class="result-status-badge is-favorite">Favorite</span>');
-  }
-
-  if (status.inWatched) {
-    badges.push('<span class="result-status-badge is-watched">Watched</span>');
-  }
-
-  return badges.join('');
 }
 
 function renderAuthPrompt(container, session) {
@@ -193,60 +146,7 @@ function renderFilterButtons(container) {
   });
 }
 
-function createLibraryCard(item, collection, status, handlers) {
-  const cardShell = document.createElement('div');
-  cardShell.className = 'library-card-shell';
-
-  const link = document.createElement('a');
-  link.href = `${DETAILS_BASE}?id=${item.tmdbId}&type=${item.mediaType}`;
-  link.className = 'result-card-link';
-
-  const posterHtml = item.posterPath
-    ? `<img class="poster-img" src="${POSTER_BASE}${item.posterPath}" alt="${escapeHtml(item.title)} poster" loading="lazy">`
-    : '<div class="no-poster" aria-hidden="true">No image</div>';
-
-  link.innerHTML = `
-    <div class="result-card">
-      <div class="result-card-poster">
-        <div class="result-card-statuses" ${createStatusBadges(status) ? '' : 'hidden'}>${createStatusBadges(status)}</div>
-        ${posterHtml}
-      </div>
-      <div class="result-card-body">
-        <h3>${escapeHtml(item.title)}</h3>
-        <p class="media-type">${escapeHtml(item.mediaType)} | ${escapeHtml(formatRating(item.voteAverage))}</p>
-        <p class="date">${escapeHtml(item.releaseDate || '-')}</p>
-      </div>
-    </div>
-  `;
-
-  const actions = document.createElement('div');
-  actions.className = 'library-card-actions';
-
-  const watchedButton = document.createElement('button');
-  watchedButton.type = 'button';
-  watchedButton.className = 'library-card-button';
-  watchedButton.textContent = status.inWatched ? 'Remove watched status' : 'Mark as watched';
-  watchedButton.classList.toggle('is-active', status.inWatched);
-  watchedButton.addEventListener('click', () => handlers.onToggleWatched(item, status.inWatched));
-
-  const removeButton = document.createElement('button');
-  removeButton.type = 'button';
-  removeButton.className = 'library-card-button';
-  removeButton.textContent = collection === 'watchlist'
-    ? 'Remove from watchlist'
-    : collection === 'favorites'
-      ? 'Remove from favorites'
-      : 'Remove from watched';
-  removeButton.addEventListener('click', () => handlers.onRemove(item, collection));
-
-  actions.appendChild(watchedButton);
-  actions.appendChild(removeButton);
-  cardShell.appendChild(link);
-  cardShell.appendChild(actions);
-  return cardShell;
-}
-
-function renderCollection(container, items, collection, lookup, handlers) {
+function renderCollection(container, items, collection, onStatusChange) {
   container.innerHTML = '';
 
   const filtered = sortItems(filterItems(items));
@@ -262,10 +162,26 @@ function renderCollection(container, items, collection, lookup, handlers) {
     return;
   }
 
-  filtered.forEach(item => {
-    const status = getStatusForItem(item, lookup);
-    container.appendChild(createLibraryCard(item, collection, status, handlers));
+  const fragment = document.createDocumentFragment();
+
+  filtered.forEach((item, index) => {
+    fragment.appendChild(createMediaCard({
+      id: item.tmdbId,
+      title: item.title,
+      media_type: item.mediaType,
+      poster_path: item.posterPath,
+      release_date: item.releaseDate,
+      vote_average: item.voteAverage,
+    }, {
+      index,
+      showOverview: false,
+      enableWatchedAction: true,
+      onStatusChange,
+    }));
   });
+
+  container.appendChild(fragment);
+  hydrateMediaCards(container).catch(() => {});
 }
 
 function renderSortOptions(select) {
@@ -313,29 +229,18 @@ async function init() {
   toolbar.hidden = false;
 
   function renderLibraryState() {
-    const lookup = getStatusLookup(libraryData);
-    const handlers = {
-      onRemove: async (item, collection) => {
-        await removeLibraryItem(collection, item.tmdbId, item.mediaType);
-        await fetchLibraryData();
-      },
-      onToggleWatched: async (item, isWatched) => {
-        if (isWatched) {
-          await removeLibraryItem('watched', item.tmdbId, item.mediaType);
-        } else {
-          await saveLibraryItem('watched', item);
-        }
-        await fetchLibraryData();
-      },
+    const handleStatusChange = async () => {
+      await fetchLibraryData();
     };
 
-    renderCollection(watchlistGrid, libraryData.watchlist || [], 'watchlist', lookup, handlers);
-    renderCollection(favoritesGrid, libraryData.favorites || [], 'favorites', lookup, handlers);
-    renderCollection(watchedGrid, libraryData.watched || [], 'watched', lookup, handlers);
+    renderCollection(watchlistGrid, libraryData.watchlist || [], 'watchlist', handleStatusChange);
+    renderCollection(favoritesGrid, libraryData.favorites || [], 'favorites', handleStatusChange);
+    renderCollection(watchedGrid, libraryData.watched || [], 'watched', handleStatusChange);
   }
 
   async function fetchLibraryData() {
     libraryData = await getLibrary();
+    await primeLibraryContext(libraryData);
     renderLibraryState();
   }
 

@@ -106,6 +106,16 @@ async function getLibraryContext({ force = false } = {}) {
   return inflightLibraryContext;
 }
 
+export async function primeLibraryContext(library) {
+  const session = await getSession();
+  cachedLibraryContext = {
+    session,
+    statusMap: buildStatusMap(library),
+  };
+
+  return cachedLibraryContext;
+}
+
 function getStatusForItem(context, item) {
   if (!context?.statusMap) return createEmptyStatus();
   return context.statusMap.get(getLibraryKey(item)) || createEmptyStatus();
@@ -117,6 +127,13 @@ function setContextStatus(item, status) {
     ...createEmptyStatus(),
     ...status,
   });
+}
+
+function getCollectionState(status, collection) {
+  if (collection === 'watchlist') return Boolean(status.inWatchlist);
+  if (collection === 'favorites') return Boolean(status.inFavorites);
+  if (collection === 'watched') return Boolean(status.inWatched);
+  return false;
 }
 
 function setActionState(button, {
@@ -145,6 +162,7 @@ function applyCardState(shell, status, session) {
   const actionRow = shell.querySelector('.result-card-actions');
   const watchlistButton = shell.querySelector('[data-library-action="watchlist"]');
   const favoriteButton = shell.querySelector('[data-library-action="favorites"]');
+  const watchedButton = shell.querySelector('[data-library-action="watched"]');
   const enableLibraryActions = shell.dataset.enableLibraryActions === 'true';
 
   if (!actionRow) return;
@@ -173,6 +191,17 @@ function applyCardState(shell, status, session) {
     idleSymbol: '&#9734;',
     activeSymbol: '&#9733;',
   });
+
+  if (watchedButton) {
+    setActionState(watchedButton, {
+      active: status.inWatched,
+      loading: false,
+      idleLabel: 'Mark as watched',
+      activeLabel: 'Remove watched status',
+      idleSymbol: '&#10003;',
+      activeSymbol: '&#10003;',
+    });
+  }
 }
 
 function syncMatchingCards(item, status, session) {
@@ -200,15 +229,35 @@ async function handleCollectionToggle(shell, collection) {
 
   const currentStatus = getStatusForItem(context, item);
   const button = shell.querySelector(`[data-library-action="${collection}"]`);
-  const isActive = collection === 'watchlist' ? currentStatus.inWatchlist : currentStatus.inFavorites;
+  const isActive = getCollectionState(currentStatus, collection);
 
   setActionState(button, {
     active: isActive,
     loading: true,
-    idleLabel: collection === 'watchlist' ? 'Add to watchlist' : 'Add to favorites',
-    activeLabel: collection === 'watchlist' ? 'Remove from watchlist' : 'Remove from favorites',
-    idleSymbol: collection === 'watchlist' ? '+' : '&#9734;',
-    activeSymbol: collection === 'watchlist' ? '-' : '&#9733;',
+    idleLabel:
+      collection === 'watchlist'
+        ? 'Add to watchlist'
+        : collection === 'favorites'
+          ? 'Add to favorites'
+          : 'Mark as watched',
+    activeLabel:
+      collection === 'watchlist'
+        ? 'Remove from watchlist'
+        : collection === 'favorites'
+          ? 'Remove from favorites'
+          : 'Remove watched status',
+    idleSymbol:
+      collection === 'watchlist'
+        ? '+'
+        : collection === 'favorites'
+          ? '&#9734;'
+          : '&#10003;',
+    activeSymbol:
+      collection === 'watchlist'
+        ? '-'
+        : collection === 'favorites'
+          ? '&#9733;'
+          : '&#10003;',
   });
 
   try {
@@ -219,6 +268,11 @@ async function handleCollectionToggle(shell, collection) {
     const nextStatus = payload.status || currentStatus;
     setContextStatus(item, nextStatus);
     syncMatchingCards(item, nextStatus, context.session);
+    await stored.onStatusChange?.({
+      item,
+      status: nextStatus,
+      collection,
+    });
   } catch (error) {
     applyCardState(shell, currentStatus, context.session);
   }
@@ -242,6 +296,8 @@ export function createMediaCard(item, {
   overviewLength = 110,
   showOverview = true,
   enableLibraryActions = true,
+  enableWatchedAction = false,
+  onStatusChange = null,
 } = {}) {
   const title = item.title || item.name || 'Untitled';
   const mediaType = getMediaType(item);
@@ -285,10 +341,13 @@ export function createMediaCard(item, {
   shell.appendChild(cardLink);
 
   const actionRow = document.createElement('div');
-  actionRow.className = 'result-card-actions';
+  actionRow.className = `result-card-actions${enableWatchedAction ? ' has-watched-action' : ''}`;
   actionRow.hidden = true;
   actionRow.innerHTML = `
     <button type="button" class="result-card-action result-card-action-watchlist" data-library-action="watchlist" aria-label="Add to watchlist" title="Add to watchlist"><span aria-hidden="true">+</span></button>
+    ${enableWatchedAction
+      ? '<button type="button" class="result-card-action result-card-action-watched" data-library-action="watched" aria-label="Mark as watched" title="Mark as watched"><span aria-hidden="true">&#10003;</span></button>'
+      : ''}
     <button type="button" class="result-card-action result-card-action-favorite" data-library-action="favorites" aria-label="Add to favorites" title="Add to favorites"><span aria-hidden="true">&#9734;</span></button>
   `;
   shell.appendChild(actionRow);
@@ -301,7 +360,7 @@ export function createMediaCard(item, {
     vote_average: item.vote_average ?? item.voteAverage,
   }, mediaType);
 
-  cardStore.set(shell, { item: libraryItem });
+  cardStore.set(shell, { item: libraryItem, onStatusChange });
   return shell;
 }
 

@@ -1,5 +1,7 @@
 import { Router } from 'express';
+import { body } from 'express-validator';
 import passport from 'passport';
+import { validateRequest } from '../middleware/requestValidator.js';
 
 const authRouter = Router();
 
@@ -18,6 +20,7 @@ function serializeSessionUser(user) {
     library: {
       watchlistCount: Array.isArray(user.watchlist) ? user.watchlist.length : 0,
       favoritesCount: Array.isArray(user.favorites) ? user.favorites.length : 0,
+      watchedCount: Array.isArray(user.watched) ? user.watched.length : 0,
     },
   };
 }
@@ -98,5 +101,35 @@ authRouter.get('/profile', (req, res) => {
 
   return res.status(401).json({ message: 'User not authenticated. Please log in.' });
 });
+
+authRouter.patch(
+  '/profile/avatar',
+  body('avatarUrl')
+    .optional()
+    .isString()
+    .withMessage('avatarUrl must be a string')
+    .isLength({ max: 400000 })
+    .withMessage('avatarUrl is too large')
+    .custom(value => {
+      const trimmed = String(value || '').trim();
+      if (!trimmed) return true;
+      return /^(https?:\/\/|data:image\/(?:png|jpe?g|webp|gif);base64,)/i.test(trimmed);
+    })
+    .withMessage('avatarUrl must be an https URL or a supported image data URL'),
+  validateRequest,
+  async (req, res, next) => {
+    if (!(req.isAuthenticated?.() && req.user)) {
+      return res.status(401).json({ message: 'User not authenticated. Please log in.' });
+    }
+
+    try {
+      req.user.avatarUrl = String(req.body.avatarUrl || '').trim();
+      await req.user.save();
+      return res.status(200).json(buildSessionPayload(req));
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
 
 export default authRouter;
