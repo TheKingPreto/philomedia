@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import passport from 'passport';
 import { validateRequest } from '../middleware/requestValidator.js';
+import { resolveOAuthCallbackUrl } from '../utils/publicUrl.js';
 
 const authRouter = Router();
 
@@ -64,16 +65,20 @@ authRouter.get('/session', (req, res) => {
 authRouter.get(
   '/google',
   ensureOAuthConfigured,
-  passport.authenticate('google', { scope: ['profile', 'email'] })
+  (req, res, next) => passport.authenticate('google', {
+    callbackURL: resolveOAuthCallbackUrl(req),
+    scope: ['profile', 'email'],
+  })(req, res, next)
 );
 
 authRouter.get(
   '/google/callback',
   ensureOAuthConfigured,
-  passport.authenticate('google', {
+  (req, res, next) => passport.authenticate('google', {
+    callbackURL: resolveOAuthCallbackUrl(req),
     failureRedirect: '/html/index.html',
     successRedirect: '/html/library.html',
-  })
+  })(req, res, next)
 );
 
 authRouter.get('/logout', (req, res, next) => {

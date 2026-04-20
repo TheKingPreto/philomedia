@@ -19,6 +19,7 @@ import philosopherRoutes from './src/routes/philosophers.js';
 import tmdbRoutes from './src/routes/tmdb.js';
 import aiQuoteRoutes from './src/routes/aiQuotes.js';
 import { specs } from './config/swagger.js';
+import { buildPublicUrl, getPublicBaseUrl } from './src/utils/publicUrl.js';
 
 if (process.env.NODE_ENV !== 'test') {
   dotenv.config();
@@ -58,7 +59,6 @@ if (process.env.NODE_ENV !== 'test') {
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
-const PUBLIC_SITE_URL = String(process.env.PUBLIC_SITE_URL || '').trim().replace(/\/+$/, '');
 
 export const oauthEnabled =
   Boolean(process.env.GOOGLE_CLIENT_ID) &&
@@ -144,18 +144,6 @@ function applyLimiterToMethods(methods, limiter) {
 
     return limiter(req, res, next);
   };
-}
-
-function getPublicBaseUrl(req) {
-  if (PUBLIC_SITE_URL) {
-    return PUBLIC_SITE_URL;
-  }
-
-  return `${req.protocol}://${req.get('host')}`;
-}
-
-function buildPublicUrl(req, path) {
-  return new URL(path, `${getPublicBaseUrl(req).replace(/\/+$/, '')}/`).toString();
 }
 
 app.get('/robots.txt', (req, res) => {

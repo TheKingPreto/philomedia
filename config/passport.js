@@ -1,17 +1,15 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import User from '../src/models/User.js';
+import { getDefaultOAuthCallbackUrl } from '../src/utils/publicUrl.js';
 
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL:
-        process.env.GOOGLE_CALLBACK_URL
-        || (process.env.NODE_ENV === 'production'
-          ? 'https://philomedia.onrender.com/auth/google/callback'
-          : 'http://localhost:3000/auth/google/callback'),
+      callbackURL: getDefaultOAuthCallbackUrl(),
+      proxy: true,
       scope: ['profile', 'email'],
     },
     async (accessToken, refreshToken, profile, done) => {
