@@ -16,7 +16,7 @@ import {
   getSimilarFromTMDB,
   searchTMDB,
 } from '/scripts/seriesapi.js';
-import { getQuotes } from '/scripts/philosophersapi.js';
+import { getQuoteCatalog, getQuotes } from '/scripts/philosophersapi.js';
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { curatedQuoteMatches } from '/scripts/curatedmatches.js';
 import { getSession, redirectToLogin, setupAuthUI } from '/scripts/auth-ui.js';
@@ -34,6 +34,106 @@ const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w400';
 const AI_ENDPOINT = '/api/ai/quotes/generate/media-context';
 const AI_TRIGGER_DELAY_MS = 800;
 const RELATED_LIMIT = 6;
+
+const QUOTE_SOURCE_BOOST = {
+  custom: 24,
+  system: 22,
+  database: 20,
+  import: 16,
+  'database-import': 16,
+  'user-submitted': 14,
+  wikiquote: 8,
+  'wikiquote-en': 8,
+  'wikiquote-machine': 5,
+};
+
+const MIN_STRONG_THEME_SCORE = 20;
+const MIN_STRONG_TOKEN_SCORE = 8;
+const MIN_DECENT_SCORE = 34;
+const MIN_DECENT_THEME_SCORE = 14;
+const MIN_DECENT_TOKEN_SCORE = 10;
+
+const GENERIC_QUOTE_PATTERNS = [
+  /\b(life|world|people|things|everything|nothing)\s+(is|are)\s+(good|bad|beautiful|important|difficult|simple)\b/i,
+  /\b(always|never)\s+(be|do|say|think|remember)\b/i,
+  /\b(be yourself|follow your dreams|think positive|never give up)\b/i,
+];
+
+const AUTHOR_LENS_MAP = {
+  descartes: ['consciousness-ai', 'technology-modernity', 'epistemology', 'idealism'],
+  nietzsche: ['consciousness-ai', 'power-corruption', 'existentialism', 'self-knowledge'],
+  dennett: ['consciousness-ai', 'technology-modernity'],
+  turing: ['consciousness-ai', 'technology-modernity'],
+  kierkegaard: ['self-knowledge', 'alienation', 'conformity-individuality', 'existentialism'],
+  sartre: ['self-knowledge', 'alienation', 'conformity-individuality', 'existentialism'],
+  camus: ['self-knowledge', 'alienation', 'existentialism'],
+  fromm: ['self-knowledge', 'alienation', 'social-justice'],
+  marx: ['social-justice', 'political-philosophy', 'marxism-socialism', 'power-corruption'],
+  rawls: ['social-justice', 'political-philosophy', 'social-contract'],
+  arendt: ['social-justice', 'political-philosophy', 'power-corruption'],
+  foucault: ['power-corruption', 'social-justice', 'political-philosophy'],
+  hobbes: ['power-corruption', 'political-philosophy', 'social-contract'],
+  machiavelli: ['power-corruption', 'political-philosophy'],
+};
+
+function normalizeAuthor(author) {
+  return String(author || '')
+    .toLowerCase()
+    .replace(/[^a-z\u00C0-\u017F]+/g, ' ')
+    .trim();
+}
+
+function scoreQuoteAuthorLens(sourceWeights, quote) {
+  const authorKey = normalizeAuthor(getQuoteAuthor(quote)).split(' ')[0];
+  const lensThemes = AUTHOR_LENS_MAP[authorKey];
+  if (!Array.isArray(lensThemes) || lensThemes.length === 0) return 0;
+
+  let score = 0;
+  for (const [theme, sourceWeight] of sourceWeights.entries()) {
+    if (lensThemes.includes(theme)) {
+      score += sourceWeight * 10;
+    }
+  }
+
+  return score;
+}
+
+function extractSalientTokenGroups(text, coreLimit = 4, contextLimit = 6) {
+  const tokens = extractSalientTokens(text, coreLimit + contextLimit);
+  return {
+    core: tokens.slice(0, coreLimit),
+    context: tokens.slice(coreLimit),
+  };
+}
+
+function scoreQuoteTokenAlignmentGrouped(sourceTokens, quote) {
+  if (!sourceTokens || (!sourceTokens.core.length && !sourceTokens.context.length)) return 0;
+
+  const quoteTokens = new Set(extractSalientTokens(`${getQuoteText(quote)} ${(quote.themes || []).join(' ')}`, 18));
+  let score = 0;
+  let coreMatches = 0;
+  let contextMatches = 0;
+
+  sourceTokens.core.forEach(token => {
+    if (quoteTokens.has(token)) {
+      score += 10;
+      coreMatches += 1;
+    }
+  });
+
+  sourceTokens.context.forEach(token => {
+    if (quoteTokens.has(token)) {
+      score += 4;
+      contextMatches += 1;
+    }
+  });
+
+  if (coreMatches === 0 && contextMatches < 3) {
+    score -= 10;
+  }
+
+  return score;
+}
 
 const NOISE_WORDS = new Set([
   'about', 'after', 'alive', 'along', 'already', 'another', 'around', 'away',
@@ -124,6 +224,27 @@ function normalizeText(text) {
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function hashString(value) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) - hash) + value.charCodeAt(index);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function getQuoteText(quote) {
+  return String(quote?.quote ?? quote?.quoteText ?? '').trim();
+}
+
+function getQuoteAuthor(quote) {
+  return String(quote?.author ?? quote?.authorName ?? '').trim();
+}
+
+function getQuoteSource(quote) {
+  return String(quote?.source || quote?.submissionSource || '').trim().toLowerCase();
 }
 
 function getDisplayTitle(details) {
@@ -520,6 +641,88 @@ function createThemeWeightMap(themeScores, limit = 6) {
   return new Map(topThemes.map(item => [item.theme, item.score / total]));
 }
 
+function buildQuoteThemeWeights(quote, limit = 6) {
+  const explicitThemes = Array.isArray(quote.themes)
+    ? quote.themes.map(theme => String(theme || '').trim().toLowerCase()).filter(Boolean)
+    : [];
+  const inferredWeights = createThemeWeightMap(analyzeWorkForThemes(getQuoteText(quote)), limit);
+  const weights = new Map(inferredWeights);
+
+  explicitThemes.forEach((theme, index) => {
+    weights.set(theme, (weights.get(theme) || 0) + Math.max(0.18, 0.42 - index * 0.06));
+  });
+
+  const ranked = [...weights.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
+  const total = ranked.reduce((sum, [, score]) => sum + score, 0) || 1;
+  return new Map(ranked.map(([theme, score]) => [theme, score / total]));
+}
+
+function scoreQuoteThemeAlignment(sourceWeights, quote) {
+  const quoteWeights = buildQuoteThemeWeights(quote);
+  let score = 0;
+
+  for (const [theme, sourceWeight] of sourceWeights.entries()) {
+    const quoteWeight = quoteWeights.get(theme);
+    if (quoteWeight) {
+      score += sourceWeight * quoteWeight * 120;
+    }
+  }
+
+  return score;
+}
+
+function scoreQuoteQuality(quote) {
+  const quoteText = getQuoteText(quote);
+  const author = getQuoteAuthor(quote);
+  if (!quoteText || !author) return -Infinity;
+
+  const source = getQuoteSource(quote);
+  const sourceBoost = QUOTE_SOURCE_BOOST[source] ?? (
+    source.startsWith('wikiquote') ? QUOTE_SOURCE_BOOST.wikiquote : 10
+  );
+  const wordCount = quoteText.split(/\s+/).filter(Boolean).length;
+  const uniqueWords = new Set(normalizeText(quoteText).split(' ').filter(word => word.length > 3));
+  const themeCount = buildQuoteThemeWeights(quote, 4).size;
+
+  let score = sourceBoost + Math.min(15, uniqueWords.size * 1.2) + themeCount * 6;
+
+  if (wordCount >= 8 && wordCount <= 36) score += 16;
+  if (wordCount < 5) score -= 24;
+  if (wordCount > 55) score -= 14;
+  if (GENERIC_QUOTE_PATTERNS.some(pattern => pattern.test(quoteText))) score -= 28;
+
+  return score;
+}
+
+function scoreQuoteTokenAlignment(sourceTokens, quote) {
+  if (!sourceTokens.length) return 0;
+
+  const quoteTokens = new Set(extractSalientTokens(`${getQuoteText(quote)} ${(quote.themes || []).join(' ')}`, 18));
+  let score = 0;
+
+  sourceTokens.forEach((token, index) => {
+    if (quoteTokens.has(token)) {
+      score += Math.max(2, 8 - index);
+    }
+  });
+
+  return score;
+}
+
+function normalizeQuoteEntry(quote) {
+  return {
+    id: quote?.legacyId ?? quote?._id ?? quote?.id ?? null,
+    quote: getQuoteText(quote),
+    author: getQuoteAuthor(quote),
+    themes: Array.isArray(quote?.themes) ? quote.themes : [],
+    source: getQuoteSource(quote),
+  };
+}
+
+function buildQuoteFallbackKey(details, quote) {
+  return `${getDisplayTitle(details)}|${quote.id ?? ''}|${quote.quote}|${quote.author}`;
+}
+
 function scoreThemeAlignment(sourceWeights, candidateText) {
   if (!sourceWeights.size) return 0;
 
@@ -738,43 +941,60 @@ async function resolveStaticQuote(id, type, details, allQuotes, reviews) {
 
   const curatedId = curatedQuoteMatches[id];
   if (curatedId) {
-    const match = allQuotes.find(quote => String(quote.id) === String(curatedId));
+    const match = allQuotes
+      .map(normalizeQuoteEntry)
+      .find(quote => String(quote.id) === String(curatedId));
     if (match) return match;
   }
 
   try {
-    const reviewText = Array.isArray(reviews)
-      ? reviews.map(review => review.content || '').join(' ')
-      : '';
+    const sourceContext = buildSourceContext(details, reviews);
+    const sourceThemeWeights = createThemeWeightMap(analyzeWorkForThemes(sourceContext), 8);
+    const sourceTokens = extractSalientTokenGroups(sourceContext, 4, 6);
+    const rankedQuotes = allQuotes
+      .map(normalizeQuoteEntry)
+      .filter(quote => quote.quote && quote.author)
+      .map(quote => {
+        const themeScore = scoreQuoteThemeAlignment(sourceThemeWeights, quote);
+        const tokenScore = scoreQuoteTokenAlignmentGrouped(sourceTokens, quote);
+        const authorScore = scoreQuoteAuthorLens(sourceThemeWeights, quote);
+        const qualityScore = scoreQuoteQuality(quote);
+        const deterministicNudge = (hashString(buildQuoteFallbackKey(details, quote)) % 100) / 1000;
 
-    const combined = `${details.overview || ''} ${reviewText}`.trim();
-    const profile = analyzeWorkForThemes(combined);
+        return {
+          ...quote,
+          _score: themeScore * 1.8 + tokenScore + authorScore + qualityScore * 0.45 + deterministicNudge,
+          _themeScore: themeScore,
+          _tokenScore: tokenScore,
+          _authorScore: authorScore,
+        };
+      })
+      .sort((a, b) => b._score - a._score);
 
-    let best = null;
-    let highScore = 0;
+    const strongThemeMatch = rankedQuotes.find(quote =>
+      quote._themeScore >= MIN_STRONG_THEME_SCORE
+      && quote._tokenScore >= MIN_STRONG_TOKEN_SCORE
+    );
+    if (strongThemeMatch) return strongThemeMatch;
 
-    for (const quote of allQuotes) {
-      const themes = new Set(quote.themes || []);
-      let score = 0;
-
-      for (const themeProfile of profile) {
-        if (themes.has(themeProfile.theme) && themeProfile.score > score) {
-          score = themeProfile.score;
-        }
-      }
-
-      if (score > highScore) {
-        highScore = score;
-        best = quote;
-      }
-    }
-
-    if (best) return best;
+    const decentMatch = rankedQuotes.find(quote =>
+      quote._score >= MIN_DECENT_SCORE
+      && quote._themeScore >= MIN_DECENT_THEME_SCORE
+      && quote._tokenScore >= MIN_DECENT_TOKEN_SCORE
+    );
+    if (decentMatch) return decentMatch;
   } catch (err) {
     console.warn('[PhiloMedia] Theme analysis failed:', err.message);
   }
 
-  return allQuotes[Math.floor(Math.random() * allQuotes.length)];
+  return allQuotes
+    .map(normalizeQuoteEntry)
+    .filter(quote => quote.quote && quote.author)
+    .map(quote => ({
+      ...quote,
+      _score: scoreQuoteQuality(quote) + (hashString(buildQuoteFallbackKey(details, quote)) % 100) / 1000,
+    }))
+    .sort((a, b) => b._score - a._score)[0] || null;
 }
 
 function renderStaticQuote({ text, author }) {
@@ -902,7 +1122,7 @@ async function init() {
   try {
     const [details, allQuotes, reviews] = await Promise.all([
       getDetailsFromTMDB(id, type).catch(() => null),
-      getQuotes().catch(() => []),
+      getQuoteCatalog('en').catch(() => getQuotes()).catch(() => []),
       getReviewsFromTMDB(id, type).catch(() => []),
     ]);
 
