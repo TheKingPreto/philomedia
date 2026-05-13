@@ -1,0 +1,65 @@
+[
+  {
+    "theme": "power",
+    "quote": "Power is everywhere; not because it embraces everything, but because it comes from everywhere.",
+    "author": "Michel Foucault",
+    "source": "The History of Sexuality, Volume 1: An Introduction",
+    "sourceUrl": "https://archive.org/details/historyofsexualit01fouc"
+  },
+  {
+    "theme": "power",
+    "quote": "This world is the will to power—and nothing besides! And you yourselves are also this will to power—and nothing besides!",
+    "author": "Friedrich Nietzsche",
+    "source": "The Will to Power",
+    "sourceUrl": "https://archive.org/details/willtopower00niet"
+  },
+  {
+    "theme": "power",
+    "quote": "Power corresponds to the human ability not just to act but to act in concert.",
+    "author": "Hannah Arendt",
+    "source": "On Violence",
+    "sourceUrl": "https://archive.org/details/onviolence0000aren"
+  },
+  {
+    "theme": "justice",
+    "quote": "Justice is the first virtue of social institutions, as truth is of systems of thought.",
+    "author": "John Rawls",
+    "source": "A Theory of Justice",
+    "sourceUrl": "https://archive.org/details/theoryofjustice00rawl"
+  },
+  {
+    "theme": "justice",
+    "quote": "Injustice anywhere is a threat to justice everywhere.",
+    "author": "Martin Luther King Jr.",
+    "source": "Letter from Birmingham Jail",
+    "sourceUrl": "https://letterfrombirminghamjail.com/"
+  },
+  {
+    "theme": "justice",
+    "quote": "Justice is the having and doing of what is one's own, and belongs to oneself.",
+    "author": "Plato",
+    "source": "The Republic",
+    "sourceUrl": "http://classics.mit.edu/Plato/republic.5.iv.html"
+  },
+  {
+    "theme": "truth",
+    "quote": "Truth is the daughter of time, not of authority.",
+    "author": "Francis Bacon",
+    "source": "Novum Organum",
+    "sourceUrl": "https://archive.org/details/baconsnovumorgan00baco"
+  },
+  {
+    "theme": "truth",
+    "quote": "The truth is rarely pure and never simple.",
+    "author": "Oscar Wilde",
+    "source": "The Importance of Being Earnest",
+    "sourceUrl": "https://www.gutenberg.org/files/844/844-h/844-h.htm"
+  },
+  {
+    "theme": "truth",
+    "quote": "Truth is the first chapter in the book of wisdom.",
+    "author": "Thomas Jefferson",
+    "source": "Letter to Nathaniel Macon, January 12, 1819",
+    "sourceUrl": "https://founders.archives.gov/documents/Jefferson/03-13-02-0515"
+  }
+]
