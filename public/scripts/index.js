@@ -1,4 +1,4 @@
-import { loadContent } from '/scripts/main.js';
+import { loadContent, loadMoreContent } from '/scripts/main.js';
 import { setupAuthUI } from '/scripts/auth-ui.js';
 import { renderMediaCards } from '/scripts/media-card.js';
 import { getDisplayAuthorName, getPhilosopherUrlByAuthor } from '/scripts/philosopher-data.js';
@@ -7,6 +7,10 @@ function setLoading(highlightsEl, loading = true) {
   if (loading) {
     highlightsEl.innerHTML = `
       <div class="loading-skeleton" aria-hidden="true">
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
         <div class="skeleton-card"></div>
         <div class="skeleton-card"></div>
         <div class="skeleton-card"></div>
@@ -38,6 +42,19 @@ function renderQuoteAuthor(container, author) {
   container.appendChild(link);
 }
 
+function updatePagination({ button, count, visibleCount, totalWorks, hasMore }) {
+  const wrapper = document.getElementById('highlights-pagination');
+  if (!wrapper || !button || !count) return;
+
+  wrapper.hidden = totalWorks <= visibleCount && !hasMore;
+  button.hidden = !hasMore;
+  button.disabled = false;
+  button.textContent = 'Load more related works';
+  count.textContent = totalWorks > 0
+    ? `${visibleCount} of ${totalWorks} works shown`
+    : '';
+}
+
 async function init() {
   setupAuthUI().catch(() => {});
 
@@ -46,6 +63,14 @@ async function init() {
   const highlightsTitleEl = document.getElementById('highlights-title');
   const highlightsContextEl = document.getElementById('highlights-context');
   const highlightsEl = document.getElementById('highlights');
+  const loadMoreButton = document.getElementById('load-more-highlights');
+  const highlightsCountEl = document.getElementById('highlights-count');
+  let visibleResults = [];
+  let pagination = {
+    hasMore: false,
+    nextOffset: 0,
+    totalWorks: 0,
+  };
 
   setLoading(highlightsEl, true);
 
@@ -75,8 +100,22 @@ async function init() {
       return;
     }
 
-    renderMediaCards(highlightsEl, content.results, {
+    visibleResults = content.results;
+    pagination = {
+      hasMore: Boolean(content.hasMore),
+      nextOffset: Number(content.nextOffset) || visibleResults.length,
+      totalWorks: Number(content.totalWorks) || visibleResults.length,
+    };
+
+    renderMediaCards(highlightsEl, visibleResults, {
       overviewLength: 100,
+    });
+    updatePagination({
+      button: loadMoreButton,
+      count: highlightsCountEl,
+      visibleCount: visibleResults.length,
+      totalWorks: pagination.totalWorks,
+      hasMore: pagination.hasMore,
     });
   } catch (err) {
     console.error(err);
@@ -87,6 +126,37 @@ async function init() {
       </div>
     `;
   }
+
+  loadMoreButton?.addEventListener('click', async () => {
+    if (!pagination.hasMore) return;
+
+    loadMoreButton.disabled = true;
+    loadMoreButton.textContent = 'Loading...';
+
+    try {
+      const nextContent = await loadMoreContent(pagination.nextOffset);
+      visibleResults = [...visibleResults, ...(nextContent.results || [])];
+      pagination = {
+        hasMore: Boolean(nextContent.hasMore),
+        nextOffset: Number(nextContent.nextOffset) || visibleResults.length,
+        totalWorks: Number(nextContent.totalWorks) || visibleResults.length,
+      };
+
+      renderMediaCards(highlightsEl, visibleResults, {
+        overviewLength: 100,
+      });
+    } catch (error) {
+      loadMoreButton.textContent = 'Could not load more';
+    } finally {
+      updatePagination({
+        button: loadMoreButton,
+        count: highlightsCountEl,
+        visibleCount: visibleResults.length,
+        totalWorks: pagination.totalWorks,
+        hasMore: pagination.hasMore,
+      });
+    }
+  });
 }
 
 init();

@@ -1,17 +1,12 @@
 import { getSession, redirectToLogin } from '/scripts/auth-ui.js';
-import {
-  buildLibraryItem,
-  getLibrary,
-  removeLibraryItem,
-  saveLibraryItem,
-} from '/scripts/library-api.js';
 
 const DETAILS_BASE = '/html/details.html';
-const POSTER_BASE = 'https://image.tmdb.org/t/p/w300';
+const POSTER_BASE = 'https://image.tmdb.org/t/p/w185';
 const cardStore = new WeakMap();
 
 let cachedLibraryContext = null;
 let inflightLibraryContext = null;
+let libraryApiPromise = null;
 
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -47,6 +42,25 @@ function createEmptyStatus() {
     inFavorites: false,
     inWatched: false,
   };
+}
+
+function buildLibraryItem(details, mediaType) {
+  return {
+    tmdbId: String(details.id ?? details.tmdbId),
+    mediaType,
+    title: details.title || details.name || 'Untitled',
+    posterPath: details.poster_path || details.posterPath || '',
+    releaseDate: details.release_date || details.first_air_date || details.releaseDate || '',
+    voteAverage: Number(details.vote_average ?? details.voteAverage) || 0,
+  };
+}
+
+async function getLibraryApi() {
+  if (!libraryApiPromise) {
+    libraryApiPromise = import('/scripts/library-api.js');
+  }
+
+  return libraryApiPromise;
 }
 
 function buildStatusMap(library) {
@@ -86,7 +100,8 @@ async function getLibraryContext({ force = false } = {}) {
     return inflightLibraryContext;
   }
 
-  inflightLibraryContext = getLibrary()
+  inflightLibraryContext = getLibraryApi()
+    .then(({ getLibrary }) => getLibrary())
     .then(library => {
       const context = {
         session,
@@ -261,6 +276,7 @@ async function handleCollectionToggle(shell, collection) {
   });
 
   try {
+    const { removeLibraryItem, saveLibraryItem } = await getLibraryApi();
     const payload = isActive
       ? await removeLibraryItem(collection, item.tmdbId, item.mediaType)
       : await saveLibraryItem(collection, item);
@@ -322,7 +338,7 @@ export function createMediaCard(item, {
   card.style.animationDelay = `${index * 0.05}s`;
 
   const posterHtml = posterUrl
-    ? `<img class="poster-img" src="${posterUrl}" alt="${escapeHtml(title)} poster" loading="lazy">`
+    ? `<img class="poster-img" src="${posterUrl}" alt="${escapeHtml(title)} poster" loading="lazy" decoding="async" width="185" height="278">`
     : '<div class="no-poster" aria-hidden="true">No image</div>';
 
   card.innerHTML = `

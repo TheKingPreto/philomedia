@@ -12,7 +12,8 @@ import { THEME_DATABASE } from '/scripts/themedatabase.js';
 import { discoverTMDB, getDetailsFromTMDB } from '/scripts/seriesapi.js';
 
 const API_BASE = '/api';
-const HOME_RESULT_LIMIT = 12;
+const HOME_RESULT_LIMIT = 10;
+const DAILY_PAIRING_ENDPOINT = `${API_BASE}/daily-pairing`;
 const DAILY_QUOTE_SALT = 'philomedia-daily-quote';
 const CURATED_TV_IDS = new Set([
   '1396', '1399', '1402', '1668', '2316', '4607', '1418', '60735', '1429',
@@ -30,6 +31,24 @@ const KEYWORD_STOPWORDS = new Set([
   'their', 'there', 'these', 'those', 'through', 'truth', 'virtue', 'world',
   'wrong',
 ]);
+
+const QUOTE_SOURCE_BOOST = {
+  custom: 24,
+  system: 22,
+  database: 20,
+  import: 16,
+  'database-import': 16,
+  'user-submitted': 14,
+  wikiquote: 8,
+  'wikiquote-en': 8,
+  'wikiquote-machine': 5,
+};
+
+const GENERIC_QUOTE_PATTERNS = [
+  /\b(life|world|people|things|everything|nothing)\s+(is|are)\s+(good|bad|beautiful|important|difficult|simple)\b/i,
+  /\b(always|never)\s+(be|do|say|think|remember)\b/i,
+  /\b(be yourself|follow your dreams|think positive|never give up)\b/i,
+];
 
 const THEME_GENRE_HINTS = {
   'war-and-conflict': [10752, 10768, 18, 28, 10759],
@@ -53,6 +72,29 @@ const THEME_GENRE_HINTS = {
   aesthetics: [16, 18, 10402],
   humanism: [18, 12],
   'anti-hero': [80, 18, 10759],
+  hedonism: [18, 35, 10749],
+  utilitarianism: [18, 80, 53, 99],
+};
+
+const THEME_TEXT_SIGNAL_OVERRIDES = {
+  hedonism: [
+    'happiness', 'pleasure', 'pain', 'suffering', 'wellbeing', 'well being',
+    'desire', 'satisfaction', 'comfort', 'health', 'patient', 'patients',
+    'joy', 'misery', 'harm', 'benefit',
+  ],
+  utilitarianism: [
+    'greater good', 'consequence', 'consequences', 'save lives', 'saving lives',
+    'lives', 'sacrifice', 'survival', 'patient', 'patients', 'hospital',
+    'doctor', 'surgeon', 'medicine', 'crime', 'police', 'detective',
+    'criminal', 'criminals', 'justice', 'punishment', 'institution',
+    'institutions', 'system', 'policy', 'social', 'drug', 'drugs',
+    'murder', 'killer', 'corruption', 'community', 'public',
+  ],
+  virtue: ['virtue', 'honor', 'honour', 'courage', 'duty', 'character', 'integrity', 'sacrifice'],
+  'political-philosophy': ['government', 'state', 'law', 'power', 'institution', 'system', 'policy', 'public'],
+  'social-justice': ['justice', 'inequality', 'poverty', 'class', 'rights', 'community', 'system', 'institution'],
+  'power-corruption': ['power', 'corruption', 'control', 'authority', 'crime', 'greed', 'ambition'],
+  'truth-deception': ['truth', 'lie', 'lies', 'deception', 'secret', 'illusion', 'conspiracy'],
 };
 
 function normalizeText(text) {
@@ -83,6 +125,78 @@ function hashString(value) {
   return Math.abs(hash);
 }
 
+function getQuoteText(quoteData) {
+  return String(quoteData?.quote ?? quoteData?.quoteText ?? '').trim();
+}
+
+function getQuoteAuthor(quoteData) {
+  return String(quoteData?.author ?? quoteData?.authorName ?? '').trim();
+}
+
+function getQuoteSource(quoteData) {
+  return String(quoteData?.source || quoteData?.submissionSource || '').trim().toLowerCase();
+}
+
+function scoreQuoteCandidate(quoteData) {
+  const quoteText = getQuoteText(quoteData);
+  const author = getQuoteAuthor(quoteData);
+  if (!quoteText || !author) return -Infinity;
+
+  const explicitThemes = Array.isArray(quoteData.themes)
+    ? quoteData.themes.filter(theme => THEME_DATABASE[String(theme).trim().toLowerCase()]).length
+    : 0;
+  const inferredThemes = analyzeWorkForThemes(quoteText);
+  const topThemeScore = inferredThemes[0]?.score || 0;
+  const wordCount = quoteText.split(/\s+/).filter(Boolean).length;
+  const uniqueWords = new Set(normalizeText(quoteText).split(' ').filter(word => word.length > 3));
+  const source = getQuoteSource(quoteData);
+  const sourceBoost = QUOTE_SOURCE_BOOST[source] ?? (
+    source.startsWith('wikiquote') ? QUOTE_SOURCE_BOOST.wikiquote : 10
+  );
+
+  let score = sourceBoost
+    + explicitThemes * 10
+    + Math.min(34, topThemeScore * 2)
+    + Math.min(16, uniqueWords.size * 1.4);
+
+  if (wordCount >= 9 && wordCount <= 34) score += 16;
+  if (wordCount < 6) score -= 28;
+  if (wordCount > 48) score -= 12;
+  if (GENERIC_QUOTE_PATTERNS.some(pattern => pattern.test(quoteText))) score -= 30;
+  if (!explicitThemes && inferredThemes.length === 0) score -= 40;
+
+  return score;
+}
+
+function normalizeQuoteEntry(entry) {
+  return {
+    id: entry.legacyId ?? entry._id ?? entry.id ?? null,
+    quote: getQuoteText(entry),
+    author: getQuoteAuthor(entry),
+    themes: Array.isArray(entry.themes) ? entry.themes : [],
+    source: getQuoteSource(entry),
+    _qualityScore: scoreQuoteCandidate(entry),
+  };
+}
+
+function selectDailyQuote(quotes) {
+  const normalizedQuotes = quotes.map(normalizeQuoteEntry).filter(entry => entry.quote && entry.author);
+  if (normalizedQuotes.length === 0) return null;
+
+  const eligibleQuotes = normalizedQuotes.filter(entry => {
+    const explicitThemes = Array.isArray(entry.themes) ? entry.themes.length : 0;
+    return explicitThemes > 0 || analyzeWorkForThemes(entry.quote).length > 0;
+  });
+
+  const pool = (eligibleQuotes.length > 0 ? eligibleQuotes : normalizedQuotes)
+    .sort((a, b) => b._qualityScore - a._qualityScore);
+  const highQualityPool = pool.filter(entry => entry._qualityScore >= 30);
+  const rotationPool = (highQualityPool.length >= 20 ? highQualityPool : pool).slice(0, 120);
+  const dailyIndex = hashString(`${getDayKey()}|${DAILY_QUOTE_SALT}`) % rotationPool.length;
+
+  return rotationPool[dailyIndex];
+}
+
 function getDayKey() {
   const now = new Date();
   const year = now.getFullYear();
@@ -97,6 +211,37 @@ function getThemeKeywords(theme, limit = 3) {
     .sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)
     .map(([keyword]) => keyword)
     .slice(0, limit);
+}
+
+function getBalancedPreferredGenres(rankedThemes, limit = 6) {
+  const groups = rankedThemes
+    .slice(0, 3)
+    .map(theme => THEME_GENRE_HINTS[theme] || [])
+    .filter(group => group.length > 0);
+  const genres = [];
+
+  for (let index = 0; genres.length < limit && index < 4; index += 1) {
+    groups.forEach(group => {
+      const genre = group[index];
+      if (genre && !genres.includes(genre) && genres.length < limit) {
+        genres.push(genre);
+      }
+    });
+  }
+
+  return genres;
+}
+
+function getThemeGenreFilters(rankedThemes) {
+  return rankedThemes
+    .slice(0, 3)
+    .map(theme => {
+      const genres = (THEME_GENRE_HINTS[theme] || []).slice(0, 2);
+      return genres.length > 0
+        ? { theme, withGenres: genres.join(',') }
+        : null;
+    })
+    .filter(Boolean);
 }
 
 function createWeightMap(entries, explicitThemes = []) {
@@ -140,11 +285,7 @@ function buildQuoteProfile(quoteData) {
       .flatMap(theme => getThemeKeywords(theme, 2))
   )].slice(0, 4);
 
-  const preferredGenres = [...new Set(
-    rankedThemes
-      .slice(0, 3)
-      .flatMap(theme => THEME_GENRE_HINTS[theme] || [])
-  )];
+  const preferredGenres = getBalancedPreferredGenres(rankedThemes);
 
   return {
     themes: rankedThemes,
@@ -168,6 +309,82 @@ function scoreThemeOverlap(themeWeights, candidateText) {
   }
 
   return score;
+}
+
+function getThemeSignals(theme) {
+  const databaseSignals = Object.entries(THEME_DATABASE[theme] || {})
+    .filter(([, weight]) => weight > 0)
+    .map(([keyword]) => keyword);
+  const overrideSignals = THEME_TEXT_SIGNAL_OVERRIDES[theme] || [];
+
+  return [...new Set([...databaseSignals, ...overrideSignals])];
+}
+
+function countSignalMatches(theme, candidateText) {
+  const signals = getThemeSignals(theme);
+  if (signals.length === 0) return 0;
+
+  const normalized = normalizeText(candidateText);
+  return signals.reduce((total, signal) => {
+    const normalizedSignal = normalizeText(signal);
+    if (!normalizedSignal) return total;
+    return total + (normalized.includes(normalizedSignal) ? 1 : 0);
+  }, 0);
+}
+
+function scoreThemeSignals(themeWeights, candidateText) {
+  let score = 0;
+
+  for (const [theme, sourceWeight] of themeWeights.entries()) {
+    const matches = countSignalMatches(theme, candidateText);
+    if (matches > 0) {
+      score += Math.min(22, matches * 7) * sourceWeight;
+    }
+  }
+
+  return score;
+}
+
+function hasThemeEvidence(theme, candidateWeights, candidateText) {
+  if (candidateWeights.get(theme)) return true;
+  return countSignalMatches(theme, candidateText) > 0;
+}
+
+function scorePrimaryThemeFit(profile, candidateWeights, candidateText) {
+  const primaryThemes = profile.themes.slice(0, Math.min(2, profile.themes.length));
+  if (primaryThemes.length === 0) {
+    return { bonus: 0, penalty: 0, misses: [] };
+  }
+
+  const misses = primaryThemes.filter(theme => !hasThemeEvidence(theme, candidateWeights, candidateText));
+  const matchedCount = primaryThemes.length - misses.length;
+
+  return {
+    bonus: matchedCount === primaryThemes.length ? 18 : matchedCount * 4,
+    penalty: misses.reduce((total, theme, index) => total + (index === 0 ? 24 : 16), 0),
+    misses,
+  };
+}
+
+function scoreConceptDriftPenalty(profile, candidateWeights, candidateText) {
+  const themes = new Set(profile.themes.slice(0, 2));
+  let penalty = 0;
+
+  // Generic guard: a candidate that only touches a tempting adjacent keyword
+  // should not satisfy a two-theme philosophical promise.
+  if (themes.has('hedonism') && themes.has('utilitarianism')) {
+    const hasUtilitarianEvidence = hasThemeEvidence('utilitarianism', candidateWeights, candidateText);
+    const hasWellbeingEvidence = hasThemeEvidence('hedonism', candidateWeights, candidateText)
+      || /\b(happiness|suffering|pain|harm|benefit|wellbeing|well being|patient|patients|health)\b/i.test(candidateText);
+    const isPleasureOnly = /\b(erotic|sexual|desire|affair|seduction|lust)\b/i.test(candidateText)
+      && !hasUtilitarianEvidence;
+
+    if (!hasUtilitarianEvidence) penalty += 42;
+    if (!hasWellbeingEvidence) penalty += 18;
+    if (isPleasureOnly) penalty += 34;
+  }
+
+  return penalty;
 }
 
 function scoreKeywordOverlap(keywords, candidateText) {
@@ -201,6 +418,7 @@ function scoreSourceBoost(candidate) {
 
   if (sources.includes('curated')) score += 28;
   if (sources.includes('movie-themed') || sources.includes('tv-themed')) score += 11;
+  if (sources.some(source => source.startsWith('movie-theme-') || source.startsWith('tv-theme-'))) score += 9;
   if (sources.includes('movie-rated') || sources.includes('tv-rated')) score += 6;
   if (sources.includes('movie-popular') || sources.includes('tv-popular')) score += 2;
 
@@ -308,57 +526,87 @@ function rankCandidates(profile, candidates) {
   const ranked = candidates
     .map(candidate => {
       const context = `${candidate.title || candidate.name || ''} ${candidate.overview || ''}`.trim();
+      const candidateWeights = createWeightMap(analyzeWorkForThemes(context));
       const themeScore = scoreThemeOverlap(profile.themeWeights, context);
+      const signalScore = scoreThemeSignals(profile.themeWeights, context);
       const keywordScore = scoreKeywordOverlap(profile.keywords, context);
       const genreScore = scoreGenreHints(profile.preferredGenres, candidate.genre_ids);
       const sourceBoost = scoreSourceBoost(candidate);
       const ratingScore = Math.max(0, Number(candidate.vote_average || 0) - 6) * 1.8;
       const popularityScore = Math.min(6, (Number(candidate.popularity) || 0) / 35);
       const missingOverviewPenalty = candidate.overview ? 0 : 12;
-      const weakThemePenalty = themeScore < 12 && keywordScore < 8 ? 28 : 0;
-      const noThemePenalty = themeScore === 0 && keywordScore === 0 ? 18 : 0;
+      const primaryThemeFit = scorePrimaryThemeFit(profile, candidateWeights, context);
+      const evidenceScore = themeScore + signalScore + keywordScore;
+      const weakThemePenalty = themeScore + signalScore < 16 && keywordScore < 8 ? 22 : 0;
+      const noThemePenalty = themeScore === 0 && signalScore === 0 && keywordScore === 0 ? 28 : 0;
+      const driftPenalty = scoreConceptDriftPenalty(profile, candidateWeights, context);
 
       return {
         ...candidate,
         _score:
-          themeScore * 1.35
+          themeScore * 1.45
+          + signalScore
           + keywordScore
           + genreScore
           + sourceBoost
           + ratingScore
-          + popularityScore
+          + popularityScore * 0.45
+          + primaryThemeFit.bonus
           - missingOverviewPenalty
           - weakThemePenalty
-          - noThemePenalty,
+          - noThemePenalty
+          - primaryThemeFit.penalty
+          - driftPenalty,
+        _primaryThemeMisses: primaryThemeFit.misses.length,
+        _evidenceScore: evidenceScore,
+        _driftPenalty: driftPenalty,
       };
     })
     .sort((a, b) => b._score - a._score);
 
-  const strongMatches = ranked.filter(item => item._score >= 26);
-  return (strongMatches.length >= 6 ? strongMatches : ranked).slice(0, HOME_RESULT_LIMIT);
+  const strongMatches = ranked.filter(item => item._score >= 30 && item._primaryThemeMisses === 0);
+  const goodMatches = ranked.filter(item =>
+    item._score >= 18
+    && item._primaryThemeMisses <= 1
+    && item._evidenceScore >= 10
+    && item._driftPenalty < 42
+  );
+  const looseMatches = ranked.filter(item =>
+    item._score >= 8
+    && item._primaryThemeMisses <= 1
+    && item._evidenceScore >= 7
+    && item._driftPenalty < 34
+  );
+  const alignedPool = [
+    ...strongMatches,
+    ...goodMatches.filter(item => !strongMatches.includes(item)),
+    ...looseMatches.filter(item => !strongMatches.includes(item) && !goodMatches.includes(item)),
+  ];
+  const pool = alignedPool.length > 0 ? alignedPool : ranked.slice(0, 3);
+
+  return pool.slice(0, HOME_RESULT_LIMIT);
 }
 
 async function getQuoteForHome() {
+  try {
+    const res = await fetch(`${API_BASE}/quotes/catalog?lang=en`);
+    if (!res.ok) throw new Error('Quotes API error');
+    const quotes = await res.json();
+    if (Array.isArray(quotes) && quotes.length > 0) {
+      const selectedQuote = selectDailyQuote(quotes);
+      if (selectedQuote) return selectedQuote;
+    }
+  } catch (e) {
+    console.warn('Quote catalog failed, using fallback:', e.message);
+  }
+
   try {
     const res = await fetch(`${API_BASE}/quotes`);
     if (!res.ok) throw new Error('Quotes API error');
     const quotes = await res.json();
     if (Array.isArray(quotes) && quotes.length > 0) {
-      const eligibleQuotes = quotes.filter(q => {
-        const quoteText = q.quoteText || q.quote || '';
-        const explicitThemes = Array.isArray(q.themes) ? q.themes.length : 0;
-        return quoteText.trim() && (explicitThemes > 0 || analyzeWorkForThemes(quoteText).length > 0);
-      });
-
-      const pool = eligibleQuotes.length > 0 ? eligibleQuotes : quotes;
-      const dailyIndex = hashString(`${getDayKey()}|${DAILY_QUOTE_SALT}`) % pool.length;
-      const q = pool[dailyIndex];
-      return {
-        id: q.legacyId ?? q._id ?? q.id ?? null,
-        quote: q.quoteText || q.quote,
-        author: q.authorName || q.author,
-        themes: q.themes || [],
-      };
+      const selectedQuote = selectDailyQuote(quotes);
+      if (selectedQuote) return selectedQuote;
     }
   } catch (e) {
     console.warn('Local quotes failed, using fallback:', e.message);
@@ -375,28 +623,57 @@ async function getQuoteForHome() {
     };
   }
 
-  const eligibleQuotes = allQuotes.filter(q => {
-    const quoteText = q.quote || '';
-    const explicitThemes = Array.isArray(q.themes) ? q.themes.length : 0;
-    return quoteText.trim() && (explicitThemes > 0 || analyzeWorkForThemes(quoteText).length > 0);
-  });
-
-  const pool = eligibleQuotes.length > 0 ? eligibleQuotes : allQuotes;
-  const dailyIndex = hashString(`${getDayKey()}|${DAILY_QUOTE_SALT}`) % pool.length;
-  const q = pool[dailyIndex];
-
-  return {
-    id: q.id ?? null,
-    quote: q.quote,
-    author: q.author,
-    themes: q.themes || [],
+  return selectDailyQuote(allQuotes) || {
+    id: null,
+    quote: 'Think deeply, watch meaningfully.',
+    author: 'PhiloMedia',
+    themes: [],
   };
+}
+
+function buildDailyPairingUrl({ limit = HOME_RESULT_LIMIT, offset = 0 } = {}) {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  return `${DAILY_PAIRING_ENDPOINT}?${params.toString()}`;
+}
+
+function mapDailyPairingContent(payload) {
+  return {
+    id: payload.slug || null,
+    source: payload.source || 'editorial-calendar',
+    quote: payload.quote,
+    author: payload.author,
+    themes: payload.themes || [],
+    highlightsTitle: payload.highlightsTitle || 'In dialogue with today\'s quote',
+    highlightsContext: payload.highlightsContext || 'Works selected to resonate with today\'s quote.',
+    results: Array.isArray(payload.results) ? payload.results : [],
+    totalWorks: Number(payload.totalWorks) || 0,
+    returnedWorks: Number(payload.returnedWorks) || 0,
+    nextOffset: Number(payload.nextOffset) || 0,
+    hasMore: Boolean(payload.hasMore),
+  };
+}
+
+async function getEditorialDailyContent({ offset = 0, limit = HOME_RESULT_LIMIT } = {}) {
+  const res = await fetch(buildDailyPairingUrl({ limit, offset }));
+  if (!res.ok) throw new Error('Daily pairing unavailable');
+
+  const payload = await res.json();
+  const content = mapDailyPairingContent(payload);
+  if (!content.quote || !content.author || content.results.length === 0) {
+    throw new Error('Daily pairing incomplete');
+  }
+
+  return content;
 }
 
 async function getFeaturedMediaForQuote(quoteData) {
   const profile = buildQuoteProfile(quoteData);
   const seed = hashString(`${quoteData.quote}|${quoteData.author}`);
   const genreFilter = profile.preferredGenres.slice(0, 3).join(',');
+  const themeGenreFilters = getThemeGenreFilters(profile.themes);
 
   const moviePopularPage = (seed % 4) + 1;
   const movieRatedPage = (Math.floor(seed / 7) % 4) + 1;
@@ -404,6 +681,21 @@ async function getFeaturedMediaForQuote(quoteData) {
   const tvRatedPage = (Math.floor(seed / 17) % 4) + 1;
   const themedMoviePage = (Math.floor(seed / 19) % 5) + 1;
   const themedTvPage = (Math.floor(seed / 23) % 5) + 1;
+  const themeDiscoveries = themeGenreFilters.flatMap((filter, index) => {
+    const page = ((Math.floor(seed / (29 + index * 6)) + index) % 5) + 1;
+    return [
+      discoverTMDB('movie', {
+        page,
+        withGenres: filter.withGenres,
+        sortBy: 'vote_average.desc',
+      }).then(items => ({ source: `movie-theme-${filter.theme}`, items })),
+      discoverTMDB('tv', {
+        page,
+        withGenres: filter.withGenres,
+        sortBy: 'vote_average.desc',
+      }).then(items => ({ source: `tv-theme-${filter.theme}`, items })),
+    ];
+  });
 
   const [curatedCandidates, buckets] = await Promise.all([
     getCuratedCandidatesForQuote(quoteData.id).catch(() => []),
@@ -426,6 +718,7 @@ async function getFeaturedMediaForQuote(quoteData) {
             sortBy: 'vote_average.desc',
           }).then(items => ({ source: 'tv-themed', items }))
         : Promise.resolve({ source: 'tv-themed', items: [] }),
+      ...themeDiscoveries,
     ]),
   ]);
 
@@ -455,6 +748,12 @@ function buildHighlightsContext(profile) {
 }
 
 export async function loadContent() {
+  try {
+    return await getEditorialDailyContent();
+  } catch (error) {
+    console.warn('Daily editorial pairing failed, using ranked fallback:', error.message);
+  }
+
   const quoteData = await getQuoteForHome();
   const { results, profile } = await getFeaturedMediaForQuote(quoteData);
 
@@ -467,4 +766,8 @@ export async function loadContent() {
     highlightsContext: buildHighlightsContext(profile),
     results: Array.isArray(results) ? results : [],
   };
+}
+
+export async function loadMoreContent(offset, limit = HOME_RESULT_LIMIT) {
+  return getEditorialDailyContent({ offset, limit });
 }

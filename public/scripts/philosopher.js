@@ -6,7 +6,7 @@ import {
   getSubmittedPhilosophers,
 } from '/scripts/philosophersapi.js';
 import { renderMediaCards } from '/scripts/media-card.js';
-import { discoverTMDB, getDetailsFromTMDB, getReviewsFromTMDB } from '/scripts/seriesapi.js';
+import { discoverTMDB, getDetailsFromTMDB, getReviewsFromTMDB, searchTMDB } from '/scripts/seriesapi.js';
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { updatePageSeo } from '/scripts/seo.js';
 import {
@@ -19,16 +19,23 @@ import {
 
 const WORK_LIMIT = 8;
 const QUOTE_LIMIT = 8;
-const REVIEW_RERANK_LIMIT = 10;
+const REVIEW_RERANK_LIMIT = 4;
 const REVIEW_CONTEXT_LIMIT = 4200;
 const reviewContextCache = new Map();
+const discoveryRequestCache = new Map();
+const searchRequestCache = new Map();
 const CONTEXT_STOPWORDS = new Set([
   'about', 'across', 'after', 'always', 'appears', 'around', 'before', 'being',
   'between', 'beyond', 'collection', 'connected', 'discipline', 'examination',
   'experience', 'inside', 'layer', 'media', 'philosopher', 'philosophical',
+  'thinker',
   'philosophy', 'practice', 'presence', 'questions', 'reading', 'readings',
   'resonates', 'shape', 'shapes', 'site', 'stories', 'story', 'their', 'these',
   'through', 'title', 'titles', 'voice', 'works', 'world', 'would',
+  'american', 'brazilian', 'british', 'chinese', 'french', 'german', 'greek',
+  'english', 'italian', 'writer', 'poet', 'educator', 'teacher', 'politician',
+  'statesman', 'psychologist', 'scientist', 'physicist', 'mathematician',
+  'archive', 'independent',
 ]);
 
 function escapeHtml(text) {
@@ -85,6 +92,84 @@ function extractContextKeywords(profile, limit = 8) {
     );
 
   return [...new Set(keywords)].slice(0, limit);
+}
+
+function getProfileContextKeywords(profile, limit = 12) {
+  const explicitKeywords = (profile.contextKeywords || [])
+    .map(keyword => normalizeText(keyword))
+    .filter(Boolean);
+
+  return [...new Set([
+    ...explicitKeywords,
+    ...extractContextKeywords(profile, limit),
+  ])].slice(0, limit);
+}
+
+function getProfilePenaltyKeywords(profile, limit = 12) {
+  return [...new Set(
+    (profile.contextPenaltyKeywords || [])
+      .map(keyword => normalizeText(keyword))
+      .filter(Boolean)
+  )].slice(0, limit);
+}
+
+function countKeywordMatches(text, keywords = []) {
+  const normalizedText = normalizeText(text);
+  if (!normalizedText) return 0;
+
+  return keywords.reduce((count, keyword) => (
+    keyword && normalizedText.includes(keyword) ? count + 1 : count
+  ), 0);
+}
+
+function buildDiscoveryQueries(profile, limit = 4) {
+  const explicitQueries = (profile.discoveryQueries || [])
+    .map(query => String(query || '').trim())
+    .filter(Boolean);
+  const keywordQueries = getProfileContextKeywords(profile, 10)
+    .filter(keyword => keyword.length >= 6)
+    .slice(0, 6);
+
+  return [...new Set([
+    ...explicitQueries,
+    ...keywordQueries,
+  ])].slice(0, limit);
+}
+
+function buildRequestCacheKey(prefix, payload) {
+  return `${prefix}:${JSON.stringify(payload)}`;
+}
+
+async function discoverTMDBCached(media, options = {}) {
+  const cacheKey = buildRequestCacheKey(`discover:${media}`, options);
+
+  if (!discoveryRequestCache.has(cacheKey)) {
+    discoveryRequestCache.set(
+      cacheKey,
+      discoverTMDB(media, options).catch(error => {
+        discoveryRequestCache.delete(cacheKey);
+        throw error;
+      })
+    );
+  }
+
+  return discoveryRequestCache.get(cacheKey);
+}
+
+async function searchTMDBCached(query) {
+  const cacheKey = buildRequestCacheKey('search', { query });
+
+  if (!searchRequestCache.has(cacheKey)) {
+    searchRequestCache.set(
+      cacheKey,
+      searchTMDB(query).catch(error => {
+        searchRequestCache.delete(cacheKey);
+        throw error;
+      })
+    );
+  }
+
+  return searchRequestCache.get(cacheKey);
 }
 
 function getPreferredGenres(profile) {
@@ -192,22 +277,22 @@ async function loadThemeDiscovery(profile) {
   const preferredGenres = getPreferredGenres(profile);
 
   const [moviesByRating, moviesByPopularity, seriesByRating, seriesByPopularity] = await Promise.all([
-    discoverTMDB('movie', {
+    discoverTMDBCached('movie', {
       page: 1,
       withGenres: preferredGenres.movie.join('|'),
       sortBy: 'vote_average.desc',
     }),
-    discoverTMDB('movie', {
+    discoverTMDBCached('movie', {
       page: 1,
       withGenres: preferredGenres.movie.join('|'),
       sortBy: 'popularity.desc',
     }),
-    discoverTMDB('tv', {
+    discoverTMDBCached('tv', {
       page: 1,
       withGenres: preferredGenres.tv.join('|'),
       sortBy: 'vote_average.desc',
     }),
-    discoverTMDB('tv', {
+    discoverTMDBCached('tv', {
       page: 1,
       withGenres: preferredGenres.tv.join('|'),
       sortBy: 'popularity.desc',
@@ -224,19 +309,19 @@ async function loadThemeDiscovery(profile) {
 
 async function loadBroadDiscovery() {
   const [moviesByRating, moviesByPopularity, seriesByRating, seriesByPopularity] = await Promise.all([
-    discoverTMDB('movie', {
+    discoverTMDBCached('movie', {
       page: 1,
       sortBy: 'vote_average.desc',
     }),
-    discoverTMDB('movie', {
+    discoverTMDBCached('movie', {
       page: 1,
       sortBy: 'popularity.desc',
     }),
-    discoverTMDB('tv', {
+    discoverTMDBCached('tv', {
       page: 1,
       sortBy: 'vote_average.desc',
     }),
-    discoverTMDB('tv', {
+    discoverTMDBCached('tv', {
       page: 1,
       sortBy: 'popularity.desc',
     }),
@@ -250,6 +335,31 @@ async function loadBroadDiscovery() {
   ]);
 }
 
+async function loadKeywordDiscovery(profile) {
+  const queries = buildDiscoveryQueries(profile);
+
+  if (!queries.length) {
+    return [];
+  }
+
+  const results = await Promise.all(
+    queries.map(async query => {
+      try {
+        return await searchTMDBCached(query);
+      } catch (error) {
+        return [];
+      }
+    })
+  );
+
+  return mergeCandidates(
+    results.map((items, index) => ({
+      source: `keyword-${index + 1}`,
+      items,
+    }))
+  );
+}
+
 function scoreProfileTextAffinity(profile, text) {
   if (!text) return 0;
 
@@ -260,7 +370,10 @@ function scoreProfileTextAffinity(profile, text) {
       .map(match => match.theme)
   );
   const normalizedText = normalizeText(text);
-  const contextKeywords = extractContextKeywords(profile);
+  const contextKeywords = getProfileContextKeywords(profile);
+  const penaltyKeywords = getProfilePenaltyKeywords(profile);
+  const keywordHits = countKeywordMatches(normalizedText, contextKeywords);
+  const penaltyHits = countKeywordMatches(normalizedText, penaltyKeywords);
   let score = 0;
 
   themeWeights.forEach((weight, theme) => {
@@ -275,6 +388,8 @@ function scoreProfileTextAffinity(profile, text) {
     }
   });
 
+  score += keywordHits * 4.5;
+
   profile.topThemes.slice(0, 3).forEach((theme, index) => {
     const label = normalizeText(formatThemeLabel(theme));
     if (label && normalizedText.includes(label)) {
@@ -282,18 +397,30 @@ function scoreProfileTextAffinity(profile, text) {
     }
   });
 
+  if (penaltyHits > 0) {
+    const hasPositiveSignal = keywordHits > 0 || [...themeWeights.keys()].some(theme => textThemes.has(theme));
+    score -= penaltyHits * (hasPositiveSignal ? 3 : 7);
+  }
+
   return score;
 }
 
 function scoreCandidate(profile, candidate) {
   const themeWeights = buildThemeWeightMap(profile.topThemes);
-  const text = `${candidate.title || candidate.name || ''} ${candidate.overview || ''}`.trim();
+  const title = candidate.title || candidate.name || '';
+  const text = `${title} ${candidate.overview || ''}`.trim();
   const candidateThemes = new Set(
     analyzeWorkForThemes(text)
       .slice(0, 5)
       .map(match => match.theme)
   );
+  const normalizedTitle = normalizeText(title);
   const normalized = normalizeText(text);
+  const contextKeywords = getProfileContextKeywords(profile);
+  const penaltyKeywords = getProfilePenaltyKeywords(profile);
+  const keywordHits = countKeywordMatches(normalized, contextKeywords);
+  const titleKeywordHits = countKeywordMatches(normalizedTitle, contextKeywords);
+  const penaltyHits = countKeywordMatches(normalized, penaltyKeywords);
   const preferredGenres = getPreferredGenres(profile)[candidate.media_type] || [];
   const preferredGenreSet = new Set(preferredGenres);
   const candidateGenres = Array.isArray(candidate.genre_ids) ? candidate.genre_ids : [];
@@ -316,6 +443,17 @@ function scoreCandidate(profile, candidate) {
   if (preferredGenres.length && candidateGenres.length) {
     const overlap = candidateGenres.filter(genreId => preferredGenreSet.has(genreId)).length;
     score += overlap * 5;
+  }
+
+  score += keywordHits * 9;
+  score += titleKeywordHits * 12;
+
+  if (contextKeywords.length && keywordHits === 0 && !candidateThemes.size) {
+    score -= 12;
+  }
+
+  if (penaltyHits > 0) {
+    score -= penaltyHits * (keywordHits > 0 || candidateThemes.size > 0 ? 4 : 12);
   }
 
   if ((candidate._sources || []).includes('curated')) {
@@ -362,7 +500,7 @@ function renderHeader(profile) {
   if (sigil) {
     if (profile.portraitUrl) {
       sigil.classList.add('philosopher-sigil-photo');
-      sigil.innerHTML = `<img src="${profile.portraitUrl}" alt="${escapeHtml(profile.name)} portrait" loading="lazy">`;
+      sigil.innerHTML = `<img src="${profile.portraitUrl}" alt="${escapeHtml(profile.name)} portrait" loading="eager" fetchpriority="high" decoding="async" width="104" height="104">`;
     } else {
       sigil.classList.remove('philosopher-sigil-photo');
       sigil.textContent = profile.initials;
@@ -396,9 +534,9 @@ function renderStats(profile) {
       <p id="philosopher-related-caption" class="profile-stat-caption">Titles already connected through PhiloMedia's quote pairings and thematic discovery.</p>
     </article>
     <article class="profile-stat-card">
-      <span class="profile-stat-label">Dominant theme</span>
-      <span class="profile-stat-value philosopher-stat-theme">${escapeHtml(profile.themeLabels[0] || 'Philosophy')}</span>
-      <p class="profile-stat-caption">The strongest recurring idea across this philosopher's current quotes in the collection.</p>
+      <span class="profile-stat-label">Core thread</span>
+      <span class="profile-stat-value philosopher-stat-theme">${escapeHtml(profile.lenses?.[0]?.label || profile.themeLabels[0] || 'Philosophy')}</span>
+      <p class="profile-stat-caption">The strongest recurring idea across this thinker's current quotes in the collection.</p>
     </article>
   `;
 }
@@ -449,6 +587,7 @@ function needsReferenceMetadata(profile) {
   return Boolean(
     profile?.needsReferenceMetadata
     || String(profile?.period || '').toLowerCase().includes('voice in the collection')
+    || String(profile?.period || '').toLowerCase().includes('thinker in the archive')
     || String(profile?.summary || '').toLowerCase().includes('broader philomedia archive')
   );
 }
@@ -471,16 +610,16 @@ function renderNotFound() {
   const content = document.getElementById('philosopher-content');
   if (content) content.hidden = true;
   updatePageSeo({
-    title: 'PhiloMedia | Philosopher not found',
-    description: 'The requested philosopher page is not available in PhiloMedia right now.',
+    title: 'PhiloMedia | Thinker not found',
+    description: 'The requested thinker page is not available in PhiloMedia right now.',
     path: window.location.pathname,
     type: 'website',
   });
 
   renderState(state, `
     <div class="error-state">
-      <p class="error-state-title">This philosopher is not available.</p>
-      <p class="error-state-text">Return to the <a href="/html/philosophers.html">philosopher index</a> and choose another thinker from the collection.</p>
+      <p class="error-state-title">This thinker is not available.</p>
+      <p class="error-state-text">Return to the <a href="/html/philosophers.html">thinker index</a> and choose another voice from the collection.</p>
     </div>
   `);
 }
@@ -547,17 +686,27 @@ async function renderRelatedWorks(profile) {
   `;
 
   try {
-    const [curatedWorks, discoveredWorks, broadWorks] = await Promise.all([
+    const [curatedWorks, discoveredWorks, keywordWorks] = await Promise.all([
       loadCuratedWorks(profile),
       loadThemeDiscovery(profile),
-      loadBroadDiscovery(),
+      loadKeywordDiscovery(profile),
     ]);
 
-    const merged = mergeCandidates([
+    let merged = mergeCandidates([
       { source: 'curated', items: curatedWorks },
       { source: 'discovery', items: discoveredWorks },
-      { source: 'fallback', items: broadWorks },
+      { source: 'keyword', items: keywordWorks },
     ]);
+
+    if (merged.length < WORK_LIMIT * 2) {
+      const broadWorks = await loadBroadDiscovery();
+      merged = mergeCandidates([
+        { source: 'curated', items: curatedWorks },
+        { source: 'discovery', items: discoveredWorks },
+        { source: 'keyword', items: keywordWorks },
+        { source: 'fallback', items: broadWorks },
+      ]);
+    }
 
     const rankedPool = merged
       .map(candidate => ({
@@ -571,8 +720,15 @@ async function renderRelatedWorks(profile) {
       );
 
     const reranked = await rerankCandidatesWithReviews(profile, rankedPool.slice(0, Math.max(WORK_LIMIT, REVIEW_RERANK_LIMIT)));
-    const strongMatches = reranked.filter(item => (item._philosopherScore || 0) >= 24);
-    const ranked = (strongMatches.length >= 6 ? strongMatches : reranked).slice(0, WORK_LIMIT);
+    const minimumScore = Number(profile.relatedWorkThreshold) || 24;
+    const fallbackScore = Math.max(18, minimumScore - 8);
+    const strongMatches = reranked.filter(item => (item._philosopherScore || 0) >= minimumScore);
+    const fallbackMatches = reranked.filter(item => (item._philosopherScore || 0) >= fallbackScore);
+    const ranked = (
+      strongMatches.length >= Math.min(6, WORK_LIMIT)
+        ? strongMatches
+        : (fallbackMatches.length >= Math.min(4, WORK_LIMIT) ? fallbackMatches : reranked)
+    ).slice(0, WORK_LIMIT);
 
     if (summary) {
       summary.textContent = `Works connected to ${profile.name} through curated quote pairings, thematic discovery, and philosophical reranking.`;
@@ -582,7 +738,7 @@ async function renderRelatedWorks(profile) {
       renderState(container, `
         <div class="empty-state">
           <p class="empty-state-title">No related works yet</p>
-          <p class="empty-state-text">This philosopher already has quotes in the collection, but the related works layer still needs more pairings.</p>
+          <p class="empty-state-text">This thinker already has quotes in the collection, but the related works layer still needs more pairings.</p>
         </div>
       `);
       return;
@@ -596,7 +752,7 @@ async function renderRelatedWorks(profile) {
     renderState(container, `
       <div class="error-state">
         <p class="error-state-title">We could not load related works.</p>
-        <p class="error-state-text">The philosopher page loaded, but the media layer could not be resolved right now.</p>
+        <p class="error-state-text">The thinker page loaded, but the media layer could not be resolved right now.</p>
       </div>
     `);
   }

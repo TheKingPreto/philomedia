@@ -56,6 +56,60 @@ export const PHILOSOPHER_DEFINITIONS = [
     featuredQuoteId: 1045,
   },
   {
+    slug: 'charles-darwin',
+    name: 'Charles Darwin',
+    period: 'Victorian England · 1809-1882',
+    summary: 'Darwin reshapes modern thought through evolution, adaptation, observation of living systems, and the patient work of scientific inference.',
+    focus: 'In PhiloMedia, Darwin should connect most strongly with stories about biology, natural selection, scientific discovery, species, survival, and humanity\'s place in nature.',
+    aliases: ['Charles Darwin', 'Darwin'],
+    priorityThemes: ['epistemology', 'humanism', 'truth-deception', 'technology-modernity'],
+    contextKeywords: [
+      'evolution',
+      'evolutionary',
+      'adaptation',
+      'species',
+      'biology',
+      'natural selection',
+      'natural history',
+      'origin of species',
+      'scientific discovery',
+      'scientific inquiry',
+      'scientific method',
+      'scientist',
+      'research',
+      'experiment',
+      'nature',
+      'naturalist',
+      'organism',
+      'inheritance',
+      'mutation',
+      'ecosystem',
+      'expedition',
+      'galapagos',
+      'beagle',
+      'observation',
+      'science',
+      'investigation'
+    ],
+    contextPenaltyKeywords: [
+      'lawyer',
+      'attorney',
+      'courtroom',
+      'police',
+      'rookie',
+      'con man',
+      'cartel',
+      'legal drama',
+      'office comedy',
+      'doctor',
+      'medical',
+      'hospital',
+      'prosecutor'
+    ],
+    discoveryQueries: ['evolution', 'natural selection', 'biology', 'scientific discovery'],
+    relatedWorkThreshold: 30,
+  },
+  {
     slug: 'karl-marx',
     name: 'Karl Marx',
     period: '19th-century Germany · 1818-1883',
@@ -112,7 +166,7 @@ export const PHILOSOPHER_DEFINITIONS = [
   {
     slug: 'lucas-costa-roxo',
     name: 'Lucas Costa Roxo',
-    period: 'Contemporary voice in the collection',
+    period: 'Contemporary thinker in the archive',
     summary: 'Within PhiloMedia\'s own quote collection, Lucas Costa Roxo sharpens questions about simulation, language, and political domination.',
     focus: 'His page is built for works that interrogate hyperreality, discourse, power, and the instability of truth in mediated worlds.',
     aliases: ['Lucas Costa Roxo', 'Lucas C. Roxo'],
@@ -176,7 +230,22 @@ const THEME_ALIASES = {
   'filosofia politica': 'political-philosophy',
   'utilitarismo': 'utilitarianism',
   'patristica': 'sacred-profane',
-  'evolucao': 'metaphysics',
+  'evolucao': 'epistemology',
+  'evolution': 'epistemology',
+  'biologia': 'epistemology',
+  'biology': 'epistemology',
+  'selecao natural': 'epistemology',
+  'natural selection': 'epistemology',
+  'historia natural': 'epistemology',
+  'natural history': 'epistemology',
+  'metodo cientifico': 'epistemology',
+  'scientific method': 'epistemology',
+  'investigacao cientifica': 'epistemology',
+  'scientific inquiry': 'epistemology',
+  'adaptacao': 'epistemology',
+  'adaptation': 'epistemology',
+  'origem das especies': 'epistemology',
+  'origin of species': 'epistemology',
   'literatura brasileira': 'aesthetics',
   'psicologia e filosofia': 'self-knowledge',
   'psicanalise': 'self-knowledge',
@@ -370,6 +439,11 @@ function mergeBaseDefinitions(curatedDefinition, submittedDefinition, fallbackAu
     portraitUrl: curatedDefinition.portraitUrl || submittedDefinition.portraitUrl,
     wikiTitle: curatedDefinition.wikiTitle || submittedDefinition.wikiTitle,
     featuredQuoteId: curatedDefinition.featuredQuoteId ?? submittedDefinition.featuredQuoteId ?? null,
+    priorityThemes: uniqStrings([...(curatedDefinition.priorityThemes || []), ...(submittedDefinition.priorityThemes || [])]),
+    contextKeywords: uniqStrings([...(curatedDefinition.contextKeywords || []), ...(submittedDefinition.contextKeywords || [])]),
+    contextPenaltyKeywords: uniqStrings([...(curatedDefinition.contextPenaltyKeywords || []), ...(submittedDefinition.contextPenaltyKeywords || [])]),
+    discoveryQueries: uniqStrings([...(curatedDefinition.discoveryQueries || []), ...(submittedDefinition.discoveryQueries || [])]),
+    relatedWorkThreshold: Number(curatedDefinition.relatedWorkThreshold ?? submittedDefinition.relatedWorkThreshold) || 0,
     isCommunitySubmitted: Boolean(submittedDefinition.isCommunitySubmitted) && !curatedDefinition,
   };
 }
@@ -415,6 +489,15 @@ function accumulateThemeScores(quotes = []) {
     .map(([theme]) => theme);
 }
 
+function prioritizeThemes(topThemes = [], baseDefinition = null, limit = 4) {
+  const priorityThemes = uniqStrings(baseDefinition?.priorityThemes || [])
+    .map(normalizePhilosopherTheme)
+    .filter(Boolean);
+
+  return [...new Set([...priorityThemes, ...topThemes])]
+    .slice(0, limit);
+}
+
 function buildFallbackSummary(name, themeLabels = []) {
   if (!themeLabels.length) {
     return `${name} appears in the broader PhiloMedia archive through quotes gathered for the project's philosophical reading layer.`;
@@ -441,7 +524,7 @@ function estimateRelatedWorkCount(topThemes = [], quoteCount = 0, curatedCount =
 }
 
 function buildPeriodText(directoryEntry) {
-  if (!directoryEntry) return 'Voice in the collection';
+  if (!directoryEntry) return 'Thinker in the archive';
 
   const life = String(directoryEntry.life || '').replace(/[()]/g, '').trim();
   const school = String(directoryEntry.school || '').trim();
@@ -449,7 +532,7 @@ function buildPeriodText(directoryEntry) {
   if (school && life) return `${school} · ${life}`;
   if (life) return life;
   if (school) return school;
-  return 'Voice in the collection';
+  return 'Thinker in the archive';
 }
 
 function findDirectoryEntry(candidateNames, directoryIndex) {
@@ -468,7 +551,7 @@ function buildProfileDefinition({ baseDefinition, rawAuthors, topThemes, directo
   const summary = baseDefinition?.summary || directoryEntry?.topicalDescription || buildFallbackSummary(primaryAuthor, themeLabels);
   const focus = baseDefinition?.focus || buildFallbackFocus(primaryAuthor, themeLabels);
   const needsReferenceMetadata = (
-    (!baseDefinition?.period && period === 'Voice in the collection')
+    (!baseDefinition?.period && period === 'Thinker in the archive')
     || (!baseDefinition?.summary && !directoryEntry?.topicalDescription)
   );
 
@@ -482,6 +565,13 @@ function buildProfileDefinition({ baseDefinition, rawAuthors, topThemes, directo
     featuredQuoteId: baseDefinition?.featuredQuoteId ?? null,
     portraitUrl: baseDefinition?.portraitUrl || directoryEntry?.portraitUrl || '',
     wikiTitle: directoryEntry?.wikiTitle || '',
+    priorityThemes: uniqStrings(baseDefinition?.priorityThemes || [])
+      .map(normalizePhilosopherTheme)
+      .filter(Boolean),
+    contextKeywords: uniqStrings(baseDefinition?.contextKeywords || []),
+    contextPenaltyKeywords: uniqStrings(baseDefinition?.contextPenaltyKeywords || []),
+    discoveryQueries: uniqStrings(baseDefinition?.discoveryQueries || []),
+    relatedWorkThreshold: Number(baseDefinition?.relatedWorkThreshold) || 0,
     needsReferenceMetadata,
     isCommunitySubmitted: Boolean(baseDefinition?.isCommunitySubmitted),
   };
@@ -598,7 +688,10 @@ export function buildPhilosopherProfiles(quotes = [], philosopherDirectory = [],
   return [...groupedQuotes.entries()]
     .map(([slug, group]) => {
       const rawAuthors = [...group.rawAuthors];
-      const topThemes = accumulateThemeScores(group.quotes).slice(0, 4);
+      const topThemes = prioritizeThemes(
+        accumulateThemeScores(group.quotes),
+        group.baseDefinition
+      );
       const directoryEntry = findDirectoryEntry(
         [group.baseDefinition?.name, ...(group.baseDefinition?.aliases || []), ...rawAuthors],
         directoryIndex

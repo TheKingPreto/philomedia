@@ -160,9 +160,12 @@ const state = {
 
 const LENS_DISPLAY_LIMIT = 10;
 const LENS_POOL_LIMIT = 24;
-const REVIEW_RERANK_LIMIT = 10;
+const REVIEW_RERANK_LIMIT = 6;
 const REVIEW_CONTEXT_LIMIT = 4500;
 const reviewContextCache = new Map();
+const discoverRequestCache = new Map();
+const searchRequestCache = new Map();
+const lensDiscoveryCache = new Map();
 
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -180,6 +183,39 @@ function normalizeText(text) {
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function buildCacheKey(prefix, payload) {
+  return `${prefix}:${JSON.stringify(payload)}`;
+}
+
+async function discoverTMDBCached(media, options = {}) {
+  const cacheKey = buildCacheKey('discover', { media, ...options });
+  if (!discoverRequestCache.has(cacheKey)) {
+    discoverRequestCache.set(cacheKey, discoverTMDB(media, options));
+  }
+
+  const result = await discoverRequestCache.get(cacheKey);
+  if (!Array.isArray(result) || result.length === 0) {
+    discoverRequestCache.delete(cacheKey);
+  }
+  return Array.isArray(result) ? result : [];
+}
+
+async function searchTMDBCached(query) {
+  const trimmedQuery = String(query || '').trim();
+  if (!trimmedQuery) return [];
+
+  const cacheKey = buildCacheKey('search', { query: trimmedQuery.toLowerCase() });
+  if (!searchRequestCache.has(cacheKey)) {
+    searchRequestCache.set(cacheKey, searchTMDB(trimmedQuery).catch(error => {
+      searchRequestCache.delete(cacheKey);
+      throw error;
+    }));
+  }
+
+  const result = await searchRequestCache.get(cacheKey);
+  return Array.isArray(result) ? result : [];
 }
 
 function getLensById(lensId) {
@@ -220,12 +256,15 @@ function setSearchLoading(message = 'Searching...') {
 }
 
 function setSearchError(message, isServerError = false) {
+  const isRateLimited = /too many/i.test(String(message || ''));
   resultsMeta.hidden = true;
   searchToolbar.hidden = true;
   resultsContainer.innerHTML = `
     <div class="error-state">
       <p class="error-state-title">${escapeHtml(message)}</p>
-      ${isServerError ? '<p class="error-state-text">Check that <code>TMDB_API_KEY</code> is set on the server.</p>' : ''}
+      ${isServerError
+        ? '<p class="error-state-text">Check that <code>TMDB_API_KEY</code> is set on the server.</p>'
+        : (isRateLimited ? '<p class="error-state-text">Please wait a few seconds and try again. Theme exploration is now cached as you browse.</p>' : '')}
     </div>
   `;
 }
@@ -691,6 +730,14 @@ async function runThemeDiscovery(lensId) {
   const lens = getLensById(lensId);
   if (!lens) return;
 
+  if (lensDiscoveryCache.has(lensId)) {
+    state.rawResults = lensDiscoveryCache.get(lensId).map(item => ({ ...item }));
+    state.currentQuery = '';
+    state.discoveryLensId = lensId;
+    await renderFilteredState();
+    return;
+  }
+
   setSearchLoading(`Exploring ${lens.label.toLowerCase()}...`);
 
   const movieGenreFilter = (lens.movieGenres || []).join('|');
@@ -699,62 +746,72 @@ async function runThemeDiscovery(lensId) {
   const [
     movieRated,
     moviePopular,
-    movieRatedPageTwo,
     seriesRated,
     seriesPopular,
-    seriesRatedPageTwo,
   ] = await Promise.all([
-    discoverTMDB('movie', {
+    discoverTMDBCached('movie', {
       page: 1,
       withGenres: movieGenreFilter,
       sortBy: 'vote_average.desc',
     }),
-    discoverTMDB('movie', {
+    discoverTMDBCached('movie', {
       page: 1,
       withGenres: movieGenreFilter,
       sortBy: 'popularity.desc',
     }),
-    discoverTMDB('movie', {
-      page: 2,
-      withGenres: movieGenreFilter,
-      sortBy: 'vote_average.desc',
-    }),
-    discoverTMDB('tv', {
+    discoverTMDBCached('tv', {
       page: 1,
       withGenres: tvGenreFilter,
       sortBy: 'vote_average.desc',
     }),
-    discoverTMDB('tv', {
+    discoverTMDBCached('tv', {
       page: 1,
       withGenres: tvGenreFilter,
       sortBy: 'popularity.desc',
-    }),
-    discoverTMDB('tv', {
-      page: 2,
-      withGenres: tvGenreFilter,
-      sortBy: 'vote_average.desc',
     }),
   ]);
 
   let combined = mergeResultsByIdentity([
     ...(movieRated || []),
     ...(moviePopular || []),
-    ...(movieRatedPageTwo || []),
     ...(seriesRated || []),
     ...(seriesPopular || []),
-    ...(seriesRatedPageTwo || []),
   ]);
 
-  const currentMovieCount = combined.filter(item => item.media_type === 'movie').length;
-  const currentSeriesCount = combined.filter(item => item.media_type === 'tv').length;
+  let currentMovieCount = combined.filter(item => item.media_type === 'movie').length;
+  let currentSeriesCount = combined.filter(item => item.media_type === 'tv').length;
+
+  if (combined.length < 16 || currentMovieCount < 5 || currentSeriesCount < 5) {
+    const [movieRatedPageTwo, seriesRatedPageTwo] = await Promise.all([
+      discoverTMDBCached('movie', {
+        page: 2,
+        withGenres: movieGenreFilter,
+        sortBy: 'vote_average.desc',
+      }),
+      discoverTMDBCached('tv', {
+        page: 2,
+        withGenres: tvGenreFilter,
+        sortBy: 'vote_average.desc',
+      }),
+    ]);
+
+    combined = mergeResultsByIdentity([
+      ...combined,
+      ...(movieRatedPageTwo || []),
+      ...(seriesRatedPageTwo || []),
+    ]);
+
+    currentMovieCount = combined.filter(item => item.media_type === 'movie').length;
+    currentSeriesCount = combined.filter(item => item.media_type === 'tv').length;
+  }
 
   if (combined.length < 12 || currentMovieCount < 4 || currentSeriesCount < 4) {
     const [fallbackMovies, fallbackSeries] = await Promise.all([
-      discoverTMDB('movie', {
+      discoverTMDBCached('movie', {
         page: 1,
         sortBy: 'vote_average.desc',
       }),
-      discoverTMDB('tv', {
+      discoverTMDBCached('tv', {
         page: 1,
         sortBy: 'vote_average.desc',
       }),
@@ -777,7 +834,11 @@ async function runThemeDiscovery(lensId) {
       || (Number(b.vote_average) || 0) - (Number(a.vote_average) || 0)
     );
 
-  state.rawResults = balanceResultsByMedia(ranked, LENS_POOL_LIMIT);
+  const discoveredPool = balanceResultsByMedia(ranked, LENS_POOL_LIMIT);
+  if (discoveredPool.length) {
+    lensDiscoveryCache.set(lensId, discoveredPool);
+  }
+  state.rawResults = discoveredPool.map(item => ({ ...item }));
   state.currentQuery = '';
   state.discoveryLensId = lensId;
   await renderFilteredState();
@@ -786,7 +847,7 @@ async function runThemeDiscovery(lensId) {
 async function runSearch(query) {
   setSearchLoading('Searching for thoughtful matches...');
 
-  const results = await searchTMDB(query);
+  const results = await searchTMDBCached(query);
   state.rawResults = annotateResults(results);
   state.currentQuery = query;
   state.discoveryLensId = '';

@@ -32,7 +32,7 @@ function renderStats(container, profiles) {
 
   container.innerHTML = `
     <article class="profile-stat-card">
-      <span class="profile-stat-label">Philosophers</span>
+      <span class="profile-stat-label">Thinkers</span>
       <span class="profile-stat-value">${profiles.length}</span>
       <p class="profile-stat-caption">Voices with dedicated pages and thematic links inside the collection.</p>
     </article>
@@ -113,7 +113,7 @@ function renderPaginationSummary(container) {
 
   const start = ((state.page - 1) * PAGE_SIZE) + 1;
   const end = Math.min(state.page * PAGE_SIZE, state.profiles.length);
-  container.textContent = `Showing ${start}-${end} of ${state.profiles.length} philosophers.`;
+  container.textContent = `Showing ${start}-${end} of ${state.profiles.length} thinkers.`;
 }
 
 function renderPaginationControls(container) {
@@ -138,6 +138,7 @@ function needsReferenceMetadata(profile) {
   return Boolean(
     profile?.needsReferenceMetadata
     || String(profile?.period || '').toLowerCase().includes('voice in the collection')
+    || String(profile?.period || '').toLowerCase().includes('thinker in the archive')
     || String(profile?.summary || '').toLowerCase().includes('broader philomedia archive')
   );
 }
@@ -221,7 +222,7 @@ function renderError(container, message) {
   container.innerHTML = `
     <div class="error-state">
       <p class="error-state-title">${escapeHtml(message)}</p>
-      <p class="error-state-text">Try reloading the page. If the quote source is unavailable, the philosopher index cannot be built yet.</p>
+      <p class="error-state-text">Try reloading the page. If the quote source is unavailable, the thinker index cannot be built yet.</p>
     </div>
   `;
 }
@@ -252,14 +253,14 @@ async function init() {
       .filter(isIndexReadyProfile);
 
     if (!profiles.length) {
-      renderError(gridContainer, 'No philosopher profiles are available right now.');
+      renderError(gridContainer, 'No thinker profiles are available right now.');
       return;
     }
 
     state.profiles = profiles;
     renderPage();
   } catch (error) {
-    renderError(gridContainer, 'We could not build the philosopher index.');
+    renderError(gridContainer, 'We could not build the thinker index.');
   }
 }
 

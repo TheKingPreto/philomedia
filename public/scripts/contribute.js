@@ -221,7 +221,7 @@ function renderExistingPreview(profile) {
         <div>
           <p class="profile-eyebrow contribution-profile-preview-eyebrow">Existing thinker</p>
           <h3>${escapeHtml(profile.name)}</h3>
-          <p class="section-subtitle">${escapeHtml(profile.period || 'Voice in the collection')}</p>
+          <p class="section-subtitle">${escapeHtml(profile.period || 'Thinker in the archive')}</p>
         </div>
       </div>
       <a href="${profile.url}" class="profile-action-link profile-action-link-secondary contribution-preview-link">Open page</a>
@@ -260,7 +260,7 @@ function updateModeCopy() {
 
   if (quotesSectionSubtitle) {
     quotesSectionSubtitle.textContent = isExistingMode
-      ? 'Add one or more English quotes. They will be attached to the selected thinker and re-used across the philosopher pages.'
+      ? 'Add one or more English quotes. They will be attached to the selected thinker and re-used across the thinker pages.'
       : 'Add one or more English quotes. Optional themes help the first match, but the site also analyzes the quote text.';
   }
 
@@ -361,7 +361,7 @@ function renderExistingOptions(profiles = []) {
 
   existingThinkerOptions.innerHTML = profiles
     .map(profile => `
-      <option value="${escapeHtml(profile.name)}">${escapeHtml(`${profile.period || 'Voice in the collection'} · ${profile.quoteCount} quotes`)}</option>
+      <option value="${escapeHtml(profile.name)}">${escapeHtml(`${profile.period || 'Thinker in the archive'} · ${profile.quoteCount} quotes`)}</option>
     `)
     .join('');
 }
@@ -519,7 +519,7 @@ async function handleSubmit(event) {
     feedback.innerHTML = `
       <p class="contribution-feedback-title">${title}</p>
       <p>${copy}</p>
-      <a class="profile-action-link profile-action-link-secondary" href="/html/philosopher.html?slug=${encodeURIComponent(result.philosopher.slug)}">Open philosopher page</a>
+      <a class="profile-action-link profile-action-link-secondary" href="/html/philosopher.html?slug=${encodeURIComponent(result.philosopher.slug)}">Open thinker page</a>
     `;
     feedback.dataset.tone = 'success';
 
