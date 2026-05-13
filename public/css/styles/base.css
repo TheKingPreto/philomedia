@@ -5,8 +5,6 @@
    serif typography, subtle grain texture, glass cards.
 ────────────────────────────────────────────────────────────────────────────── */
 
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&display=swap');
-
 /* ─── Design Tokens ─────────────────────────────────────────────────────────── */
 :root {
   /* Core palette */
@@ -1581,15 +1579,25 @@ a.result-card-link:hover .result-card-poster::after {
 }
 
 .philosopher-hero {
+  margin-bottom: 2rem;
+}
+
+.philosopher-hero .profile-copy {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
-  gap: 1.6rem;
+  gap: 1rem;
+}
+
+.philosopher-hero-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.5rem;
   align-items: start;
 }
 
-.philosopher-avatar-column {
+.philosopher-title-block {
   display: grid;
-  place-items: start;
+  gap: 0.35rem;
+  align-content: start;
 }
 
 .philosopher-sigil {
@@ -1608,6 +1616,7 @@ a.result-card-link:hover .result-card-poster::after {
   font-family: var(--font-display);
   font-size: 2rem;
   letter-spacing: 0.08em;
+  justify-self: end;
 }
 
 .philosopher-sigil-small {
@@ -1669,6 +1678,12 @@ a.result-card-link:hover .result-card-poster::after {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.35fr);
   gap: 1.5rem;
+  align-items: start;
+}
+
+.philosopher-panel-compact {
+  align-self: start;
+  height: fit-content;
 }
 
 .philosopher-quote-grid {
@@ -1930,6 +1945,24 @@ footer {
   margin-top: 1rem;
 }
 
+.highlights-pagination {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 1.75rem;
+}
+
+.highlights-pagination[hidden] {
+  display: none;
+}
+
+.highlights-count {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
 /* ─── Responsive ────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   header {
@@ -1986,7 +2019,17 @@ footer {
   .contribution-actions { align-items: stretch; }
   .contribution-actions .ghost-button,
   .contribution-actions .profile-action-link { width: 100%; }
-  .philosopher-hero { grid-template-columns: 1fr; gap: 1rem; }
+  .philosopher-hero-head {
+    grid-template-columns: minmax(0, 1fr) 86px;
+    gap: 0.9rem;
+    align-items: start;
+  }
+  .philosopher-sigil {
+    width: 86px;
+    height: 86px;
+    border-radius: 24px;
+    justify-self: end;
+  }
   .philosopher-section-grid { grid-template-columns: 1fr; }
   .activity-item { grid-template-columns: 54px minmax(0, 1fr); }
   .activity-age { grid-column: 2; justify-self: start; }
@@ -1994,6 +2037,19 @@ footer {
   #highlights,
   #search-results,
   .results-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
+}
+
+@media (max-width: 480px) {
+  .philosopher-hero-head {
+    grid-template-columns: minmax(0, 1fr) 74px;
+    gap: 0.75rem;
+  }
+
+  .philosopher-sigil {
+    width: 74px;
+    height: 74px;
+    border-radius: 20px;
+  }
 }
 
 @media (max-width: 480px) {

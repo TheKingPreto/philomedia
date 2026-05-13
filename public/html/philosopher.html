@@ -3,20 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Explore a philosopher's signature quotes, recurring themes, and related works inside PhiloMedia.">
+  <meta name="description" content="Explore a thinker's signature quotes, recurring themes, and related works inside PhiloMedia.">
   <meta name="theme-color" content="#0d0e14">
   <meta name="color-scheme" content="dark">
   <meta name="robots" content="index,follow">
   <meta name="author" content="Lucas Silva">
-  <meta property="og:title" content="PhiloMedia | Philosopher">
-  <meta property="og:description" content="Explore a philosopher's signature quotes, recurring themes, and related works inside PhiloMedia.">
+  <meta property="og:title" content="PhiloMedia | Thinker">
+  <meta property="og:description" content="Explore a thinker's signature quotes, recurring themes, and related works inside PhiloMedia.">
   <meta property="og:type" content="profile">
   <meta property="og:site_name" content="PhiloMedia">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="PhiloMedia | Philosopher">
-  <meta name="twitter:description" content="Explore a philosopher's signature quotes, recurring themes, and related works inside PhiloMedia.">
-  <title>PhiloMedia | Philosopher</title>
+  <meta name="twitter:title" content="PhiloMedia | Thinker">
+  <meta name="twitter:description" content="Explore a thinker's signature quotes, recurring themes, and related works inside PhiloMedia.">
+  <title>PhiloMedia | Thinker</title>
   <link rel="canonical" href="/html/philosopher.html">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&display=swap">
   <link rel="stylesheet" href="/css/styles/base.css">
   <link rel="stylesheet" href="/css/styles/animations.css">
 </head>
@@ -25,12 +28,12 @@
   <header>
     <div class="header-brand">
       <a href="/html/index.html" class="logo">PhiloMedia</a>
-      <span class="header-context">Philosophers</span>
+      <span class="header-context">Thinkers</span>
     </div>
     <nav aria-label="Primary">
       <a href="/html/index.html">Home</a>
       <a href="/html/search.html">Search</a>
-      <a href="/html/philosophers.html" aria-current="page">Philosophers</a>
+      <a href="/html/philosophers.html" aria-current="page">Thinkers</a>
       <a href="/html/library.html" data-auth-link="library" hidden>Library</a>
       <span id="nav-auth-slot" class="nav-auth-slot"></span>
     </nav>
@@ -41,27 +44,29 @@
 
     <section id="philosopher-content" hidden>
       <section class="philosopher-hero">
-        <div class="philosopher-avatar-column">
-          <div id="philosopher-sigil" class="philosopher-sigil" aria-hidden="true"></div>
-        </div>
         <div class="profile-copy">
-          <p class="profile-eyebrow">Philosopher portrait</p>
-          <h1 id="philosopher-name" class="section-title">Philosopher</h1>
-          <p id="philosopher-period" class="section-subtitle"></p>
+          <p class="profile-eyebrow">Thinker portrait</p>
+          <div class="philosopher-hero-head">
+            <div class="philosopher-title-block">
+              <h1 id="philosopher-name" class="section-title">Thinker</h1>
+              <p id="philosopher-period" class="section-subtitle"></p>
+            </div>
+            <div id="philosopher-sigil" class="philosopher-sigil" aria-hidden="true"></div>
+          </div>
           <p id="philosopher-summary" class="profile-summary"></p>
           <p id="philosopher-focus" class="philosopher-focus"></p>
           <div id="philosopher-lenses" class="philosopher-chip-row philosopher-chip-row-links" aria-label="Related search lenses"></div>
         </div>
       </section>
 
-      <section id="philosopher-stats" class="profile-stats" aria-label="Philosopher stats"></section>
+      <section id="philosopher-stats" class="profile-stats" aria-label="Thinker stats"></section>
 
       <section class="philosopher-section-grid">
-        <article class="profile-panel">
+        <article class="profile-panel philosopher-panel-compact">
           <div class="results-meta">
             <div class="results-meta-copy">
               <h2 class="section-title">Signature quotes</h2>
-              <p class="section-subtitle">The lines in this collection that most clearly shape the philosopher's presence on the site.</p>
+              <p class="section-subtitle">The lines in this collection that most clearly shape this thinker's presence on the site.</p>
             </div>
           </div>
           <div id="philosopher-quotes" class="philosopher-quote-grid"></div>

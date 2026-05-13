@@ -17,6 +17,9 @@
   <meta name="twitter:description" content="Explore deep philosophical quotes paired with your favorite series, movies, and animes.">
   <title>PhiloMedia | Home</title>
   <link rel="canonical" href="/html/index.html">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&display=swap">
   <link rel="stylesheet" href="/css/styles/base.css">
   <link rel="stylesheet" href="/css/styles/animations.css">
 </head>
@@ -30,7 +33,7 @@
     <nav aria-label="Primary">
       <a href="/html/index.html" aria-current="page">Home</a>
       <a href="/html/search.html">Search</a>
-      <a href="/html/philosophers.html">Philosophers</a>
+      <a href="/html/philosophers.html">Thinkers</a>
       <a href="/html/library.html" data-auth-link="library" hidden>Library</a>
       <span id="nav-auth-slot" class="nav-auth-slot"></span>
     </nav>
@@ -49,6 +52,10 @@
       <h2 id="highlights-title" class="section-title">Featured for you</h2>
       <p id="highlights-context" class="section-subtitle">Works selected to resonate with today's quote.</p>
       <div id="highlights"></div>
+      <div id="highlights-pagination" class="highlights-pagination" hidden>
+        <p id="highlights-count" class="highlights-count"></p>
+        <button id="load-more-highlights" class="ghost-button" type="button">Load more related works</button>
+      </div>
     </section>
   </main>
 
