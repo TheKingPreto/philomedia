@@ -11,9 +11,12 @@ const TRANSLATED_AUTHOR_ALIASES = {
   'epicuro': 'Epicurus',
   'galileu galilei': 'Galileo Galilei',
   'heraclito': 'Heraclitus',
+  'martin luther king': 'Martin Luther King Jr.',
   'plotino': 'Plotinus',
+  'soren kierkegaard': 'Søren Kierkegaard',
   'santo agostinho': 'Saint Augustine',
 };
+const MOJIBAKE_PATTERN = /[ÃÂâ€]/;
 
 function normalizeText(value) {
   return String(value || '')
@@ -37,8 +40,24 @@ function uniqStrings(values = []) {
   )];
 }
 
+function repairMojibake(value) {
+  const rawValue = String(value || '').trim();
+  if (!rawValue || !MOJIBAKE_PATTERN.test(rawValue)) return rawValue;
+
+  try {
+    const repaired = Buffer.from(rawValue, 'latin1').toString('utf8').trim();
+    if (repaired && repaired !== rawValue) {
+      return repaired;
+    }
+  } catch {
+    return rawValue;
+  }
+
+  return rawValue;
+}
+
 function normalizeTranslatedAuthor(author) {
-  const rawAuthor = String(author || '').trim();
+  const rawAuthor = repairMojibake(author);
   if (!rawAuthor) return '';
 
   const normalized = normalizeText(rawAuthor);
@@ -59,7 +78,7 @@ export function mapCustomQuoteEntry(entry) {
   return {
     id: entry.id,
     quote: entry.quote,
-    author: entry.author,
+    author: normalizeTranslatedAuthor(entry.author),
     themes: uniqStrings(entry.themes || []),
     source: 'custom',
     lang: 'en',
@@ -75,7 +94,7 @@ export function mapDatabaseQuoteEntry(entry) {
   return {
     id: entry.legacyId ?? String(entry._id),
     quote: entry.quoteText,
-    author: entry.authorName,
+    author: normalizeTranslatedAuthor(entry.authorName),
     themes: uniqStrings(entry.themes || []),
     source: entry.isGenerated
       ? 'generated'
@@ -89,7 +108,7 @@ export function mapWikiQuoteEntry(entry, index) {
   return {
     id: `wiki-${index + 1}`,
     quote: String(entry.text || '').trim(),
-    author: String(entry.author || '').trim(),
+    author: normalizeTranslatedAuthor(entry.author),
     themes: uniqStrings(entry.theme ? [entry.theme] : []),
     source: 'wikiquote',
     lang: String(entry.lang || 'pt').trim().toLowerCase() || 'pt',

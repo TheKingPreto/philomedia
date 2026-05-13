@@ -18,6 +18,7 @@ import libraryRoutes from './src/routes/library.js';
 import philosopherRoutes from './src/routes/philosophers.js';
 import tmdbRoutes from './src/routes/tmdb.js';
 import aiQuoteRoutes from './src/routes/aiQuotes.js';
+import dailyPairingRoutes from './src/routes/dailyPairing.js';
 import { specs } from './config/swagger.js';
 import { buildPublicUrl, getPublicBaseUrl } from './src/utils/publicUrl.js';
 
@@ -68,7 +69,14 @@ app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({
+  contentSecurityPolicy: false,
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+}));
 app.use((req, res, next) => {
   res.setHeader(
     'Content-Security-Policy',
@@ -78,7 +86,7 @@ app.use((req, res, next) => {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: https://image.tmdb.org https://philosophersapi.com https://upload.wikimedia.org",
       "connect-src 'self' https://api.themoviedb.org https://corsproxy.io https://philosophersapi.com",
-      "font-src 'self' https://fonts.gstatic.com",
+      "font-src 'self' https://fonts.gstatic.com https://r2cdn.perplexity.ai",
       "base-uri 'self'",
       "form-action 'self'",
       "frame-ancestors 'none'",
@@ -97,7 +105,7 @@ app.use(cors({
 
 const globalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 180,
+  max: 600,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
@@ -114,7 +122,7 @@ const authLimiter = rateLimit({
 
 const tmdbLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 90,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many media lookup requests. Please slow down and try again shortly.' },
@@ -236,6 +244,57 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get('/api/assets/portrait', async (req, res) => {
+  const source = String(req.query.src || '').trim();
+
+  if (!source) {
+    res.status(400).json({ error: 'Portrait source is required.' });
+    return;
+  }
+
+  let portraitUrl;
+
+  try {
+    portraitUrl = new URL(source);
+  } catch {
+    res.status(400).json({ error: 'Invalid portrait source.' });
+    return;
+  }
+
+  if (!['https:', 'http:'].includes(portraitUrl.protocol)) {
+    res.status(400).json({ error: 'Portrait protocol is not allowed.' });
+    return;
+  }
+
+  if (!['upload.wikimedia.org'].includes(portraitUrl.hostname)) {
+    res.status(403).json({ error: 'Portrait host is not allowed.' });
+    return;
+  }
+
+  try {
+    const upstream = await fetch(portraitUrl, {
+      headers: {
+        'User-Agent': 'PhiloMedia/1.0 (+https://github.com/Lucassilva027/philomedia)',
+      },
+    });
+
+    if (!upstream.ok) {
+      res.status(502).json({ error: 'Could not fetch portrait.' });
+      return;
+    }
+
+    const arrayBuffer = await upstream.arrayBuffer();
+    const contentType = upstream.headers.get('content-type') || 'image/jpeg';
+    const cacheControl = upstream.headers.get('cache-control') || 'public, max-age=86400, stale-while-revalidate=604800';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', cacheControl);
+    res.send(Buffer.from(arrayBuffer));
+  } catch (error) {
+    res.status(502).json({ error: 'Portrait proxy unavailable.' });
+  }
+});
+
 app.use(express.static('public', {
   maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
 }));
@@ -254,6 +313,7 @@ app.use('/api/quotes', quoteRoutes);
 app.use('/api/philosophers', applyLimiterToMethods(new Set(['POST']), contributionWriteLimiter), philosopherRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/me', applyLimiterToMethods(new Set(['POST', 'PATCH', 'PUT', 'DELETE']), libraryWriteLimiter), libraryRoutes);
+app.use('/api/daily-pairing', tmdbLimiter, dailyPairingRoutes);
 app.use('/api/tmdb', tmdbLimiter, tmdbRoutes);
 app.use('/api/ai/quotes', aiQuoteRoutes);
 app.use('/auth', authLimiter, authRoutes);
