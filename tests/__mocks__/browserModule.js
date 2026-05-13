@@ -15,6 +15,7 @@ export const getReviewsFromTMDB = async () => [];
 
 // philosophersapi.js
 export const getQuotes = async () => [];
+export const getQuoteCatalog = async () => [];
 
 // hermeneutics.js
 export const analyzeWorkForThemes = () => [];

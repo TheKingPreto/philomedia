@@ -101,6 +101,32 @@ describe('philosopher data helpers', () => {
     expect(profile.summary).toContain('Immanuel Kant');
   });
 
+  test('prioritizes Darwin around science and evolution instead of generic metaphysics', () => {
+    const profile = getPhilosopherProfileBySlug([
+      {
+        id: 'darwin-1',
+        quote: 'A man who dares to waste one hour of time has not discovered the value of life.',
+        author: 'Charles Darwin',
+        themes: ['evolucao', 'selecao natural'],
+      },
+      {
+        id: 'darwin-2',
+        quote: 'In the long history of humankind, those who learned to collaborate and improvise most effectively have prevailed.',
+        author: 'Darwin',
+        themes: ['biology', 'scientific inquiry'],
+      },
+    ], 'charles-darwin');
+
+    expect(profile).toEqual(expect.objectContaining({
+      slug: 'charles-darwin',
+      name: 'Charles Darwin',
+      quoteCount: 2,
+    }));
+    expect(profile.topThemes[0]).toBe('epistemology');
+    expect(profile.focus).toContain('natural selection');
+    expect(profile.contextKeywords).toEqual(expect.arrayContaining(['evolution', 'biology', 'natural selection']));
+  });
+
   test('normalizes translated wikiquote themes into English canonical labels', () => {
     const profile = getPhilosopherProfileBySlug([
       {

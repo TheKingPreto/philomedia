@@ -90,6 +90,20 @@ describe('quote catalog service', () => {
     expect(entry.author).toBe('Buddha');
   });
 
+  test('repairs mojibake thinker names before applying canonical aliases', () => {
+    const entry = mapTranslatedWikiQuoteEntry({
+      id: 'wiki-3',
+      text: 'Study the past if you would define the future.',
+      author: 'ConfÃºcio',
+      theme: 'humanism',
+      originalText: 'Estude o passado se quiser definir o futuro.',
+      originalLanguage: 'pt',
+      translationStatus: 'machine',
+    }, 2);
+
+    expect(entry.author).toBe('Confucius');
+  });
+
   test('preserves user-submitted database quotes in the English catalog', () => {
     const entry = mapDatabaseQuoteEntry({
       _id: '507f1f77bcf86cd799439011',
@@ -106,5 +120,18 @@ describe('quote catalog service', () => {
       lang: 'en',
       originalLanguage: 'en',
     }));
+  });
+
+  test('normalizes mojibake author names coming from database quotes', () => {
+    const entry = mapDatabaseQuoteEntry({
+      _id: '507f1f77bcf86cd799439012',
+      quoteText: 'Life can only be understood backwards; but it must be lived forwards.',
+      authorName: 'SÃ¸ren Kierkegaard',
+      themes: ['existentialism'],
+      submissionSource: 'database-import',
+      quoteLanguage: 'en',
+    });
+
+    expect(entry.author).toBe('Søren Kierkegaard');
   });
 });
