@@ -4,7 +4,22 @@ import * as tmdbClient from './tmdbClient.js';
 const DEFAULT_TIME_ZONE = process.env.DAILY_PAIRING_TIME_ZONE || 'America/Sao_Paulo';
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 10;
+const SUPPLEMENT_MINIMUM = 10;
+const SUPPLEMENT_EXTRA_MARGIN = 4;
 const mediaCache = new Map();
+/** @type {Map<string, Array<{ tmdbId: string, mediaType: string, _supplemental?: boolean }>>} */
+const supplementalWorksByDayKey = new Map();
+
+const THEME_GENRE_MAP = {
+  identity: { movie: [18, 9648, 878], tv: [18, 9648, 10765] },
+  power: { movie: [18, 80, 10752], tv: [18, 80, 10768] },
+  truth: { movie: [9648, 53, 878], tv: [9648, 80, 10765] },
+  ethics: { movie: [18, 12, 10752], tv: [18, 10759, 16] },
+  time: { movie: [9648, 878, 18], tv: [9648, 18, 10765] },
+  culture: { movie: [878, 9648, 53], tv: [10765, 9648, 18] },
+  justice: { movie: [18, 80, 99], tv: [18, 80, 10768] },
+  love: { movie: [10749, 18], tv: [18, 10766] },
+};
 
 function clampInteger(value, { min, max, fallback }) {
   const numeric = Number.parseInt(value, 10);
@@ -92,6 +107,84 @@ async function getMediaSummary(work) {
   return mediaCache.get(cacheKey);
 }
 
+function getThemeGenresForEntry(entry) {
+  const contextLower = String(entry?.context || '').toLowerCase();
+  for (const [bucket, genres] of Object.entries(THEME_GENRE_MAP)) {
+    if (contextLower.includes(bucket)) return genres;
+  }
+  return { movie: [18], tv: [18] };
+}
+
+async function supplementWithDiscovery(entry, existingIds, needed) {
+  if (needed <= 0) return [];
+
+  const genres = getThemeGenresForEntry(entry);
+  const movieGenres = genres.movie.join(',');
+  const tvGenres = genres.tv.join(',');
+
+  const [movies, series] = await Promise.all([
+    tmdbClient.getDiscover('movie', 1, {
+      withGenres: movieGenres,
+      sortBy: 'vote_average.desc',
+      voteCountGte: 500,
+    }).catch(() => []),
+    tmdbClient.getDiscover('tv', 1, {
+      withGenres: tvGenres,
+      sortBy: 'vote_average.desc',
+      voteCountGte: 200,
+    }).catch(() => []),
+  ]);
+
+  const existingSet = new Set(existingIds.map(id => String(id)));
+  const supplemental = [];
+  let mi = 0;
+  let si = 0;
+
+  while (supplemental.length < needed && (mi < movies.length || si < series.length)) {
+    if (mi < movies.length) {
+      const m = movies[mi];
+      mi += 1;
+      if (m?.id != null && !existingSet.has(String(m.id))) {
+        existingSet.add(String(m.id));
+        supplemental.push({
+          tmdbId: String(m.id),
+          mediaType: 'movie',
+          _supplemental: true,
+        });
+      }
+    }
+    if (si < series.length && supplemental.length < needed) {
+      const s = series[si];
+      si += 1;
+      if (s?.id != null && !existingSet.has(String(s.id))) {
+        existingSet.add(String(s.id));
+        supplemental.push({
+          tmdbId: String(s.id),
+          mediaType: 'tv',
+          _supplemental: true,
+        });
+      }
+    }
+  }
+
+  return supplemental;
+}
+
+async function getCachedOrFetchSupplemental(entry, dateKey, slug, curatedWorks, supplementalNeeded) {
+  if (supplementalNeeded <= 0) return [];
+
+  const cacheKey = `${dateKey}:${slug}`;
+  const curatedIds = curatedWorks.map(w => w.tmdbId);
+  const fetchCount = supplementalNeeded + SUPPLEMENT_EXTRA_MARGIN;
+
+  if (!supplementalWorksByDayKey.has(cacheKey)) {
+    const list = await supplementWithDiscovery(entry, curatedIds, fetchCount);
+    supplementalWorksByDayKey.set(cacheKey, list);
+  }
+
+  return supplementalWorksByDayKey.get(cacheKey) || [];
+}
+
 export function getPairingForDate(date = new Date(), timeZone = DEFAULT_TIME_ZONE) {
   if (DAILY_PAIRINGS.length === 0) return null;
 
@@ -115,7 +208,21 @@ export async function getDailyPairing({
   const selected = getPairingForDate(date, timeZone);
   if (!selected) return null;
 
-  const allWorks = dedupeWorks(selected.entry.works);
+  const curatedWorks = dedupeWorks(selected.entry.works);
+  const supplementalNeeded = Math.max(0, SUPPLEMENT_MINIMUM - curatedWorks.length);
+  let allWorks = curatedWorks;
+
+  if (supplementalNeeded > 0) {
+    const supplemental = await getCachedOrFetchSupplemental(
+      selected.entry,
+      selected.dateKey,
+      selected.entry.slug,
+      curatedWorks,
+      supplementalNeeded,
+    );
+    allWorks = dedupeWorks([...curatedWorks, ...supplemental]);
+  }
+
   const safeOffset = clampInteger(offset, {
     min: 0,
     max: Math.max(0, allWorks.length),
@@ -153,4 +260,5 @@ export async function getDailyPairing({
 
 export function clearDailyPairingCache() {
   mediaCache.clear();
+  supplementalWorksByDayKey.clear();
 }

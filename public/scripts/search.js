@@ -1,7 +1,11 @@
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
+import {
+  getCuratedPhilosophicalProfile,
+  scoreCuratedProfileForLens,
+} from '/scripts/curatedPhilosophicalProfiles.js';
 import { discoverTMDB, getReviewsFromTMDB, searchTMDB } from '/scripts/seriesapi.js';
 import { setupAuthUI } from '/scripts/auth-ui.js';
-import { renderMediaCards } from '/scripts/media-card.js';
+import { createMediaCard, hydrateMediaCards, renderMediaCards } from '/scripts/media-card.js';
 
 const LENS_FILTERS = [
   {
@@ -18,7 +22,10 @@ const LENS_FILTERS = [
     label: 'Identity',
     summary: 'Stories about self-discovery, fractured selves, and inner reflection.',
     themes: ['self-knowledge', 'existentialism'],
-    keywords: ['identity', 'self', 'reflection', 'persona', 'introspection'],
+    keywords: [
+      'identity', 'self', 'reflection', 'persona', 'introspection', 'authenticity',
+      'belonging', 'mask', 'transformation', 'self-discovery', 'who am i',
+    ],
     movieGenres: [18, 9648, 878],
     tvGenres: [18, 9648, 10765, 16],
   },
@@ -45,8 +52,11 @@ const LENS_FILTERS = [
     label: 'Memory & Time',
     summary: 'Narratives that orbit memory, regret, time, and perception.',
     themes: ['memory-time', 'metaphysics'],
-    keywords: ['memory', 'time', 'past', 'future', 'regret'],
-    movieGenres: [9648, 878, 18],
+    keywords: [
+      'memory', 'memories', 'time', 'past', 'future', 'regret', 'nostalgia', 'forgotten',
+      'remember', 'loop', 'timeline', 'flashback', 'amnesia', 'time travel',
+    ],
+    movieGenres: [9648, 18],
     tvGenres: [9648, 18, 10765, 16],
   },
   {
@@ -72,9 +82,12 @@ const LENS_FILTERS = [
     label: 'Consciousness & AI',
     summary: 'Works that question mind, humanity, technology, and sentience.',
     themes: ['consciousness-ai', 'technology-modernity'],
-    keywords: ['consciousness', 'ai', 'android', 'machine', 'humanity'],
-    movieGenres: [878, 9648, 18],
-    tvGenres: [10765, 9648, 18],
+    keywords: [
+      'consciousness', 'sentience', 'mind', 'ai', 'android', 'robot', 'machine',
+      'humanity', 'synthetic', 'simulation', 'virtual', 'digital',
+    ],
+    movieGenres: [878, 9648],
+    tvGenres: [10765, 9648],
   },
   {
     id: 'utopia-dystopia',
@@ -145,6 +158,7 @@ const resultsMeta = document.getElementById('search-results-meta');
 const resultsTitle = document.getElementById('search-results-title');
 const resultsSummary = document.getElementById('search-results-summary');
 const sortSelect = document.getElementById('sort-select');
+const searchResultsSection = document.getElementById('search-results-section');
 
 const state = {
   rawResults: [],
@@ -156,10 +170,12 @@ const state = {
     rating: 'any',
     sort: 'recommended',
   },
+  lensPage: 0,
+  lensAllResults: [],
 };
 
 const LENS_DISPLAY_LIMIT = 10;
-const LENS_POOL_LIMIT = 24;
+const LENS_POOL_LIMIT = 40;
 const REVIEW_RERANK_LIMIT = 6;
 const REVIEW_CONTEXT_LIMIT = 4500;
 const reviewContextCache = new Map();
@@ -294,6 +310,7 @@ function annotateResult(item, index) {
     _themeMatches: themeMatches,
     _themeIds: themeMatches.map(match => match.theme),
     _normalizedContext: normalizeText(textContext),
+    _philosophicalProfile: getCuratedPhilosophicalProfile(item.id),
   };
 }
 
@@ -342,8 +359,17 @@ function mergeResultsByIdentity(items) {
   return annotateResults([...merged.values()]);
 }
 
+const LENS_GENRE_OVERLAP_MIN_HERM = 8;
+const ACTION_GENRE_ID = 28;
+
 function scoreLensAffinity(item, lens) {
   if (!lens) return 0;
+
+  const prof = item._philosophicalProfile || getCuratedPhilosophicalProfile(item.id);
+  const lensCurated = scoreCuratedProfileForLens(prof, lens);
+  if (lensCurated.excluded) {
+    return 0;
+  }
 
   const themeSet = new Set(item._themeIds || []);
   const normalized = item._normalizedContext || '';
@@ -351,7 +377,13 @@ function scoreLensAffinity(item, lens) {
   const preferredGenres = item.media_type === 'tv'
     ? (lens.tvGenres || [])
     : (lens.movieGenres || []);
+  const lensThemeSet = new Set(lens.themes || []);
+  const hermLensScore = (item._themeMatches || [])
+    .filter(m => lensThemeSet.has(m.theme))
+    .reduce((sum, m) => sum + m.score, 0);
+
   let score = 0;
+  let hasKeywordHit = false;
 
   lens.themes.forEach((theme, index) => {
     if (themeSet.has(theme)) {
@@ -361,20 +393,43 @@ function scoreLensAffinity(item, lens) {
 
   lens.keywords.forEach((keyword, index) => {
     if (normalized.includes(normalizeText(keyword))) {
+      hasKeywordHit = true;
       score += Math.max(4, 12 - index * 1.5);
     }
   });
 
+  const profileHasLensTag = prof?.philosophicalTags?.some(t => lensThemeSet.has(t)) ?? false;
+  const allowGenreOverlap =
+    hermLensScore >= LENS_GENRE_OVERLAP_MIN_HERM ||
+    hasKeywordHit ||
+    profileHasLensTag;
+
   if (preferredGenres.length && genreIds.length) {
     const lensGenreSet = new Set(preferredGenres);
     const overlap = genreIds.filter(genreId => lensGenreSet.has(genreId)).length;
-    if (overlap > 0) {
-      score += overlap * 5;
+    if (overlap > 0 && allowGenreOverlap) {
+      const isActionHeavy = genreIds.includes(ACTION_GENRE_ID);
+      const dampenConsciousnessAction =
+        lens.id === 'consciousness-ai' && isActionHeavy && hermLensScore < 12;
+      const perGenre = dampenConsciousnessAction ? 2 : 5;
+      score += overlap * perGenre;
     }
   }
 
-  score += Math.max(0, Number(item.vote_average || 0) - 6) * 1.5;
-  score += Math.min(5, (Number(item.popularity) || 0) / 45);
+  const weakTextSignal =
+    !hasKeywordHit &&
+    hermLensScore < LENS_GENRE_OVERLAP_MIN_HERM &&
+    !profileHasLensTag &&
+    lensCurated.bonus === 0;
+  if (weakTextSignal) {
+    score += Math.max(0, Number(item.vote_average || 0) - 6) * 0.35;
+    score += Math.min(2, (Number(item.popularity) || 0) / 120);
+  } else {
+    score += Math.max(0, Number(item.vote_average || 0) - 6) * 1.5;
+    score += Math.min(5, (Number(item.popularity) || 0) / 45);
+  }
+
+  score += lensCurated.bonus;
 
   return score;
 }
@@ -670,7 +725,7 @@ async function rerankLensSelectionWithReviews(items, lens) {
   );
 }
 
-async function getLensFilteredResults(items, lens) {
+async function getLensFilteredResults(items, lens, { poolLimit = LENS_DISPLAY_LIMIT } = {}) {
   const filtered = applyToolbarFilters(items);
 
   const ranked = filtered
@@ -685,27 +740,109 @@ async function getLensFilteredResults(items, lens) {
     );
 
   const strongMatches = ranked.filter(item => item._activeLensScore >= 9);
+  const selectionCap = Math.max(poolLimit, REVIEW_RERANK_LIMIT);
   const selected = (strongMatches.length >= 8 ? strongMatches : ranked)
-    .slice(0, Math.max(LENS_DISPLAY_LIMIT, REVIEW_RERANK_LIMIT));
+    .slice(0, selectionCap);
 
   const reranked = await rerankLensSelectionWithReviews(selected, lens);
-  const limited = reranked.slice(0, LENS_DISPLAY_LIMIT);
 
   return state.filters.media === 'all'
-    ? balanceResultsByMedia(limited, LENS_DISPLAY_LIMIT)
-    : limited;
+    ? balanceResultsByMedia(reranked, poolLimit)
+    : reranked.slice(0, poolLimit);
 }
 
-async function renderFilteredState() {
+async function extendLensPool(lensId) {
+  const lens = getLensById(lensId);
+  if (!lens) return;
+
+  const page = Math.floor(state.rawResults.length / 20) + 1;
+  const movieGenreFilter = (lens.movieGenres || []).join('|');
+  const tvGenreFilter = (lens.tvGenres || []).join('|');
+
+  const [moreMovies, moreSeries] = await Promise.all([
+    discoverTMDBCached('movie', {
+      page,
+      withGenres: movieGenreFilter,
+      sortBy: 'vote_average.desc',
+    }),
+    discoverTMDBCached('tv', {
+      page,
+      withGenres: tvGenreFilter,
+      sortBy: 'vote_average.desc',
+    }),
+  ]);
+
+  const existing = new Set(state.rawResults.map(r => `${r.media_type}:${r.id}`));
+  const newItems = mergeResultsByIdentity([...(moreMovies || []), ...(moreSeries || [])])
+    .filter(item => !existing.has(`${item.media_type}:${item.id}`));
+
+  if (!newItems.length) return;
+
+  state.rawResults = mergeResultsByIdentity([...state.rawResults, ...newItems]);
+  if (lensDiscoveryCache.has(lensId)) {
+    lensDiscoveryCache.set(lensId, state.rawResults.map(item => ({ ...item })));
+  }
+}
+
+function ensureLensPaginationMount() {
+  let paginationEl = document.getElementById('lens-pagination');
+  if (!paginationEl && searchResultsSection) {
+    paginationEl = document.createElement('div');
+    paginationEl.id = 'lens-pagination';
+    paginationEl.className = 'lens-pagination';
+    searchResultsSection.appendChild(paginationEl);
+  }
+  return paginationEl;
+}
+
+function renderLensPagination(visible = 0) {
+  const paginationEl = ensureLensPaginationMount();
+  if (!paginationEl) return;
+
+  if (state.filters.lens === 'all' || !state.lensAllResults.length) {
+    paginationEl.hidden = true;
+    return;
+  }
+
+  const total = state.lensAllResults.length;
+  const hasMore = visible < total;
+
+  if (!hasMore) {
+    paginationEl.hidden = true;
+    return;
+  }
+
+  paginationEl.hidden = false;
+  paginationEl.innerHTML = `
+    <p class="lens-pagination-count">${visible} of ${total} works shown</p>
+    <button type="button" id="load-more-lens" class="ghost-button">
+      See more related works
+    </button>
+  `;
+}
+
+async function renderFilteredState({ append = false } = {}) {
   if (!state.rawResults.length) {
+    const paginationEl = document.getElementById('lens-pagination');
+    if (paginationEl) {
+      paginationEl.hidden = true;
+      paginationEl.replaceChildren();
+    }
     setSearchEmpty('Try a title or click one of the suggested lenses above.');
     return;
   }
 
   const activeLens = getLensById(state.filters.lens);
   const filtered = activeLens
-    ? await getLensFilteredResults(state.rawResults, activeLens)
+    ? await getLensFilteredResults(state.rawResults, activeLens, { poolLimit: LENS_POOL_LIMIT })
     : getSyncFilteredResults(state.rawResults);
+
+  if (activeLens) {
+    state.lensAllResults = filtered;
+  } else {
+    state.lensAllResults = [];
+  }
+
   searchToolbar.hidden = false;
 
   if (!filtered.length) {
@@ -717,16 +854,70 @@ async function renderFilteredState() {
         <p class="empty-state-text">Try another lens, lower the rating floor, or clear the filters.</p>
       </div>
     `;
+    renderLensPagination(0);
     return;
   }
 
-  const sortedResults = sortVisibleResults(filtered);
+  const visibleCap = (state.lensPage + 1) * LENS_DISPLAY_LIMIT;
+  const sliceForSort = activeLens ? filtered.slice(0, visibleCap) : filtered;
+  const pageResults = sortVisibleResults(sliceForSort);
+
+  const summaryTotal = activeLens ? filtered.length : state.rawResults.length;
   resultsMeta.hidden = false;
-  buildResultsSummary(state.rawResults.length, sortedResults.length);
-  renderResults(sortedResults);
+  buildResultsSummary(summaryTotal, pageResults.length);
+
+  if (append && activeLens) {
+    const startIdx = state.lensPage * LENS_DISPLAY_LIMIT;
+    const newItems = pageResults.slice(startIdx, startIdx + LENS_DISPLAY_LIMIT);
+    if (!newItems.length) {
+      state.lensPage = Math.max(0, state.lensPage - 1);
+      await renderFilteredState({ append: false });
+      return;
+    }
+    const fragment = document.createDocumentFragment();
+    newItems.forEach((item, i) => {
+      fragment.appendChild(createMediaCard(item, {
+        index: startIdx + i,
+        overviewLength: 110,
+      }));
+    });
+    resultsContainer.appendChild(fragment);
+    hydrateMediaCards(resultsContainer).catch(() => {});
+  } else {
+    renderResults(pageResults);
+  }
+
+  renderLensPagination(pageResults.length);
+}
+
+async function handleLensLoadMoreClick(event) {
+  const button = event.target.closest('#load-more-lens');
+  if (!button || button.disabled) return;
+
+  button.disabled = true;
+  button.textContent = 'Loading...';
+
+  state.lensPage += 1;
+
+  const want = (state.lensPage + 1) * LENS_DISPLAY_LIMIT;
+  try {
+    if (want > state.lensAllResults.length && state.discoveryLensId) {
+      await extendLensPool(state.discoveryLensId);
+    }
+    await renderFilteredState({ append: true });
+  } catch {
+    state.lensPage = Math.max(0, state.lensPage - 1);
+  } finally {
+    const nextBtn = document.getElementById('load-more-lens');
+    if (nextBtn) {
+      nextBtn.disabled = false;
+      nextBtn.textContent = 'See more related works';
+    }
+  }
 }
 
 async function runThemeDiscovery(lensId) {
+  state.lensPage = 0;
   const lens = getLensById(lensId);
   if (!lens) return;
 
@@ -845,6 +1036,7 @@ async function runThemeDiscovery(lensId) {
 }
 
 async function runSearch(query) {
+  state.lensPage = 0;
   setSearchLoading('Searching for thoughtful matches...');
 
   const results = await searchTMDBCached(query);
@@ -892,6 +1084,7 @@ async function handleLensClick(event) {
   const button = event.target.closest('button[data-group="lens"]');
   if (!button) return;
 
+  state.lensPage = 0;
   const nextLens = state.filters.lens === button.dataset.value ? 'all' : button.dataset.value;
   const shouldRefreshDiscovery = !state.currentQuery && nextLens !== 'all';
   state.filters.lens = nextLens;
@@ -917,6 +1110,7 @@ async function handleToolbarClick(event) {
   if (!button) return;
 
   const { group, value } = button.dataset;
+  state.lensPage = 0;
   if (group === 'media') {
     state.filters.media = value;
   }
@@ -933,6 +1127,7 @@ async function handleToolbarClick(event) {
 }
 
 async function handleSortChange(event) {
+  state.lensPage = 0;
   state.filters.sort = event.target.value || 'recommended';
 
   if (state.rawResults.length) {
@@ -941,6 +1136,7 @@ async function handleSortChange(event) {
 }
 
 async function clearFilters() {
+  state.lensPage = 0;
   state.filters.media = 'all';
   state.filters.rating = 'any';
   state.filters.lens = 'all';
@@ -1005,6 +1201,7 @@ function init() {
   renderFilterControls();
   form.addEventListener('submit', handleSubmit);
   lensSuggestionsContainer.addEventListener('click', handleLensClick);
+  searchResultsSection?.addEventListener('click', handleLensLoadMoreClick);
   mediaFiltersContainer.addEventListener('click', handleToolbarClick);
   ratingFiltersContainer.addEventListener('click', handleToolbarClick);
   sortSelect.addEventListener('change', handleSortChange);

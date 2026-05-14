@@ -19,6 +19,10 @@ import {
 import { getQuoteCatalog, getQuotes } from '/scripts/philosophersapi.js';
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { curatedQuoteMatches } from '/scripts/curatedmatches.js';
+import {
+  getCuratedPhilosophicalProfile,
+  scoreCuratedRelatedAffinity,
+} from '/scripts/curatedPhilosophicalProfiles.js';
 import { getSession, redirectToLogin, setupAuthUI } from '/scripts/auth-ui.js';
 import { renderMediaCards } from '/scripts/media-card.js';
 import { getDisplayAuthorName, getPhilosopherUrlByAuthor } from '/scripts/philosopher-data.js';
@@ -837,7 +841,7 @@ function mergeCandidateBuckets(buckets, currentId, type) {
   return [...merged.values()];
 }
 
-function rankRelatedCandidates(details, reviews, candidates) {
+function rankRelatedCandidates(details, reviews, candidates, currentMediaId) {
   const sourceContext = buildSourceContext(details, reviews);
   const sourceThemeWeights = createThemeWeightMap(analyzeWorkForThemes(sourceContext), 6);
   const sourceTokens = extractSalientTokens(sourceContext, 10);
@@ -845,6 +849,7 @@ function rankRelatedCandidates(details, reviews, candidates) {
     ? details.genres.map(genre => genre?.id).filter(Boolean)
     : [];
   const sourceDate = getDisplayDate(details);
+  const sourceProfile = getCuratedPhilosophicalProfile(String(currentMediaId));
 
   const ranked = candidates
     .map(candidate => {
@@ -859,6 +864,11 @@ function rankRelatedCandidates(details, reviews, candidates) {
       const popularityScore = Math.min(8, (Number(candidate.popularity) || 0) / 35);
       const weakMatchPenalty = themeScore < 14 && tokenScore < 10 ? 18 : 0;
       const noOverviewPenalty = candidate.overview ? 0 : 10;
+      const curatedAffinity = scoreCuratedRelatedAffinity(
+        sourceProfile,
+        getCuratedPhilosophicalProfile(String(candidate.id)),
+        sourceThemeWeights,
+      );
 
       const score =
         themeScore * 1.3
@@ -869,6 +879,7 @@ function rankRelatedCandidates(details, reviews, candidates) {
         + sourceBoost
         + ratingScore
         + popularityScore
+        + curatedAffinity
         - weakMatchPenalty
         - noOverviewPenalty;
 
@@ -916,7 +927,7 @@ async function loadRelatedWorks(id, type, details, reviews) {
     { items: searchedWorks, source: 'search' },
   ], id, type);
 
-  return rankRelatedCandidates(details, reviews, merged);
+  return rankRelatedCandidates(details, reviews, merged, id);
 }
 
 function renderRelatedWorks(works) {

@@ -8,6 +8,11 @@
 
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { curatedQuoteMatches } from '/scripts/curatedmatches.js';
+import {
+  getCuratedPhilosophicalProfile,
+  scorePhilosophicalTagsAgainstThemeWeights,
+} from '/scripts/curatedPhilosophicalProfiles.js';
+import { flattenThemeGenreHint } from '/scripts/philosopher-data.js';
 import { THEME_DATABASE } from '/scripts/themedatabase.js';
 import { discoverTMDB, getDetailsFromTMDB } from '/scripts/seriesapi.js';
 
@@ -49,32 +54,6 @@ const GENERIC_QUOTE_PATTERNS = [
   /\b(always|never)\s+(be|do|say|think|remember)\b/i,
   /\b(be yourself|follow your dreams|think positive|never give up)\b/i,
 ];
-
-const THEME_GENRE_HINTS = {
-  'war-and-conflict': [10752, 10768, 18, 28, 10759],
-  suffering: [18, 9648, 10749],
-  tragedy: [18, 9648],
-  'heros-journey': [12, 28, 10759, 14],
-  virtue: [12, 18, 10759],
-  existentialism: [18, 878, 9648],
-  'self-knowledge': [18, 9648],
-  'consciousness-ai': [878, 9648, 18],
-  alienation: [18, 9648, 878],
-  stoicism: [18, 12, 28, 10759],
-  'utopia-dystopia': [878, 9648, 10765],
-  'power-corruption': [18, 80, 10759, 10768],
-  'social-justice': [18, 80, 99, 10768],
-  'political-philosophy': [18, 80, 99, 10768],
-  'truth-deception': [9648, 53, 80],
-  epistemology: [9648, 53, 878],
-  'memory-time': [9648, 878, 18],
-  romanticism: [10749, 18],
-  aesthetics: [16, 18, 10402],
-  humanism: [18, 12],
-  'anti-hero': [80, 18, 10759],
-  hedonism: [18, 35, 10749],
-  utilitarianism: [18, 80, 53, 99],
-};
 
 const THEME_TEXT_SIGNAL_OVERRIDES = {
   hedonism: [
@@ -216,7 +195,7 @@ function getThemeKeywords(theme, limit = 3) {
 function getBalancedPreferredGenres(rankedThemes, limit = 6) {
   const groups = rankedThemes
     .slice(0, 3)
-    .map(theme => THEME_GENRE_HINTS[theme] || [])
+    .map(theme => flattenThemeGenreHint(theme))
     .filter(group => group.length > 0);
   const genres = [];
 
@@ -236,7 +215,7 @@ function getThemeGenreFilters(rankedThemes) {
   return rankedThemes
     .slice(0, 3)
     .map(theme => {
-      const genres = (THEME_GENRE_HINTS[theme] || []).slice(0, 2);
+      const genres = (flattenThemeGenreHint(theme) || []).slice(0, 2);
       return genres.length > 0
         ? { theme, withGenres: genres.join(',') }
         : null;
@@ -541,6 +520,11 @@ function rankCandidates(profile, candidates) {
       const noThemePenalty = themeScore === 0 && signalScore === 0 && keywordScore === 0 ? 28 : 0;
       const driftPenalty = scoreConceptDriftPenalty(profile, candidateWeights, context);
 
+      const curatedTagScore = scorePhilosophicalTagsAgainstThemeWeights(
+        getCuratedPhilosophicalProfile(candidate.id),
+        profile.themeWeights,
+      );
+
       return {
         ...candidate,
         _score:
@@ -552,6 +536,7 @@ function rankCandidates(profile, candidates) {
           + ratingScore
           + popularityScore * 0.45
           + primaryThemeFit.bonus
+          + curatedTagScore
           - missingOverviewPenalty
           - weakThemePenalty
           - noThemePenalty

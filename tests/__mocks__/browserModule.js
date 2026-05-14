@@ -23,6 +23,21 @@ export const analyzeWorkForThemes = () => [];
 // curatedmatches.js
 export const curatedQuoteMatches = {};
 
+// curatedPhilosophicalProfiles.js
+export const curatedPhilosophicalProfiles = {};
+export function getCuratedPhilosophicalProfile() {
+  return null;
+}
+export function scorePhilosophicalTagsAgainstThemeWeights() {
+  return 0;
+}
+export function scoreCuratedProfileForLens() {
+  return { bonus: 0, excluded: false };
+}
+export function scoreCuratedRelatedAffinity() {
+  return 0;
+}
+
 // philosophersmatch.js (se usado)
 export const matchPhilosopher = () => null;
 

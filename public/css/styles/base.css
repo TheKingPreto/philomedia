@@ -2070,3 +2070,17 @@ footer {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Lens discovery — load more */
+.lens-pagination {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem 0;
+}
+
+.lens-pagination-count {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}

@@ -16,6 +16,10 @@ import {
   filterPhilosopherCatalogQuotes,
   getPhilosopherProfileBySlug,
 } from '/scripts/philosopher-data.js';
+import {
+  getCuratedPhilosophicalProfile,
+  scorePhilosophicalTagsAgainstThemeWeights,
+} from '/scripts/curatedPhilosophicalProfiles.js';
 
 const WORK_LIMIT = 8;
 const QUOTE_LIMIT = 8;
@@ -472,6 +476,11 @@ function scoreCandidate(profile, candidate) {
   }
 
   score += Math.min(28, scoreProfileTextAffinity(profile, candidate.overview || ''));
+
+  score += scorePhilosophicalTagsAgainstThemeWeights(
+    getCuratedPhilosophicalProfile(candidate.id),
+    themeWeights,
+  );
 
   return score;
 }
