@@ -1,0 +1,6 @@
+node_modules/
+coverage/
+
+# `import … with { type: 'json' }` — Espree no ESLint 8 ainda não faz parse; rever ao migrar parser/ESLint
+public/scripts/curatedPhilosophicalProfiles.js
+public/scripts/curatedmatches.js

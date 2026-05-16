@@ -10,9 +10,10 @@
     "translate:quotes": "node public/scripts/translate_quotes_wikiquote.js",
     "generate:real-quotes": "node public/scripts/generate-real-quotes.js",
     "generate:real-candidates": "node public/scripts/real-quote-candidates.js",
+    "extract:media-rank": "node scripts/extract-media-rank-core.mjs",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit tests/integration tests/app.test.js",
     "test:detect": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --detectOpenHandles",
-    "lint": "eslint . --ext .js"
+    "lint": "node ./node_modules/eslint/bin/eslint.js . --ext .js"
   },
   "repository": {
     "type": "git",
@@ -51,6 +52,7 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "eslint": "^8.57.1",
     "jest": "^29.0.0",
     "mongodb-memory-server": "^8.12.0",
     "supertest": "^6.3.3"
@@ -58,8 +60,8 @@
   "jest": {
     "testEnvironment": "node",
     "transform": {},
-    "forceExit": true,
     "testTimeout": 30000,
+    "globalTeardown": "<rootDir>/tests/globalTeardown.js",
     "moduleNameMapper": {
       "^/scripts/(.*)$": "<rootDir>/tests/__mocks__/browserModule.js"
     }
