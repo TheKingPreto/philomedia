@@ -4,25 +4,12 @@ PhiloMedia is a media discovery project that connects films and TV series to phi
 
 ## Current Status
 
-PhiloMedia is no longer just a project skeleton. It already has a working search-to-details flow, a quote database, TMDB integration, and an AI interpretation layer.
+The MVP is production-shaped: TMDB search and details, curated and AI-assisted quotes, Mongo-backed storage, Google OAuth, user library collections, Swagger docs, and Render deployment config.
 
-What works today:
+Roadmap (non-blocking for the core flow):
 
-- Featured movie and TV recommendations on the home page
-- Search powered by TMDB
-- Details page with synopsis, genres, studio or network, creator or director, and TMDB rating
-- Static quote matching with fallback logic
-- AI-generated interpretive reading based on the selected work
-- Quote storage in MongoDB
-- Swagger docs for the REST API
-- Render deployment config
-
-What is still incomplete:
-
-- Finished login experience in the UI
-- Favorites and saved user collections
-- Search filters and sorting
-- Richer work metadata beyond the current essentials
+- Richer search filters and sorting
+- Deeper metadata and presentation polish
 - Community and sharing features
 
 ## Product Scope
@@ -78,6 +65,7 @@ Required to boot the server:
 - `SESSION_SECRET`
 - `TMDB_API_KEY`
 - `GOOGLE_AI_API_KEY`
+- `GOOGLE_AI_MODEL` (optional; defaults to `gemini-2.0-flash` — see `src/config/geminiModel.js`)
 
 Optional for Google login:
 
@@ -121,6 +109,12 @@ Run tests with open-handle detection:
 npm run test:detect
 ```
 
+Regenerate `public/scripts/mediaRankCore.js` after editing scoring logic in `src/domain/mediaRanking/mediaRankCore.js`:
+
+```bash
+npm run extract:media-rank
+```
+
 Start the production server locally:
 
 ```bash
@@ -129,13 +123,15 @@ npm start
 
 ## API Surface
 
-Main route groups already available:
+Main route groups:
 
-- `/api/quotes`
-- `/api/matches`
-- `/api/tmdb`
-- `/api/ai/quotes`
-- `/auth` when Google OAuth credentials are configured
+- `GET /health` — process and Mongo connection state
+- `GET /api/quotes` — paginated quotes: `?page=1&limit=50&lang=en` → `{ data, page, limit, total, totalPages }`
+- `GET /api/quotes/catalog` — merged quote catalog for the frontend
+- `POST /api/tmdb/rank-candidates` — ranks TMDB candidates for a serialized quote profile (same scoring as the home page module)
+- `/api/matches`, `/api/tmdb`, `/api/ai/quotes`, `/api/me`, `/api/daily-pairing`, `/auth` (when OAuth env vars are set)
+
+Curated static data lives under `public/data/` (`curatedMatches.json`, `curatedPhilosophicalProfiles.json`); daily pairings load from `src/data/dailyPairings.json`.
 
 Swagger is available at `/api-docs`.
 
@@ -143,11 +139,9 @@ Swagger is available at `/api-docs`.
 
 Short-term priorities:
 
-- Finish the authentication experience in the frontend
-- Add filters for media search and discovery
-- Improve work metadata depth and presentation
-- Add favorites and user collections
-- Refine the quote relevance logic
+- Discovery filters and sorting on search
+- Deeper work metadata and layout polish
+- Refine quote relevance and editorial tooling
 
 Long-term ideas:
 

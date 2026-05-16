@@ -1,2 +1,4 @@
 /node_modules
 .env
+quotes_wikiquote.json
+quotes_wikiquote.en.json
