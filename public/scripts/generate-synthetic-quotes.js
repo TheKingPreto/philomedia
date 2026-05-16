@@ -1,5 +1,5 @@
 import { THEME_BUCKETS } from './theme-buckets.js';
-import fs from 'fs';
+import fs from 'node:fs/promises';
 import path from 'path';
 
 const TARGET_TOTAL = 365;
@@ -111,9 +111,9 @@ function generateSlug(quote, author) {
 }
 
 async function generateExpandedCalendar() {
-  // Load existing pairings by importing the module
-  const existingPath = path.join(process.cwd(), 'src', 'data', 'dailyPairings.js');
-  const { DAILY_PAIRINGS: existingPairings } = await import('./../../src/data/dailyPairings.js');
+  const jsonPath = path.join(process.cwd(), 'src', 'data', 'dailyPairings.json');
+  const raw = await fs.readFile(jsonPath, 'utf8');
+  const existingPairings = JSON.parse(raw);
 
   // Generate additional synthetic quotes
   const additionalQuotes = [];
@@ -193,11 +193,7 @@ async function generateExpandedCalendar() {
   const allPairings = [...existingPairings, ...additionalQuotes];
   const shuffled = allPairings.sort(() => Math.random() - 0.5);
 
-  // Create new file content
-  const newContent = `/* eslint-disable max-len */\nexport const DAILY_PAIRINGS = ${JSON.stringify(shuffled, null, 2)};`;
-
-  // Write to main file
-  fs.writeFileSync(existingPath, newContent);
+  await fs.writeFile(jsonPath, `${JSON.stringify(shuffled, null, 2)}\n`, 'utf8');
 
   console.log(`✅ Expanded calendar from ${existingPairings.length} to ${allPairings.length} entries`);
   console.log(`📊 Added ${additionalQuotes.length} synthetic quotes`);

@@ -5,8 +5,8 @@ import { THEME_BUCKETS } from './theme-buckets.js';
 
 const ROOT = process.cwd();
 const WIKIQUOTE_PATH = path.resolve(ROOT, 'quotes_wikiquote.en.json');
-const OUTPUT_PATH = path.resolve(ROOT, 'src', 'data', 'dailyPairings.real.js');
-const MAIN_PATH = path.resolve(ROOT, 'src', 'data', 'dailyPairings.js');
+const OUTPUT_PATH = path.resolve(ROOT, 'src', 'data', 'dailyPairings.real.json');
+const MAIN_PATH = path.resolve(ROOT, 'src', 'data', 'dailyPairings.json');
 
 function removeDiacritics(value) {
   return String(value || '')
@@ -134,7 +134,7 @@ async function generateRealCalendar() {
     entryIndex = (entryIndex + 1) % entries.length;
   }
 
-  const output = `/* eslint-disable max-len */\nexport const DAILY_PAIRINGS = ${JSON.stringify(repeatedEntries, null, 2)};\n`;
+  const output = `${JSON.stringify(repeatedEntries, null, 2)}\n`;
 
   await fs.writeFile(OUTPUT_PATH, output, 'utf8');
   console.log(`Generated ${repeatedEntries.length} calendar entries (${entries.length} unique quotes repeated)`);
