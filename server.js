@@ -20,6 +20,7 @@ import tmdbRoutes from './src/routes/tmdb.js';
 import aiQuoteRoutes from './src/routes/aiQuotes.js';
 import dailyPairingRoutes from './src/routes/dailyPairing.js';
 import { specs } from './config/swagger.js';
+import { connectMongo, registerMongoConnectionLogging } from './config/database.js';
 import { buildPublicUrl, getPublicBaseUrl } from './src/utils/publicUrl.js';
 
 if (process.env.NODE_ENV !== 'test') {
@@ -103,46 +104,58 @@ app.use(cors({
   credentials: true,
 }));
 
-const globalLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 600,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' },
-});
+const testNoopLimiter = (req, res, next) => next();
+
+const globalLimiter = process.env.NODE_ENV === 'test'
+  ? testNoopLimiter
+  : rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 600,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please try again later.' },
+  });
 app.use(globalLimiter);
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 120,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many authentication requests. Please try again in a few minutes.' },
-});
+const authLimiter = process.env.NODE_ENV === 'test'
+  ? testNoopLimiter
+  : rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many authentication requests. Please try again in a few minutes.' },
+  });
 
-const tmdbLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 300,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many media lookup requests. Please slow down and try again shortly.' },
-});
+const tmdbLimiter = process.env.NODE_ENV === 'test'
+  ? testNoopLimiter
+  : rateLimit({
+    windowMs: 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many media lookup requests. Please slow down and try again shortly.' },
+  });
 
-const libraryWriteLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 120,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many library updates. Please wait a moment before trying again.' },
-});
+const libraryWriteLimiter = process.env.NODE_ENV === 'test'
+  ? testNoopLimiter
+  : rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many library updates. Please wait a moment before trying again.' },
+  });
 
-const contributionWriteLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 24,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many contribution attempts. Please wait before publishing more quotes.' },
-});
+const contributionWriteLimiter = process.env.NODE_ENV === 'test'
+  ? testNoopLimiter
+  : rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 24,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many contribution attempts. Please wait before publishing more quotes.' },
+  });
 
 function applyLimiterToMethods(methods, limiter) {
   return (req, res, next) => {
@@ -191,12 +204,26 @@ app.get('/sitemap.xml', (req, res) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
+  registerMongoConnectionLogging();
+  try {
+    await connectMongo(MONGODB_URI);
+  } catch (error) {
+    console.error('MongoDB connection failed:', error.message);
+    console.error(
+      'Check MONGODB_URI and network (Atlas IP access list, VPN/DNS). For local dev you can use: mongodb://127.0.0.1:27017/philomedia'
+    );
+    process.exit(1);
+  }
+
   app.use(
     session({
       secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
-      store: MongoStore.create({ mongoUrl: MONGODB_URI }),
+      store: MongoStore.create({
+        client: mongoose.connection.getClient(),
+        dbName: mongoose.connection.db.databaseName,
+      }),
       cookie: {
         maxAge: 24 * 60 * 60 * 1000,
         secure: process.env.NODE_ENV === 'production',
@@ -218,13 +245,6 @@ if (process.env.NODE_ENV !== 'test') {
   } else {
     console.warn('Google OAuth disabled - GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set.');
   }
-}
-
-if (process.env.NODE_ENV !== 'test') {
-  mongoose
-    .connect(MONGODB_URI)
-    .then(() => console.log('Connected to MongoDB'))
-    .catch(error => console.error('MongoDB error:', error.message));
 }
 
 app.use((req, res, next) => {
@@ -309,6 +329,21 @@ app.get('/', (req, res) => {
   res.redirect('/html/index.html');
 });
 
+app.get('/health', (req, res) => {
+  const ready = mongoose.connection.readyState;
+  const dbLabel =
+    ready === 1 ? 'connected'
+    : ready === 2 ? 'connecting'
+    : ready === 3 ? 'disconnecting'
+    : 'disconnected';
+
+  res.json({
+    status: ready === 1 ? 'ok' : 'degraded',
+    db: dbLabel,
+    uptime: process.uptime(),
+  });
+});
+
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/philosophers', applyLimiterToMethods(new Set(['POST']), contributionWriteLimiter), philosopherRoutes);
 app.use('/api/matches', matchRoutes);
@@ -322,7 +357,7 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found.' });
 });
 
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error('[PhiloMedia] Unhandled error:', err.message);
   res.status(err.status || 500).json({
     error: process.env.NODE_ENV === 'production'
