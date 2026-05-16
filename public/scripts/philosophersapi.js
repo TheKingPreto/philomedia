@@ -111,6 +111,12 @@ async function fetchQuoteCatalogFromBackend(lang = 'en') {
     author: doc.author,
     themes: doc.themes || [],
     source: doc.source || 'catalog',
+    lang: doc.lang,
+    originalLanguage: doc.originalLanguage,
+    quote_original: doc.quote_original,
+    quote_en: doc.quote_en,
+    quote_pt: doc.quote_pt,
+    translationStatus: doc.translationStatus,
   }));
 }
 

@@ -47,6 +47,46 @@ const philosopherProfileSchema = new mongoose.Schema({
     trim: true,
     maxlength: [180, 'wikiTitle cannot exceed 180 characters.'],
   },
+
+  originalLanguage: {
+    type: String,
+    enum: ['en', 'pt'],
+    default: 'en',
+    trim: true,
+    lowercase: true,
+  },
+
+  /** Traduções de summary; o campo summary acima é o texto na língua originalLanguage */
+  summaryI18n: {
+    en: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: [600, 'summaryI18n.en cannot exceed 600 characters.'],
+    },
+    pt: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: [600, 'summaryI18n.pt cannot exceed 600 characters.'],
+    },
+  },
+
+  focusI18n: {
+    en: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: [600, 'focusI18n.en cannot exceed 600 characters.'],
+    },
+    pt: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: [600, 'focusI18n.pt cannot exceed 600 characters.'],
+    },
+  },
+
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

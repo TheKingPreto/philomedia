@@ -6,6 +6,8 @@ import {
   getSubmittedPhilosophers,
 } from '/scripts/philosophersapi.js';
 import { buildPhilosopherProfiles, filterPhilosopherCatalogQuotes } from '/scripts/philosopher-data.js';
+import { getThinkerCopyForLocale, getUiLocale } from '/scripts/services/uiLocale.js';
+import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 
 const PAGE_SIZE = 12;
 const state = {
@@ -71,7 +73,10 @@ function renderPortrait(profile) {
 function renderCards(container, profiles) {
   if (!container) return;
 
-  container.innerHTML = profiles.map(profile => `
+  const loc = getUiLocale();
+  container.innerHTML = profiles.map(profile => {
+    const copy = getThinkerCopyForLocale(profile, loc);
+    return `
     <a href="${profile.url}" class="philosopher-card-link" data-philosopher-slug="${profile.slug}">
       <article class="philosopher-card">
         <div class="philosopher-card-top">
@@ -81,7 +86,7 @@ function renderCards(container, profiles) {
             <h3>${escapeHtml(profile.name)}</h3>
           </div>
         </div>
-        <p class="philosopher-card-summary" data-philosopher-summary>${escapeHtml(profile.summary)}</p>
+        <p class="philosopher-card-summary" data-philosopher-summary>${escapeHtml(copy.summary)}</p>
         <div class="philosopher-chip-row">${createThemeChips(profile)}</div>
         <div class="philosopher-card-quote">
           <p>"${escapeHtml(profile.featuredQuotePreview)}"</p>
@@ -92,7 +97,8 @@ function renderCards(container, profiles) {
         </div>
       </article>
     </a>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function getPageCount() {
@@ -197,7 +203,7 @@ async function hydrateVisibleProfiles(container, profiles) {
       if (period) period.textContent = profile.period;
 
       const summary = card.querySelector('[data-philosopher-summary]');
-      if (summary) summary.textContent = profile.summary;
+      if (summary) summary.textContent = getThinkerCopyForLocale(profile, getUiLocale()).summary;
     })
   );
 }
@@ -228,6 +234,7 @@ function renderError(container, message) {
 }
 
 async function init() {
+  setupLanguageChrome();
   setupAuthUI().catch(() => {});
 
   const gridContainer = document.getElementById('philosophers-grid');
@@ -244,12 +251,13 @@ async function init() {
   }
 
   try {
+    const locale = getUiLocale();
     const [quotes, philosopherDirectory, submittedProfiles] = await Promise.all([
-      getQuoteCatalog('en'),
+      getQuoteCatalog(locale),
       getPhilosopherDirectory(),
       getSubmittedPhilosophers(),
     ]);
-    const profiles = buildPhilosopherProfiles(filterPhilosopherCatalogQuotes(quotes), philosopherDirectory, submittedProfiles)
+    const profiles = buildPhilosopherProfiles(filterPhilosopherCatalogQuotes(quotes, locale), philosopherDirectory, submittedProfiles)
       .filter(isIndexReadyProfile);
 
     if (!profiles.length) {

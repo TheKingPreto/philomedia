@@ -23,6 +23,8 @@ import {
 } from '/scripts/mediaRankCore.js';
 import { setupAuthUI } from '/scripts/auth-ui.js';
 import { renderMediaCards } from '/scripts/media-card.js';
+import { getUiLocale } from '/scripts/services/uiLocale.js';
+import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 
 const API_BASE = '/api';
 const HOME_RESULT_LIMIT = 10;
@@ -160,8 +162,9 @@ async function getCuratedCandidatesForQuote(quoteId) {
 }
 
 async function getQuoteForHome() {
+  const lang = getUiLocale();
   try {
-    const res = await fetch(`${API_BASE}/quotes/catalog?lang=en`);
+    const res = await fetch(`${API_BASE}/quotes/catalog?lang=${encodeURIComponent(lang)}`);
     if (!res.ok) throw new Error('Quotes API error');
     const quotes = await res.json();
     if (Array.isArray(quotes) && quotes.length > 0) {
@@ -400,6 +403,7 @@ function updatePagination({ button, count, visibleCount, totalWorks, hasMore }) 
 }
 
 async function init() {
+  setupLanguageChrome();
   setupAuthUI().catch(() => {});
 
   const quoteTextEl = document.getElementById('quote-text');

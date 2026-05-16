@@ -3,6 +3,7 @@ import {
   mapWikiQuoteEntry,
   mapTranslatedWikiQuoteEntry,
   mergeQuoteCatalogEntries,
+  mergeWikiBilingualPairs,
 } from '../../src/services/quoteCatalog.js';
 
 describe('quote catalog service', () => {
@@ -13,32 +14,37 @@ describe('quote catalog service', () => {
       theme: 'idealismo',
     }, 0);
 
-    expect(entry).toEqual({
+    expect(entry).toEqual(expect.objectContaining({
       id: 'wiki-1',
       quote: 'A felicidade nao e um ideal da razao, mas sim da imaginacao.',
       author: 'Immanuel Kant',
-      themes: ['idealismo'],
+      themes: ['idealism'],
       source: 'wikiquote',
       lang: 'pt',
       originalLanguage: 'pt',
-    });
+    }));
   });
 
-  test('deduplicates equivalent quotes while preserving merged themes', () => {
+  test('deduplicates equivalent quotes while preserving merged canonical themes', () => {
     const merged = mergeQuoteCatalogEntries([
       {
         id: 1,
-        quote: 'Know yourself.',
+        quote_original: 'Know yourself.',
+        quote_en: 'Know yourself.',
+        quote_pt: '',
         author: 'Socrates',
         themes: ['self-knowledge'],
         source: 'custom',
+        originalLanguage: 'en',
       },
       {
         id: 'wiki-1',
+        quote_original: 'Know yourself.',
         quote: 'Know yourself.',
         author: 'Sócrates',
-        themes: ['wisdom'],
+        themes: ['virtue'],
         source: 'wikiquote',
+        originalLanguage: 'en',
       },
     ]);
 
@@ -46,10 +52,10 @@ describe('quote catalog service', () => {
     expect(merged[0]).toEqual(expect.objectContaining({
       id: 1,
       author: 'Socrates',
-      quote: 'Know yourself.',
+      quote_original: 'Know yourself.',
       source: 'custom',
     }));
-    expect(merged[0].themes).toEqual(expect.arrayContaining(['self-knowledge', 'wisdom']));
+    expect(merged[0].themes).toEqual(expect.arrayContaining(['self-knowledge', 'virtue']));
   });
 
   test('maps translated wikiquote records as English catalog entries', () => {
@@ -104,7 +110,7 @@ describe('quote catalog service', () => {
     expect(entry.author).toBe('Confucius');
   });
 
-  test('preserves user-submitted database quotes in the English catalog', () => {
+  test('preserves user-submitted database quotes with bilingual shape', () => {
     const entry = mapDatabaseQuoteEntry({
       _id: '507f1f77bcf86cd799439011',
       quoteText: 'In the depth of winter, I found an invincible summer.',
@@ -117,9 +123,25 @@ describe('quote catalog service', () => {
     expect(entry).toEqual(expect.objectContaining({
       author: 'Albert Camus',
       source: 'user-submitted',
-      lang: 'en',
       originalLanguage: 'en',
+      quote_original: 'In the depth of winter, I found an invincible summer.',
+      quote_en: 'In the depth of winter, I found an invincible summer.',
+      quote_pt: '',
     }));
+  });
+
+  test('maps quoteTranslations when original is Portuguese', () => {
+    const entry = mapDatabaseQuoteEntry({
+      _id: '507f1f77bcf86cd799439099',
+      quoteText: 'Olá mundo.',
+      authorName: 'Test',
+      themes: ['virtue'],
+      quoteLanguage: 'pt',
+      quoteTranslations: { en: 'Hello world.', pt: '' },
+    });
+
+    expect(entry.quote_pt).toBe('Olá mundo.');
+    expect(entry.quote_en).toBe('Hello world.');
   });
 
   test('normalizes mojibake author names coming from database quotes', () => {
@@ -133,5 +155,35 @@ describe('quote catalog service', () => {
     });
 
     expect(entry.author).toBe('Søren Kierkegaard');
+  });
+
+  test('pairs PT and EN wikiquote rows into one bilingual record', () => {
+    const local = [
+      mapWikiQuoteEntry({
+        text: 'Experiência é percepção compreendida.',
+        author: 'Immanuel Kant',
+        theme: 'idealismo',
+      }, 3),
+    ];
+    const translated = [
+      mapTranslatedWikiQuoteEntry({
+        id: 'wiki-4',
+        text: 'Experience is perception understood.',
+        author: 'Immanuel Kant',
+        theme: 'idealism',
+        originalText: 'Experiência é percepção compreendida.',
+        originalLanguage: 'pt',
+        translationStatus: 'machine',
+      }, 0),
+    ];
+
+    const merged = mergeWikiBilingualPairs(local, translated);
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toEqual(expect.objectContaining({
+      originalLanguage: 'pt',
+      quote_pt: 'Experiência é percepção compreendida.',
+      quote_en: 'Experience is perception understood.',
+    }));
   });
 });

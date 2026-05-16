@@ -229,6 +229,41 @@ nav {
   border-left: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.nav-locale {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-right: 0.35rem;
+  padding-right: 0.55rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.nav-locale-btn {
+  min-height: 32px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition), border-color var(--transition);
+}
+
+.nav-locale-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.nav-locale-btn.is-active {
+  color: var(--gold-soft);
+  border-color: rgba(201, 168, 76, 0.35);
+  background: var(--gold-dim);
+}
+
 nav a {
   position: relative;
   display: inline-flex;

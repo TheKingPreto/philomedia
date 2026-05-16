@@ -2,6 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import Quote from '../models/Quote.js';
 import { customQuotes } from '../../public/scripts/custom-quotes.js';
+import { normalizeQuoteThemes } from '../../public/scripts/domain/canonicalThemes.js';
+import { resolveQuoteForLocale } from '../domain/i18n/quoteDisplay.js';
 
 const WIKIQUOTE_PATH = path.resolve(process.cwd(), 'quotes_wikiquote.json');
 const WIKIQUOTE_EN_PATH = path.resolve(process.cwd(), 'quotes_wikiquote.en.json');
@@ -29,7 +31,9 @@ function normalizeText(value) {
 }
 
 function createMergeKey(entry) {
-  return `${normalizeText(entry.author)}::${normalizeText(entry.quote)}`;
+  const quoteRef = String(entry.quote_original || entry.quote || '').trim();
+  if (!quoteRef) return '';
+  return `${normalizeText(entry.author)}::${normalizeText(quoteRef)}`;
 }
 
 function uniqStrings(values = []) {
@@ -74,42 +78,68 @@ async function readJsonArray(filePath) {
   }
 }
 
+/**
+ * Entrada custom-quotes: inglês legado → canônico EN, PT vazio até tradução.
+ */
 export function mapCustomQuoteEntry(entry) {
+  const author = normalizeTranslatedAuthor(entry.author);
+  const q = String(entry.quote || '').trim();
+
   return {
     id: entry.id,
-    quote: entry.quote,
-    author: normalizeTranslatedAuthor(entry.author),
-    themes: uniqStrings(entry.themes || []),
+    author,
+    themes: normalizeQuoteThemes(uniqStrings(entry.themes || [])),
     source: 'custom',
-    lang: 'en',
     originalLanguage: 'en',
+    quote_original: q,
+    quote_en: q,
+    quote_pt: '',
+    translationStatus: '',
   };
 }
 
+/**
+ * Documento Mongo: quoteText = texto na língua de origem; quoteTranslations = derivados.
+ */
 export function mapDatabaseQuoteEntry(entry) {
   const submissionSource = String(entry.submissionSource || '').trim().toLowerCase();
   const source = submissionSource
     || (entry.legacyId != null ? 'database' : 'database-import');
 
+  const orig = String(entry.quoteLanguage || 'en').trim().toLowerCase() || 'en';
+  const canonical = String(entry.quoteText || '').trim();
+  const trans = entry.quoteTranslations && typeof entry.quoteTranslations === 'object'
+    ? entry.quoteTranslations
+    : {};
+  const tEn = String(trans.en || '').trim();
+  const tPt = String(trans.pt || '').trim();
+
+  const quote_en = tEn || (orig === 'en' ? canonical : '');
+  const quote_pt = tPt || (orig === 'pt' ? canonical : '');
+
   return {
     id: entry.legacyId ?? String(entry._id),
-    quote: entry.quoteText,
     author: normalizeTranslatedAuthor(entry.authorName),
-    themes: uniqStrings(entry.themes || []),
+    themes: normalizeQuoteThemes(uniqStrings(entry.themes || [])),
     source: entry.isGenerated
       ? 'generated'
       : source,
-    lang: String(entry.quoteLanguage || 'en').trim().toLowerCase() || 'en',
-    originalLanguage: String(entry.quoteLanguage || 'en').trim().toLowerCase() || 'en',
+    originalLanguage: orig,
+    quote_original: canonical,
+    quote_en,
+    quote_pt,
+    translationStatus: entry.translationStatus || '',
   };
 }
 
 export function mapWikiQuoteEntry(entry, index) {
+  const quote = String(entry.text || '').trim();
+
   return {
     id: `wiki-${index + 1}`,
-    quote: String(entry.text || '').trim(),
+    quote,
     author: normalizeTranslatedAuthor(entry.author),
-    themes: uniqStrings(entry.theme ? [entry.theme] : []),
+    themes: normalizeQuoteThemes(uniqStrings(entry.theme ? [entry.theme] : [])),
     source: 'wikiquote',
     lang: String(entry.lang || 'pt').trim().toLowerCase() || 'pt',
     originalLanguage: String(entry.lang || 'pt').trim().toLowerCase() || 'pt',
@@ -121,7 +151,7 @@ export function mapTranslatedWikiQuoteEntry(entry, index) {
     id: entry.id || `wiki-en-${index + 1}`,
     quote: String(entry.text || '').trim(),
     author: normalizeTranslatedAuthor(entry.author),
-    themes: uniqStrings(entry.theme ? [entry.theme] : []),
+    themes: normalizeQuoteThemes(uniqStrings(entry.theme ? [entry.theme] : [])),
     source: entry.translationStatus ? `wikiquote-${entry.translationStatus}` : 'wikiquote-en',
     lang: 'en',
     originalLanguage: String(entry.originalLanguage || 'pt').trim().toLowerCase() || 'pt',
@@ -130,19 +160,108 @@ export function mapTranslatedWikiQuoteEntry(entry, index) {
   };
 }
 
+/**
+ * Une par PT + EN (Wikiquote) num único registro com quote_original em PT.
+ */
+export function mergeWikiBilingualPairs(localWikiEntries, translatedWikiEntries) {
+  const ptByKey = new Map();
+
+  localWikiEntries.forEach(e => {
+    const key = createMergeKey(e);
+    if (key) ptByKey.set(key, e);
+  });
+
+  const usedPtKeys = new Set();
+  const unified = [];
+
+  translatedWikiEntries.forEach(enEntry => {
+    const lookupKey = createMergeKey({
+      author: enEntry.author,
+      quote: enEntry.originalQuote || '',
+      quote_original: enEntry.originalQuote || '',
+    });
+
+    const pt = lookupKey ? ptByKey.get(lookupKey) : null;
+
+    const themesMerged = normalizeQuoteThemes(uniqStrings([
+      ...(pt?.themes || []),
+      ...(enEntry.themes || []),
+    ]));
+
+    if (pt) {
+      usedPtKeys.add(lookupKey);
+      unified.push({
+        id: enEntry.id || pt.id,
+        author: pt.author,
+        themes: themesMerged,
+        source: 'wikiquote',
+        originalLanguage: 'pt',
+        quote_original: pt.quote,
+        quote_pt: pt.quote,
+        quote_en: enEntry.quote,
+        translationStatus: enEntry.translationStatus || 'machine',
+      });
+    } else {
+      const origLang = String(enEntry.originalLanguage || 'pt').trim().toLowerCase() || 'pt';
+      const qPt = String(enEntry.originalQuote || '').trim();
+      const qEn = String(enEntry.quote || '').trim();
+
+      unified.push({
+        id: enEntry.id,
+        author: enEntry.author,
+        themes: themesMerged,
+        source: enEntry.source || 'wikiquote-en',
+        originalLanguage: origLang,
+        quote_original: qPt || qEn,
+        quote_pt: qPt,
+        quote_en: qEn,
+        translationStatus: enEntry.translationStatus,
+      });
+    }
+  });
+
+  localWikiEntries.forEach(pt => {
+    const key = createMergeKey(pt);
+    if (key && !usedPtKeys.has(key)) {
+      unified.push({
+        id: pt.id,
+        author: pt.author,
+        themes: normalizeQuoteThemes(pt.themes || []),
+        source: 'wikiquote',
+        originalLanguage: 'pt',
+        quote_original: pt.quote,
+        quote_pt: pt.quote,
+        quote_en: '',
+        translationStatus: '',
+      });
+    }
+  });
+
+  return unified;
+}
+
 export function mergeQuoteCatalogEntries(entries = []) {
   const merged = new Map();
 
   entries.forEach(entry => {
-    if (!entry?.quote || !entry?.author) return;
+    const author = entry.author;
+    const qOrig = String(entry.quote_original || entry.quote || '').trim();
+    const qEn = String(entry.quote_en ?? '').trim();
+    const qPt = String(entry.quote_pt ?? '').trim();
+    const effectiveCanonical = qOrig || qEn || qPt;
 
-    const key = createMergeKey(entry);
+    if (!effectiveCanonical || !author) return;
+
+    const key = `${normalizeText(author)}::${normalizeText(effectiveCanonical)}`;
     const existing = merged.get(key);
 
     if (!existing) {
       merged.set(key, {
         ...entry,
-        themes: uniqStrings(entry.themes || []),
+        quote_original: qOrig || effectiveCanonical,
+        quote_en: qEn,
+        quote_pt: qPt,
+        themes: normalizeQuoteThemes(uniqStrings(entry.themes || [])),
       });
       return;
     }
@@ -151,15 +270,32 @@ export function mergeQuoteCatalogEntries(entries = []) {
       ...existing,
       id: existing.id ?? entry.id,
       source: existing.source || entry.source,
-      lang: existing.lang || entry.lang,
+      author: existing.author || entry.author,
       originalLanguage: existing.originalLanguage || entry.originalLanguage,
+      quote_original: qOrig || existing.quote_original || effectiveCanonical,
+      quote_en: qEn || existing.quote_en || '',
+      quote_pt: qPt || existing.quote_pt || '',
       originalQuote: existing.originalQuote || entry.originalQuote,
       translationStatus: existing.translationStatus || entry.translationStatus,
-      themes: uniqStrings([...(existing.themes || []), ...(entry.themes || [])]),
+      themes: normalizeQuoteThemes(uniqStrings([
+        ...(existing.themes || []),
+        ...(entry.themes || []),
+      ])),
     });
   });
 
   return [...merged.values()];
+}
+
+function projectCatalogEntryForLocale(entry, locale) {
+  const quote = resolveQuoteForLocale(entry, locale);
+  const loc = String(locale || 'en').trim().toLowerCase() === 'pt' ? 'pt' : 'en';
+
+  return {
+    ...entry,
+    quote,
+    lang: loc,
+  };
 }
 
 export async function readLocalWikiQuoteEntries() {
@@ -172,25 +308,9 @@ export async function readTranslatedWikiQuoteEntries() {
   return records.map(mapTranslatedWikiQuoteEntry).filter(entry => entry.quote && entry.author);
 }
 
-function selectLocaleEntries(locale, {
-  customEntries,
-  databaseEntries,
-  localWikiEntries,
-  translatedWikiEntries,
-}) {
-  if (locale === 'pt') {
-    return mergeQuoteCatalogEntries([
-      ...localWikiEntries,
-    ]);
-  }
-
-  return mergeQuoteCatalogEntries([
-    ...customEntries,
-    ...databaseEntries,
-    ...translatedWikiEntries,
-  ]);
-}
-
+/**
+ * Catálogo único: custom + Mongo + Wikiquote pareado (PT/EN); `quote` resolve para ?lang=.
+ */
 export async function buildQuoteCatalog(locale = 'en') {
   const normalizedLocale = String(locale || 'en').trim().toLowerCase();
 
@@ -204,11 +324,13 @@ export async function buildQuoteCatalog(locale = 'en') {
   ]);
 
   const customEntries = customQuotes.map(mapCustomQuoteEntry);
+  const wikiUnified = mergeWikiBilingualPairs(localWikiEntries, translatedWikiEntries);
 
-  return selectLocaleEntries(normalizedLocale, {
-    customEntries,
-    databaseEntries,
-    localWikiEntries,
-    translatedWikiEntries,
-  });
+  const merged = mergeQuoteCatalogEntries([
+    ...customEntries,
+    ...databaseEntries,
+    ...wikiUnified,
+  ]);
+
+  return merged.map(entry => projectCatalogEntryForLocale(entry, normalizedLocale));
 }

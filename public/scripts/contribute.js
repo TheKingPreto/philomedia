@@ -13,6 +13,8 @@ import {
   buildPhilosopherProfiles,
   filterPhilosopherCatalogQuotes,
 } from '/scripts/philosopher-data.js';
+import { getUiLocale } from '/scripts/services/uiLocale.js';
+import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 
 const quoteList = document.getElementById('quote-list');
 const contributionForm = document.getElementById('contribution-form');
@@ -406,14 +408,15 @@ async function loadExistingProfiles() {
   setExistingFeedback('Loading thinker index...', 'muted');
 
   try {
+    const locale = getUiLocale();
     const [quotes, philosopherDirectory, submittedProfiles] = await Promise.all([
-      getQuoteCatalog('en'),
+      getQuoteCatalog(locale),
       getPhilosopherDirectory(),
       getSubmittedPhilosophers(),
     ]);
 
     const profiles = buildPhilosopherProfiles(
-      filterPhilosopherCatalogQuotes(quotes),
+      filterPhilosopherCatalogQuotes(quotes, locale),
       philosopherDirectory,
       submittedProfiles
     ).sort((a, b) => a.name.localeCompare(b.name));
@@ -532,6 +535,7 @@ async function handleSubmit(event) {
 }
 
 async function init() {
+  setupLanguageChrome();
   const gate = document.getElementById('contribute-gate');
   const content = document.getElementById('contribute-content');
 

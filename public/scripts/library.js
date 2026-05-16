@@ -1,6 +1,7 @@
 import { getFirstName, getSession, redirectToLogin, setupAuthUI } from '/scripts/auth-ui.js';
 import { getLibrary } from '/scripts/library-api.js';
 import { createMediaCard, hydrateMediaCards, primeLibraryContext } from '/scripts/media-card.js';
+import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 
 const MEDIA_FILTERS = [
   { id: 'all', label: 'All' },
@@ -198,6 +199,7 @@ function renderSortOptions(select) {
 }
 
 async function init() {
+  setupLanguageChrome();
   const watchlistGrid = document.getElementById('watchlist-grid');
   const favoritesGrid = document.getElementById('favorites-grid');
   const watchedGrid = document.getElementById('watched-grid');

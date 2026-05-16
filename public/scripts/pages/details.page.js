@@ -29,6 +29,8 @@ import {
   saveLibraryItem,
 } from '/scripts/library-api.js';
 import { escapeHtml } from '/scripts/ui/viewHelpers.js';
+import { getUiLocale } from '/scripts/services/uiLocale.js';
+import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 import { formatYear, formatRuntime } from '/scripts/ui/detailsFormatters.js';
 import { renderFacts } from '/scripts/ui/detailsFacts.js';
 import {
@@ -570,6 +572,7 @@ function scheduleAIEnhancement(id, type) {
 }
 
 async function init() {
+  setupLanguageChrome();
   setupAuthUI().catch(() => {});
 
   const { id, type } = getQueryParams();
@@ -584,7 +587,7 @@ async function init() {
   try {
     const [details, allQuotes, reviews] = await Promise.all([
       getDetailsFromTMDB(id, type).catch(() => null),
-      getQuoteCatalog('en').catch(() => getQuotes()).catch(() => []),
+      getQuoteCatalog(getUiLocale()).catch(() => getQuotes()).catch(() => []),
       getReviewsFromTMDB(id, type).catch(() => []),
     ]);
 

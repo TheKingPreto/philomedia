@@ -35,6 +35,38 @@ const contributionRules = [
     .withMessage('focus must be a string')
     .isLength({ max: 600 })
     .withMessage('focus must be at most 600 characters'),
+  body('originalLanguage')
+    .optional()
+    .isIn(['en', 'pt'])
+    .withMessage('originalLanguage must be en or pt'),
+  body('summaryI18n')
+    .optional()
+    .isObject()
+    .withMessage('summaryI18n must be an object'),
+  body('summaryI18n.en')
+    .optional()
+    .isString()
+    .isLength({ max: 600 })
+    .withMessage('summaryI18n.en must be at most 600 characters'),
+  body('summaryI18n.pt')
+    .optional()
+    .isString()
+    .isLength({ max: 600 })
+    .withMessage('summaryI18n.pt must be at most 600 characters'),
+  body('focusI18n')
+    .optional()
+    .isObject()
+    .withMessage('focusI18n must be an object'),
+  body('focusI18n.en')
+    .optional()
+    .isString()
+    .isLength({ max: 600 })
+    .withMessage('focusI18n.en must be at most 600 characters'),
+  body('focusI18n.pt')
+    .optional()
+    .isString()
+    .isLength({ max: 600 })
+    .withMessage('focusI18n.pt must be at most 600 characters'),
   body('portraitUrl')
     .optional()
     .isString()
@@ -75,12 +107,10 @@ const contributionRules = [
     .optional()
     .isArray({ max: 6 })
     .withMessage('themes must be an array of strings'),
-  body('quotes.*.themes.*')
+  body('quotes.*.quoteLanguage')
     .optional()
-    .isString()
-    .withMessage('theme entries must be strings')
-    .isLength({ max: 80 })
-    .withMessage('each theme must be at most 80 characters'),
+    .isIn(['en', 'pt'])
+    .withMessage('quoteLanguage must be en or pt'),
 ];
 
 router.get('/', listPhilosopherProfiles);

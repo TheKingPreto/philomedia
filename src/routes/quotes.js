@@ -31,6 +31,29 @@ const createQuoteRules = [
   body('themes')
     .optional()
     .isArray().withMessage('themes must be an array of strings'),
+  body('quoteLanguage')
+    .optional()
+    .isIn(['en', 'pt'])
+    .withMessage('quoteLanguage must be en or pt'),
+  body('quoteTranslations')
+    .optional()
+    .isObject()
+    .withMessage('quoteTranslations must be an object'),
+  body('quoteTranslations.en')
+    .optional()
+    .isString()
+    .isLength({ max: 500 })
+    .withMessage('quoteTranslations.en max 500 chars'),
+  body('quoteTranslations.pt')
+    .optional()
+    .isString()
+    .isLength({ max: 500 })
+    .withMessage('quoteTranslations.pt max 500 chars'),
+  body('translationStatus')
+    .optional()
+    .isString()
+    .isLength({ max: 32 })
+    .withMessage('translationStatus max 32 chars'),
 ];
 
 const updateQuoteRules = [
@@ -46,6 +69,29 @@ const updateQuoteRules = [
   body('themes')
     .optional()
     .isArray().withMessage('themes must be an array of strings'),
+  body('quoteLanguage')
+    .optional()
+    .isIn(['en', 'pt'])
+    .withMessage('quoteLanguage must be en or pt'),
+  body('quoteTranslations')
+    .optional()
+    .isObject()
+    .withMessage('quoteTranslations must be an object'),
+  body('quoteTranslations.en')
+    .optional()
+    .isString()
+    .isLength({ max: 500 })
+    .withMessage('quoteTranslations.en max 500 chars'),
+  body('quoteTranslations.pt')
+    .optional()
+    .isString()
+    .isLength({ max: 500 })
+    .withMessage('quoteTranslations.pt max 500 chars'),
+  body('translationStatus')
+    .optional()
+    .isString()
+    .isLength({ max: 32 })
+    .withMessage('translationStatus max 32 chars'),
 ];
 
 // ─── Routes ──────────────────────────────────────────────────────────────────

@@ -1,6 +1,14 @@
 import { analyzeWorkForThemes } from './hermeneutics.js';
 import { THEME_DATABASE } from './themedatabase.js';
 import { curatedQuoteMatches } from './curatedmatches.js';
+import {
+  formatThemeLabel,
+  normalizeKey,
+  normalizePhilosopherTheme,
+  normalizeQuoteThemes,
+} from './domain/canonicalThemes.js';
+
+export { formatThemeLabel, normalizePhilosopherTheme, normalizeQuoteThemes };
 
 export const CURATED_TV_IDS = new Set([
   '1396', '1399', '1402', '1668', '2316', '4607', '1418', '60735', '1429',
@@ -425,72 +433,6 @@ export function flattenThemeGenreHint(theme) {
   return [...new Set([...(hint.movie || []), ...(hint.tv || [])])];
 }
 
-const CANONICAL_THEME_IDS = new Set(Object.keys(THEME_DATABASE));
-const THEME_ALIASES = {
-  'idealismo': 'idealism',
-  'empirismo': 'epistemology',
-  'ciencia': 'epistemology',
-  'literatura': 'aesthetics',
-  'existencialismo': 'existentialism',
-  'filosofia politica': 'political-philosophy',
-  'utilitarismo': 'utilitarianism',
-  'patristica': 'sacred-profane',
-  'evolucao': 'epistemology',
-  'evolution': 'epistemology',
-  'biologia': 'epistemology',
-  'biology': 'epistemology',
-  'selecao natural': 'epistemology',
-  'natural selection': 'epistemology',
-  'historia natural': 'epistemology',
-  'natural history': 'epistemology',
-  'metodo cientifico': 'epistemology',
-  'scientific method': 'epistemology',
-  'investigacao cientifica': 'epistemology',
-  'scientific inquiry': 'epistemology',
-  'adaptacao': 'epistemology',
-  'adaptation': 'epistemology',
-  'origem das especies': 'epistemology',
-  'origin of species': 'epistemology',
-  'literatura brasileira': 'aesthetics',
-  'psicologia e filosofia': 'self-knowledge',
-  'psicanalise': 'self-knowledge',
-  'iluminismo': 'humanism',
-  'linguagem': 'language-semiotics',
-  'pessimismo': 'suffering',
-  'racionalismo': 'epistemology',
-  'feminismo': 'feminism-equality',
-  'filosofia pre socratica': 'metaphysics',
-  'ciencia e filosofia': 'epistemology',
-  'matematica e filosofia': 'epistemology',
-  'neoplatonismo': 'metaphysics',
-  'hedonismo': 'hedonism',
-  'invencao': 'technology-modernity',
-  'politica e ciencia': 'political-philosophy',
-  'educacao': 'humanism',
-  'filosofia e literatura': 'aesthetics',
-  'budismo': 'sacred-profane',
-  'cosmologia': 'metaphysics',
-  'arte e ciencia': 'aesthetics',
-  'contratualismo': 'social-contract',
-  'direitos humanos': 'social-justice',
-  'direitos civis': 'social-justice',
-  'filosofia chinesa': 'humanism',
-  'romantismo': 'romanticism',
-  'estoicismo': 'stoicism',
-  'etica': 'virtue',
-  'politica': 'political-philosophy',
-};
-
-function normalizeKey(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .replace(/[^a-zA-Z0-9\s]/g, ' ')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 function slugifyName(value) {
   return normalizeKey(value).replace(/\s+/g, '-');
 }
@@ -511,38 +453,6 @@ function isLikelyEnglishQuote(quote) {
   const normalized = ` ${normalizeKey(quote)} `;
   const hasPortugueseMarker = LIKELY_PORTUGUESE_MARKERS.some(marker => normalized.includes(normalizeKey(marker)));
   return !hasPortugueseMarker;
-}
-
-export function formatThemeLabel(theme) {
-  const normalizedTheme = normalizePhilosopherTheme(theme) || String(theme || '').trim().toLowerCase();
-
-  return String(normalizedTheme || '')
-    .split('-')
-    .filter(Boolean)
-    .map(part => (part === 'ai' ? 'AI' : part.charAt(0).toUpperCase() + part.slice(1)))
-    .join(' ');
-}
-
-export function normalizePhilosopherTheme(theme) {
-  const rawTheme = String(theme || '').trim().toLowerCase();
-  if (!rawTheme) return '';
-  if (CANONICAL_THEME_IDS.has(rawTheme)) return rawTheme;
-
-  const normalized = normalizeKey(rawTheme);
-  if (!normalized) return '';
-
-  const hyphenated = normalized.replace(/\s+/g, '-');
-  if (CANONICAL_THEME_IDS.has(hyphenated)) return hyphenated;
-
-  return THEME_ALIASES[normalized] || '';
-}
-
-function normalizeQuoteThemes(themes = []) {
-  return [...new Set(
-    (themes || [])
-      .map(normalizePhilosopherTheme)
-      .filter(Boolean)
-  )];
 }
 
 function uniqStrings(values = []) {
@@ -593,12 +503,26 @@ function normalizeSubmittedDefinition(entry = {}) {
   const slug = String(entry.slug || slugifyName(name)).trim().toLowerCase();
   if (!name || !slug) return null;
 
+  const sfl = entry.summaryForLocale && typeof entry.summaryForLocale === 'object'
+    ? entry.summaryForLocale
+    : null;
+  const ffl = entry.focusForLocale && typeof entry.focusForLocale === 'object'
+    ? entry.focusForLocale
+    : null;
+
   return {
     slug,
     name,
     period: String(entry.period || '').trim(),
     summary: String(entry.summary || '').trim(),
     focus: String(entry.focus || '').trim(),
+    originalLanguage: String(entry.originalLanguage || 'en').trim().toLowerCase() === 'pt' ? 'pt' : 'en',
+    summaryForLocale: sfl
+      ? { en: String(sfl.en || '').trim(), pt: String(sfl.pt || '').trim() }
+      : undefined,
+    focusForLocale: ffl
+      ? { en: String(ffl.en || '').trim(), pt: String(ffl.pt || '').trim() }
+      : undefined,
     aliases: uniqStrings(entry.aliases || []),
     portraitUrl: String(entry.portraitUrl || '').trim(),
     wikiTitle: String(entry.wikiTitle || '').trim(),
@@ -627,6 +551,15 @@ function createSubmittedProfileIndices(submittedProfiles = []) {
   return { bySlug, byAuthor };
 }
 
+function mergeLocaleMaps(a, b) {
+  const left = a && typeof a === 'object' ? a : {};
+  const right = b && typeof b === 'object' ? b : {};
+  return {
+    en: String(left.en || right.en || '').trim(),
+    pt: String(left.pt || right.pt || '').trim(),
+  };
+}
+
 function mergeBaseDefinitions(curatedDefinition, submittedDefinition, fallbackAuthor) {
   if (!curatedDefinition && !submittedDefinition) return null;
   if (!curatedDefinition) return { ...submittedDefinition };
@@ -640,6 +573,9 @@ function mergeBaseDefinitions(curatedDefinition, submittedDefinition, fallbackAu
     period: curatedDefinition.period || submittedDefinition.period,
     summary: curatedDefinition.summary || submittedDefinition.summary,
     focus: curatedDefinition.focus || submittedDefinition.focus,
+    summaryForLocale: mergeLocaleMaps(submittedDefinition.summaryForLocale, curatedDefinition.summaryForLocale),
+    focusForLocale: mergeLocaleMaps(submittedDefinition.focusForLocale, curatedDefinition.focusForLocale),
+    originalLanguage: curatedDefinition.originalLanguage || submittedDefinition.originalLanguage || 'en',
     aliases: uniqStrings([...(curatedDefinition.aliases || []), ...(submittedDefinition.aliases || [])]),
     portraitUrl: curatedDefinition.portraitUrl || submittedDefinition.portraitUrl,
     wikiTitle: curatedDefinition.wikiTitle || submittedDefinition.wikiTitle,
@@ -760,7 +696,7 @@ function buildProfileDefinition({ baseDefinition, rawAuthors, topThemes, directo
     || (!baseDefinition?.summary && !directoryEntry?.topicalDescription)
   );
 
-  return {
+  const out = {
     slug: baseDefinition?.slug || slugifyName(primaryAuthor),
     name: primaryAuthor,
     period,
@@ -780,6 +716,16 @@ function buildProfileDefinition({ baseDefinition, rawAuthors, topThemes, directo
     needsReferenceMetadata,
     isCommunitySubmitted: Boolean(baseDefinition?.isCommunitySubmitted),
   };
+
+  if (baseDefinition?.summaryForLocale) {
+    out.summaryForLocale = baseDefinition.summaryForLocale;
+    out.focusForLocale = baseDefinition.focusForLocale || { en: '', pt: '' };
+    out.originalLanguage = baseDefinition.originalLanguage || 'en';
+  } else if (baseDefinition?.originalLanguage) {
+    out.originalLanguage = baseDefinition.originalLanguage;
+  }
+
+  return out;
 }
 
 function selectFeaturedQuote(definition, quotes = []) {
@@ -851,12 +797,15 @@ export function getLensSearchUrl(lensId) {
   return `/html/search.html?lens=${encodeURIComponent(lensId)}`;
 }
 
-export function filterPhilosopherCatalogQuotes(quotes = []) {
+export function filterPhilosopherCatalogQuotes(quotes = [], uiLocale = 'en') {
+  const loc = String(uiLocale || 'en').trim().toLowerCase() === 'pt' ? 'pt' : 'en';
+
   return (quotes || []).filter(quote => {
     if (!quote?.quote || !quote?.author) return false;
     if (quote.source === 'wikiquote' || quote.source === 'database-import') {
       return false;
     }
+    if (loc === 'pt') return true;
     return isLikelyEnglishQuote(quote.quote);
   });
 }

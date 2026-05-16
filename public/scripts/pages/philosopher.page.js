@@ -28,6 +28,8 @@ import {
   scorePhilosophicalTagsAgainstThemeWeights,
 } from '/scripts/curatedPhilosophicalProfiles.js';
 import { escapeHtml, normalizeText } from '/scripts/ui/viewHelpers.js';
+import { getThinkerCopyForLocale, getUiLocale } from '/scripts/services/uiLocale.js';
+import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 
 const WORK_LIMIT = 8;
 const QUOTE_LIMIT = 8;
@@ -45,10 +47,11 @@ function buildThemeWeightMap(topThemes = []) {
 }
 
 function buildPhilosopherContext(profile) {
+  const copy = getThinkerCopyForLocale(profile, getUiLocale());
   return [
     profile.name,
-    profile.summary,
-    profile.focus,
+    copy.summary,
+    copy.focus,
     ...(profile.quotes || []).slice(0, 4).map(quote => quote.quote),
   ]
     .filter(Boolean)
@@ -364,9 +367,10 @@ function renderState(container, html) {
 }
 
 function renderHeader(profile) {
+  const copy = getThinkerCopyForLocale(profile, getUiLocale());
   updatePageSeo({
     title: `PhiloMedia | ${profile.name}`,
-    description: profile.summary || `${profile.name} in PhiloMedia, with signature quotes, philosophical lenses, and related works.`,
+    description: copy.summary || `${profile.name} in PhiloMedia, with signature quotes, philosophical lenses, and related works.`,
     path: `${window.location.pathname}?slug=${encodeURIComponent(profile.slug)}`,
     image: profile.portraitUrl || '',
     type: 'profile',
@@ -390,8 +394,8 @@ function renderHeader(profile) {
   }
   if (name) name.textContent = profile.name;
   if (period) period.textContent = profile.period;
-  if (summary) summary.textContent = profile.summary;
-  if (focus) focus.textContent = profile.focus;
+  if (summary) summary.textContent = copy.summary;
+  if (focus) focus.textContent = copy.focus;
 
   if (lenses) {
     lenses.innerHTML = profile.lenses
@@ -620,6 +624,7 @@ async function renderRelatedWorks(profile) {
 }
 
 async function init() {
+  setupLanguageChrome();
   setupAuthUI().catch(() => {});
 
   const slug = getSlugFromQuery();
@@ -636,13 +641,14 @@ async function init() {
   }
 
   try {
+    const locale = getUiLocale();
     const [quotes, philosopherDirectory, submittedProfiles] = await Promise.all([
-      getQuoteCatalog('en'),
+      getQuoteCatalog(locale),
       getPhilosopherDirectory(),
       getSubmittedPhilosophers(),
     ]);
     let profile = getPhilosopherProfileBySlug(
-      filterPhilosopherCatalogQuotes(quotes),
+      filterPhilosopherCatalogQuotes(quotes, locale),
       slug,
       philosopherDirectory,
       submittedProfiles

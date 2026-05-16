@@ -10,6 +10,7 @@ import {
   rerankLensSelectionWithReviews,
 } from '/scripts/services/searchLensReviewRerankService.js';
 import { setupAuthUI } from '/scripts/auth-ui.js';
+import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 import { createMediaCard, hydrateMediaCards, renderMediaCards } from '/scripts/media-card.js';
 import { getLensById, getRatingFilterById } from '/scripts/domain/searchFilters.js';
 import { annotateResults, mergeResultsByIdentity, scoreLensAffinity } from '/scripts/domain/searchLensRanking.js';
@@ -607,6 +608,7 @@ async function hydrateFromQueryParams() {
 }
 
 function init() {
+  setupLanguageChrome();
   setupAuthUI().catch(() => {});
   resultsMeta.hidden = true;
   renderSearchSortControl(sortSelect, state.filters.sort);

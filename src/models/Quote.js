@@ -34,6 +34,30 @@ const quoteSchema = new mongoose.Schema({
     lowercase: true,
   },
 
+  /** Texto derivado para exibição (revisão assistida); canônico permanece em quoteText + quoteLanguage */
+  quoteTranslations: {
+    en: {
+      type: String,
+      trim: true,
+      maxlength: [500, 'Translated quote (en) cannot exceed 500 characters.'],
+      default: '',
+    },
+    pt: {
+      type: String,
+      trim: true,
+      maxlength: [500, 'Translated quote (pt) cannot exceed 500 characters.'],
+      default: '',
+    },
+  },
+
+  translationStatus: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    default: '',
+    maxlength: [32, 'translationStatus too long'],
+  },
+
   // ─── Compatibilidade com curatedmatches.js ───────────────────────────────
   // Preserva o ID numérico original do custom-quotes.js (1001–1051).
   // O frontend usa esse campo para fazer o match curado:

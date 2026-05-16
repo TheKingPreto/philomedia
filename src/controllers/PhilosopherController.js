@@ -1,6 +1,8 @@
 import PhilosopherProfile from '../models/PhilosopherProfile.js';
 import Quote from '../models/Quote.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { normalizeQuoteThemes } from '../../public/scripts/domain/canonicalThemes.js';
+import { resolvePhilosopherTextField } from '../domain/i18n/quoteDisplay.js';
 
 function normalizeKey(value) {
   return String(value || '')
@@ -25,6 +27,9 @@ function uniqStrings(values = []) {
 }
 
 function toPlainProfile(profile) {
+  const summaryI18n = profile.summaryI18n || { en: '', pt: '' };
+  const focusI18n = profile.focusI18n || { en: '', pt: '' };
+
   return {
     id: String(profile._id),
     slug: profile.slug,
@@ -32,6 +37,17 @@ function toPlainProfile(profile) {
     period: profile.period || '',
     summary: profile.summary || '',
     focus: profile.focus || '',
+    originalLanguage: profile.originalLanguage || 'en',
+    summaryI18n,
+    focusI18n,
+    summaryForLocale: {
+      en: resolvePhilosopherTextField(profile, 'summary', 'en'),
+      pt: resolvePhilosopherTextField(profile, 'summary', 'pt'),
+    },
+    focusForLocale: {
+      en: resolvePhilosopherTextField(profile, 'focus', 'en'),
+      pt: resolvePhilosopherTextField(profile, 'focus', 'pt'),
+    },
     aliases: uniqStrings(profile.aliases || []),
     portraitUrl: profile.portraitUrl || '',
     wikiTitle: profile.wikiTitle || '',
@@ -48,6 +64,25 @@ function buildProfileUpdates(input = {}) {
     }
   });
 
+  const lang = String(input.originalLanguage || '').trim().toLowerCase();
+  if (lang === 'en' || lang === 'pt') {
+    updates.originalLanguage = lang;
+  }
+
+  if (input.summaryI18n && typeof input.summaryI18n === 'object') {
+    updates.summaryI18n = {
+      en: String(input.summaryI18n.en || '').trim(),
+      pt: String(input.summaryI18n.pt || '').trim(),
+    };
+  }
+
+  if (input.focusI18n && typeof input.focusI18n === 'object') {
+    updates.focusI18n = {
+      en: String(input.focusI18n.en || '').trim(),
+      pt: String(input.focusI18n.pt || '').trim(),
+    };
+  }
+
   if (Array.isArray(input.aliases) && input.aliases.length > 0) {
     updates.aliases = uniqStrings(input.aliases);
   }
@@ -55,12 +90,18 @@ function buildProfileUpdates(input = {}) {
   return updates;
 }
 
-function normalizeQuotesPayload(quotes = []) {
+function normalizeQuotesPayload(quotes = [], defaultLang = 'en') {
+  const langDefault = String(defaultLang || 'en').trim().toLowerCase() === 'pt' ? 'pt' : 'en';
+
   return (quotes || [])
-    .map(quote => ({
-      quoteText: String(quote?.quoteText || '').trim(),
-      themes: uniqStrings(quote?.themes || []),
-    }))
+    .map(quote => {
+      const ql = String(quote?.quoteLanguage || langDefault).trim().toLowerCase();
+      return {
+        quoteText: String(quote?.quoteText || '').trim(),
+        themes: normalizeQuoteThemes(uniqStrings(quote?.themes || [])),
+        quoteLanguage: ql === 'pt' ? 'pt' : 'en',
+      };
+    })
     .filter(quote => quote.quoteText);
 }
 
@@ -82,7 +123,7 @@ export const createPhilosopherSubmission = asyncHandler(async (req, res) => {
   const name = String(req.body.name || '').trim();
   const slug = slugify(name);
   const aliases = uniqStrings(req.body.aliases || []).filter(alias => normalizeKey(alias) !== normalizeKey(name));
-  const quotePayload = normalizeQuotesPayload(req.body.quotes);
+  const quotePayload = normalizeQuotesPayload(req.body.quotes, req.body.originalLanguage);
 
   const existingProfile = await PhilosopherProfile.findOne({ slug });
   const profileData = {
@@ -121,7 +162,7 @@ export const createPhilosopherSubmission = asyncHandler(async (req, res) => {
       authorName: philosopherProfile.name,
       themes: quote.themes,
       submissionSource: 'user-submitted',
-      quoteLanguage: 'en',
+      quoteLanguage: quote.quoteLanguage,
       submittedBy: req.user._id || null,
     }));
 

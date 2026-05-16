@@ -6,6 +6,7 @@ import {
   setupAuthUI,
 } from '/scripts/auth-ui.js';
 import { getLibrary } from '/scripts/library-api.js';
+import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 
 const DETAILS_BASE = '/html/details.html';
 const POSTER_BASE = 'https://image.tmdb.org/t/p/w185';
@@ -371,6 +372,7 @@ function renderOverview(container, library) {
 }
 
 async function init() {
+  setupLanguageChrome();
   const gate = document.getElementById('profile-gate');
   const content = document.getElementById('profile-content');
   const name = document.getElementById('profile-name');
