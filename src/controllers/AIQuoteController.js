@@ -18,7 +18,11 @@ function buildGeneratedQuotePayload(result) {
 
 async function respondWithGeneratedQuote(res, result, { save = false } = {}) {
   if (!result.quoteText || !result.authorName) {
-    return res.status(204).end();
+    return res.status(200).json({
+      available: false,
+      reason: result.generationContext?.failed ? 'generation_failed' : 'empty',
+      explanation: '',
+    });
   }
 
   const payload = buildGeneratedQuotePayload(result);
@@ -62,13 +66,35 @@ export const generateByPhilosopher = asyncHandler(async (req, res) => {
  * POST /api/ai/quotes/generate/media-context
  */
 export const generateByMediaContext = asyncHandler(async (req, res) => {
-  const { tmdbId, mediaType, save = false, suggestMatches = false } = req.body;
-  const result = await AIQuoteGeneratorService.generateByMediaContext(
-    tmdbId,
-    mediaType,
-    { suggestMatches }
-  );
-  return respondWithGeneratedQuote(res, result, { save });
+  const { tmdbId, mediaType, save = false, suggestMatches = false, locale = 'en' } = req.body;
+
+  if (!process.env.GOOGLE_AI_API_KEY) {
+    return res.status(503).json({
+      error: 'AI interpretation is not configured on this server.',
+      code: 'ai_not_configured',
+    });
+  }
+
+  try {
+    const result = await AIQuoteGeneratorService.generateByMediaContext(
+      String(tmdbId),
+      mediaType,
+      { suggestMatches, locale }
+    );
+    return respondWithGeneratedQuote(res, result, { save });
+  } catch (error) {
+    console.error('[PhiloMedia] AI media-context error:', error.message);
+    if (error.code === 'ai_quota_exceeded') {
+      return res.status(503).json({
+        error: 'AI interpretation quota exceeded. Try again later or set GOOGLE_AI_MODEL to another Gemini model.',
+        code: 'ai_quota_exceeded',
+      });
+    }
+    return res.status(502).json({
+      error: 'AI interpretation failed.',
+      code: 'ai_generation_failed',
+    });
+  }
 });
 
 /**

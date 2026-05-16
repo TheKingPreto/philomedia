@@ -268,7 +268,7 @@ const options = {
                   properties: {
                     mode: { type: 'string', example: 'by-philosopher' },
                     inputPhilosopher: { type: 'string', example: 'Nietzsche' },
-                    model: { type: 'string', example: 'gemini-2.0-flash' },
+                    model: { type: 'string', example: 'gemini-2.5-flash' },
                     generatedAt: { type: 'string', format: 'date-time' },
                   },
                 },

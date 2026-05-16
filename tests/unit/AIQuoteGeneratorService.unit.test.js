@@ -108,7 +108,7 @@ describe('AIQuoteGeneratorService unit tests', () => {
 
     test('calls getDetails and getReviews with correct args', async () => {
       await AIQuoteGeneratorService.generateByMediaContext('157336', 'movie');
-      expect(mockGetDetails).toHaveBeenCalledWith('157336', 'movie');
+      expect(mockGetDetails).toHaveBeenCalledWith('157336', 'movie', { language: 'en-US' });
       expect(mockGetReviews).toHaveBeenCalledWith('157336', 'movie');
     });
 
@@ -145,7 +145,7 @@ describe('AIQuoteGeneratorService unit tests', () => {
         '1396',
         'tv'
       );
-      expect(mockGetDetails).toHaveBeenCalledWith('1396', 'tv');
+      expect(mockGetDetails).toHaveBeenCalledWith('1396', 'tv', { language: 'en-US' });
       expect(result.generationContext.mediaContext).toMatchObject({
         tmdbId: '1396',
         mediaType: 'tv',

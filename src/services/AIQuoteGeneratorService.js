@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { THEME_DATABASE } from '../../public/scripts/themedatabase.js';
 import * as tmdbClient from './tmdbClient.js';
 import { GEMINI_MODEL_NAME } from '../config/geminiModel.js';
+import { generateGeminiText } from './geminiGenerate.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -75,28 +75,14 @@ function validateThemes(themes) {
   return valid;
 }
 
-function getGeminiClient() {
-  const apiKey = process.env.GOOGLE_AI_API_KEY;
-  if (!apiKey) {
-    throw new Error('GOOGLE_AI_API_KEY is not set.');
-  }
-  return new GoogleGenerativeAI(apiKey);
-}
-
 async function callGemini(prompt) {
-  const genAI = getGeminiClient();
-  const model = genAI.getGenerativeModel({
-    model: GEMINI_MODEL_NAME,
-    generationConfig: {
-      maxOutputTokens: MAX_OUTPUT_TOKENS,
-      temperature: 0.3,
-      topP: 0.9,
-      responseMimeType: 'application/json',
-    },
+  const { text } = await generateGeminiText(prompt, {
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
+    temperature: 0.3,
+    topP: 0.9,
+    responseMimeType: 'application/json',
   });
-
-  const result = await model.generateContent(prompt);
-  return result.response.text().trim();
+  return text;
 }
 
 function parseAIResponse(rawText) {
@@ -236,9 +222,12 @@ Respond ONLY with valid JSON:
   };
 }
 
-export async function generateByMediaContext(tmdbId, mediaType, { suggestMatches = false } = {}) {
+export async function generateByMediaContext(tmdbId, mediaType, { suggestMatches = false, locale = 'en' } = {}) {
+  const uiLocale = String(locale || 'en').trim().toLowerCase() === 'pt' ? 'pt' : 'en';
+  const tmdbLanguage = uiLocale === 'pt' ? 'pt-BR' : 'en-US';
+
   const [details, reviews] = await Promise.all([
-    tmdbClient.getDetails(tmdbId, mediaType),
+    tmdbClient.getDetails(tmdbId, mediaType, { language: tmdbLanguage }),
     tmdbClient.getReviews(tmdbId, mediaType),
   ]);
 
@@ -248,8 +237,14 @@ Overview: ${details.overview || ''}
 Reviews: ${(reviews || []).map(r => r.content).join(' ')}
 `;
 
+  const languageInstruction = uiLocale === 'pt'
+    ? 'Write quoteText, authorName, and explanation in Brazilian Portuguese. Use a real philosopher when possible.'
+    : 'Write quoteText, authorName, and explanation in English. Use a real philosopher when possible.';
+
   const prompt = `
 Generate a philosophical quote inspired by this media context.
+${languageInstruction}
+The explanation should connect the quote to the film/show in 2-3 sentences.
 
 ${context}
 

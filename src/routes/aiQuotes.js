@@ -64,15 +64,17 @@ const generateByPhilosopherRules = [
 
 const generateByMediaContextRules = [
   body('tmdbId')
-    .isString()
-    .withMessage('tmdbId must be a string')
-    .notEmpty()
+    .custom((value) => value != null && String(value).trim() !== '')
     .withMessage('tmdbId is required')
-    .isLength({ max: 20 })
+    .custom((value) => String(value).length <= 20)
     .withMessage('tmdbId must be at most 20 characters'),
   body('mediaType')
     .isIn(['movie', 'tv'])
     .withMessage('mediaType must be "movie" or "tv"'),
+  body('locale')
+    .optional()
+    .isIn(['en', 'pt'])
+    .withMessage('locale must be "en" or "pt"'),
   body('save')
     .optional()
     .isBoolean()

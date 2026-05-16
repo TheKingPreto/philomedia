@@ -31,6 +31,7 @@ describe('AIQuoteController unit tests', () => {
     let createSpy;
 
     beforeEach(() => {
+      process.env.GOOGLE_AI_API_KEY = 'test-key';
       mockGenerateByMediaContext.mockResolvedValue(fakeMediaContextResult);
       createSpy = jest.spyOn(Quote, 'create').mockResolvedValue({
         _id: '507f1f77bcf86cd799439011',
@@ -54,7 +55,7 @@ describe('AIQuoteController unit tests', () => {
       expect(mockGenerateByMediaContext).toHaveBeenCalledWith(
         '157336',
         'movie',
-        { suggestMatches: false }
+        { suggestMatches: false, locale: 'en' }
       );
       expect(createSpy).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
@@ -97,7 +98,7 @@ describe('AIQuoteController unit tests', () => {
       expect(mockGenerateByMediaContext).toHaveBeenCalledWith(
         '157336',
         'movie',
-        { suggestMatches: false }
+        { suggestMatches: false, locale: 'en' }
       );
       expect(createSpy).toHaveBeenCalledWith({
         quoteText: fakeMediaContextResult.quoteText,
@@ -107,6 +108,25 @@ describe('AIQuoteController unit tests', () => {
         generationContext: fakeMediaContextResult.generationContext,
       });
       expect(next).not.toHaveBeenCalled();
+    });
+
+    test('returns 503 with ai_quota_exceeded when service throws quota error', async () => {
+      const quotaError = new Error('Quota exceeded');
+      quotaError.code = 'ai_quota_exceeded';
+      mockGenerateByMediaContext.mockRejectedValueOnce(quotaError);
+
+      const req = {
+        body: { tmdbId: '157336', mediaType: 'movie' },
+      };
+      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+      const next = jest.fn();
+
+      await generateByMediaContext(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'ai_quota_exceeded' })
+      );
     });
 
     test('passes suggestMatches to service and includes suggestedMatches in response', async () => {
@@ -128,7 +148,7 @@ describe('AIQuoteController unit tests', () => {
       expect(mockGenerateByMediaContext).toHaveBeenCalledWith(
         '157336',
         'movie',
-        { suggestMatches: true }
+        { suggestMatches: true, locale: 'en' }
       );
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
