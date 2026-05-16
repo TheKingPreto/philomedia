@@ -38,7 +38,9 @@ async function seed() {
       continue;
     }
 
-    const result = await Quote.findOneAndUpdate(
+    const existed = await Quote.exists({ legacyId: q.id });
+
+    await Quote.findOneAndUpdate(
       { legacyId: q.id },
       {
         $set: {
@@ -52,10 +54,10 @@ async function seed() {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    if (result.createdAt && Date.now() - result.createdAt < 5000) {
-      inserted++;
-    } else {
+    if (existed) {
       updated++;
+    } else {
+      inserted++;
     }
   }
 

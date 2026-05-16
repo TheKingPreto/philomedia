@@ -6,9 +6,16 @@ import {
   getSubmittedPhilosophers,
 } from '/scripts/philosophersapi.js';
 import { renderMediaCards } from '/scripts/media-card.js';
-import { discoverTMDB, getDetailsFromTMDB, getReviewsFromTMDB, searchTMDB } from '/scripts/seriesapi.js';
+import { getDetailsFromTMDB } from '/scripts/seriesapi.js';
+import { discoverTMDBCached, searchTMDBCached } from '/scripts/services/tmdbCachedClient.js';
+import { getReviewContextForItem } from '/scripts/services/searchLensReviewRerankService.js';
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { updatePageSeo } from '/scripts/seo.js';
+import { PHILOSOPHER_CONTEXT_STOPWORDS } from '/scripts/domain/detailsPageConfig.js';
+import {
+  mapDetailsToCandidate,
+  mergeCandidateBuckets,
+} from '/scripts/mediaRankCore.js';
 import {
   CURATED_TV_IDS,
   THEME_GENRE_HINTS,
@@ -20,47 +27,15 @@ import {
   getCuratedPhilosophicalProfile,
   scorePhilosophicalTagsAgainstThemeWeights,
 } from '/scripts/curatedPhilosophicalProfiles.js';
+import { escapeHtml, normalizeText } from '/scripts/ui/viewHelpers.js';
 
 const WORK_LIMIT = 8;
 const QUOTE_LIMIT = 8;
 const REVIEW_RERANK_LIMIT = 4;
-const REVIEW_CONTEXT_LIMIT = 4200;
-const reviewContextCache = new Map();
-const discoveryRequestCache = new Map();
-const searchRequestCache = new Map();
-const CONTEXT_STOPWORDS = new Set([
-  'about', 'across', 'after', 'always', 'appears', 'around', 'before', 'being',
-  'between', 'beyond', 'collection', 'connected', 'discipline', 'examination',
-  'experience', 'inside', 'layer', 'media', 'philosopher', 'philosophical',
-  'thinker',
-  'philosophy', 'practice', 'presence', 'questions', 'reading', 'readings',
-  'resonates', 'shape', 'shapes', 'site', 'stories', 'story', 'their', 'these',
-  'through', 'title', 'titles', 'voice', 'works', 'world', 'would',
-  'american', 'brazilian', 'british', 'chinese', 'french', 'german', 'greek',
-  'english', 'italian', 'writer', 'poet', 'educator', 'teacher', 'politician',
-  'statesman', 'psychologist', 'scientist', 'physicist', 'mathematician',
-  'archive', 'independent',
-]);
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
 
 function getSlugFromQuery() {
   const params = new URLSearchParams(window.location.search);
   return params.get('slug') || '';
-}
-
-function normalizeText(text) {
-  return String(text || '')
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .replace(/[\p{P}\p{S}]/gu, ' ')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 function buildThemeWeightMap(topThemes = []) {
@@ -91,7 +66,7 @@ function extractContextKeywords(profile, limit = 8) {
     .split(' ')
     .filter(token =>
       token.length >= 5
-      && !CONTEXT_STOPWORDS.has(token)
+      && !PHILOSOPHER_CONTEXT_STOPWORDS.has(token)
       && !authorTokens.has(token)
     );
 
@@ -140,42 +115,6 @@ function buildDiscoveryQueries(profile, limit = 4) {
   ])].slice(0, limit);
 }
 
-function buildRequestCacheKey(prefix, payload) {
-  return `${prefix}:${JSON.stringify(payload)}`;
-}
-
-async function discoverTMDBCached(media, options = {}) {
-  const cacheKey = buildRequestCacheKey(`discover:${media}`, options);
-
-  if (!discoveryRequestCache.has(cacheKey)) {
-    discoveryRequestCache.set(
-      cacheKey,
-      discoverTMDB(media, options).catch(error => {
-        discoveryRequestCache.delete(cacheKey);
-        throw error;
-      })
-    );
-  }
-
-  return discoveryRequestCache.get(cacheKey);
-}
-
-async function searchTMDBCached(query) {
-  const cacheKey = buildRequestCacheKey('search', { query });
-
-  if (!searchRequestCache.has(cacheKey)) {
-    searchRequestCache.set(
-      cacheKey,
-      searchTMDB(query).catch(error => {
-        searchRequestCache.delete(cacheKey);
-        throw error;
-      })
-    );
-  }
-
-  return searchRequestCache.get(cacheKey);
-}
-
 function getPreferredGenres(profile) {
   const movie = new Set();
   const tv = new Set();
@@ -190,72 +129,6 @@ function getPreferredGenres(profile) {
   return {
     movie: [...movie],
     tv: [...tv],
-  };
-}
-
-function getMediaType(item) {
-  if (item.media_type === 'movie' || item.media_type === 'tv') return item.media_type;
-  if (item.title) return 'movie';
-  if (item.name) return 'tv';
-  return 'unknown';
-}
-
-function mergeCandidates(buckets) {
-  const merged = new Map();
-
-  buckets.forEach(({ source, items }) => {
-    (items || []).forEach(item => {
-      if (!item || item.id == null) return;
-
-      const mediaType = getMediaType(item);
-      if (mediaType !== 'movie' && mediaType !== 'tv') return;
-
-      const key = `${mediaType}:${item.id}`;
-      const existing = merged.get(key);
-
-      if (!existing) {
-        merged.set(key, {
-          ...item,
-          media_type: mediaType,
-          _sources: [source],
-        });
-        return;
-      }
-
-      merged.set(key, {
-        ...existing,
-        ...item,
-        media_type: mediaType,
-        overview: existing.overview || item.overview || '',
-        poster_path: existing.poster_path || item.poster_path || null,
-        vote_average: Math.max(Number(existing.vote_average) || 0, Number(item.vote_average) || 0),
-        popularity: Math.max(Number(existing.popularity) || 0, Number(item.popularity) || 0),
-        genre_ids: Array.isArray(existing.genre_ids) && existing.genre_ids.length > 0
-          ? existing.genre_ids
-          : (item.genre_ids || []),
-        _sources: [...new Set([...(existing._sources || []), source])],
-      });
-    });
-  });
-
-  return [...merged.values()];
-}
-
-function mapDetailsToCandidate(details, mediaType) {
-  return {
-    id: details.id,
-    title: details.title ?? details.name,
-    name: details.name ?? details.title,
-    overview: details.overview || '',
-    media_type: mediaType,
-    poster_path: details.poster_path || null,
-    release_date: details.release_date || null,
-    first_air_date: details.first_air_date || null,
-    vote_average: details.vote_average || 0,
-    popularity: details.popularity || 0,
-    genre_ids: Array.isArray(details.genres)
-      ? details.genres.map(genre => genre?.id).filter(Boolean)
-      : [],
   };
 }
 
@@ -303,7 +176,7 @@ async function loadThemeDiscovery(profile) {
     }),
   ]);
 
-  return mergeCandidates([
+  return mergeCandidateBuckets([
     { source: 'movie-rated', items: moviesByRating },
     { source: 'movie-popular', items: moviesByPopularity },
     { source: 'tv-rated', items: seriesByRating },
@@ -331,7 +204,7 @@ async function loadBroadDiscovery() {
     }),
   ]);
 
-  return mergeCandidates([
+  return mergeCandidateBuckets([
     { source: 'movie-rated-fallback', items: moviesByRating },
     { source: 'movie-popular-fallback', items: moviesByPopularity },
     { source: 'tv-rated-fallback', items: seriesByRating },
@@ -356,7 +229,7 @@ async function loadKeywordDiscovery(profile) {
     })
   );
 
-  return mergeCandidates(
+  return mergeCandidateBuckets(
     results.map((items, index) => ({
       source: `keyword-${index + 1}`,
       items,
@@ -633,27 +506,6 @@ function renderNotFound() {
   `);
 }
 
-function buildReviewContext(reviews = []) {
-  return reviews
-    .map(review => review?.content || '')
-    .filter(Boolean)
-    .slice(0, 3)
-    .join(' ')
-    .slice(0, REVIEW_CONTEXT_LIMIT);
-}
-
-async function getReviewContextForItem(item) {
-  const cacheKey = `${item.media_type}:${item.id}`;
-  if (reviewContextCache.has(cacheKey)) {
-    return reviewContextCache.get(cacheKey);
-  }
-
-  const reviews = await getReviewsFromTMDB(item.id, item.media_type).catch(() => []);
-  const context = buildReviewContext(reviews);
-  reviewContextCache.set(cacheKey, context);
-  return context;
-}
-
 async function rerankCandidatesWithReviews(profile, items) {
   const leadItems = items.slice(0, REVIEW_RERANK_LIMIT);
   const tailItems = items.slice(REVIEW_RERANK_LIMIT);
@@ -701,7 +553,7 @@ async function renderRelatedWorks(profile) {
       loadKeywordDiscovery(profile),
     ]);
 
-    let merged = mergeCandidates([
+    let merged = mergeCandidateBuckets([
       { source: 'curated', items: curatedWorks },
       { source: 'discovery', items: discoveredWorks },
       { source: 'keyword', items: keywordWorks },
@@ -709,7 +561,7 @@ async function renderRelatedWorks(profile) {
 
     if (merged.length < WORK_LIMIT * 2) {
       const broadWorks = await loadBroadDiscovery();
-      merged = mergeCandidates([
+      merged = mergeCandidateBuckets([
         { source: 'curated', items: curatedWorks },
         { source: 'discovery', items: discoveredWorks },
         { source: 'keyword', items: keywordWorks },

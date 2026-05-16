@@ -15,7 +15,7 @@ export const customQuotes = [
     { id: 1011, quote: "The ignorant person affirms, the wise person doubts, the sensible person reflects.", author: "Aristotle", themes: ["epistemology", "wisdom", "skepticism"] },
     { id: 1012, quote: "Knowing yourself is the beginning of all wisdom.", author: "Aristotle", themes: ["self-knowledge", "wisdom"] },
     { id: 1013, quote: "It is the mark of an educated mind to be able to entertain a thought without accepting it.", author: "Aristotle", themes: ["epistemology", "reason", "open-mindedness"] },
-    { id: 1014, quote: "Happiness is the meaning and the purpose of life, the whole aim and end of human existence.", author: "Aristotle", themes: ["hedonism", "humanism", "purpose"] },
+    { id: 1014, quote: "Happiness is the meaning and the purpose of life, the whole aim and end of human existence.", author: "Aristotle", themes: ["virtue", "humanism", "self-knowledge"] },
     { id: 1015, quote: "We are what we repeatedly do. Excellence, then, is not an act, but a habit.", author: "Aristotle", themes: ["virtue", "self-control", "habit"] },
     // Niccolò Machiavelli
     { id: 1016, quote: "It is better to be feared than loved, if you cannot be both.", author: "Niccolò Machiavelli", themes: ["political-philosophy", "power-corruption"] },
@@ -30,17 +30,17 @@ export const customQuotes = [
     { id: 1024, quote: "From each according to his ability, to each according to his needs.", author: "Karl Marx", themes: ["utopia-dystopia", "social-justice", "equality"] },
     { id: 1025, quote: "The production of too many useful things results in too many useless people.", author: "Karl Marx", themes: ["technology-modernity", "capitalism", "alienation"] },
     // Friedrich Nietzsche
-    { id: 1026, quote: "That which does not kill us makes us stronger.", author: "Friedrich Nietzsche", themes: ["stoicism", "resilience", "suffering"] },
+    { id: 1026, quote: "That which does not kill us makes us stronger.", author: "Friedrich Nietzsche", themes: ["suffering", "existentialism", "virtue"] },
     { id: 1027, quote: "He who has a why to live can bear almost any how.", author: "Friedrich Nietzsche", themes: ["existentialism", "purpose", "suffering"] },
     { id: 1028, quote: "In heaven, all the interesting people are missing.", author: "Friedrich Nietzsche", themes: ["nihilism", "religion", "individuality"] },
     { id: 1029, quote: "There are no facts, only interpretations.", author: "Friedrich Nietzsche", themes: ["epistemology", "postmodernism", "truth-deception"] },
     { id: 1030, quote: "To live is to suffer, to survive is to find some meaning in the suffering.", author: "Friedrich Nietzsche", themes: ["existentialism", "suffering", "purpose"] },
     // Clóvis de Barros Filho
     { id: 1031, quote: "A life worth living is a life that opens up to the world, a life that flows.", author: "Clóvis de Barros Filho", themes: ["humanism", "happiness", "open-mindedness"] },
-    { id: 1032, quote: "Ethics is shared intelligence at the service of improving coexistence.", author: "Clóvis de Barros Filho", themes: ["ethics", "social-contract", "community"] },
+    { id: 1032, quote: "Ethics is shared intelligence at the service of improving coexistence.", author: "Clóvis de Barros Filho", themes: ["virtue", "humanism", "the-other-alterity"] },
     { id: 1033, quote: "Happiness is a rare moment of plenitude that you have to grab, because it will pass.", author: "Clóvis de Barros Filho", themes: ["hedonism", "happiness", "time"] },
     { id: 1034, quote: "The only possible freedom is to know the determinations that act upon you.", author: "Clóvis de Barros Filho", themes: ["determinism", "freedom", "self-knowledge"] },
-    { id: 1035, quote: "Love is the project of building a common world.", author: "Clóvis de Barros Filho", themes: ["love", "community", "social-contract"] },
+    { id: 1035, quote: "Love is the project of building a common world.", author: "Clóvis de Barros Filho", themes: ["humanism", "virtue", "the-other-alterity"] },
     // Leandro Karnal 
     { id: 1036, quote: "The opposite of depression is not happiness, but vitality.", author: "Leandro Karnal", themes: ["psychology", "suffering", "vitality"] },
     { id: 1037, quote: "All loneliness is a choice. You are in the company of the person you have chosen to be.", author: "Leandro Karnal", themes: ["existentialism", "self-knowledge", "loneliness"] },
@@ -61,5 +61,20 @@ export const customQuotes = [
     { id: 1048, quote: "You get peace of mind when what you want is also what you should do and what you can do.", author: "Mário Sergio Cortella", themes: ["happiness", "ethics", "self-knowledge"] },
     { id: 1049, quote: "What is spirituality? It is your ability to see that things are not an end in themselves, that there are more important reasons than the immediate.", author: "Mário Sergio Cortella", themes: ["metaphysics", "spirituality", "purpose"] },
     { id: 1050, quote: "Praise in public and correct in private. A wise person does not belittle others, a leader does not humiliate.", author: "Mário Sergio Cortella", themes: ["ethics", "leadership", "community"] },
-    { id: 1051, quote: "We have a passion for the idea that people were made to be happy.", author: "Mário Sergio Cortella", themes: ["humanism", "hedonism", "happiness"] }
+    { id: 1051, quote: "We have a passion for the idea that people were made to be happy.", author: "Mário Sergio Cortella", themes: ["humanism", "hedonism", "happiness"] },
+
+    // Spotlight lines for philosopher cards (iconic / textbook-famous phrasing in English)
+    { id: 1052, quote: "Reason is, and ought only to be the slave of the passions, and can never pretend to any other office than to serve and obey them.", author: "David Hume", themes: ["epistemology", "virtue", "truth-deception"] },
+    { id: 1053, quote: "Whereof one cannot speak, thereof one must be silent.", author: "Ludwig Wittgenstein", themes: ["language-semiotics", "epistemology", "truth-deception"] },
+    { id: 1054, quote: "Man can do what he wills but he cannot will what he wills.", author: "Arthur Schopenhauer", themes: ["existentialism", "metaphysics", "truth-deception"] },
+    { id: 1055, quote: "No man ever steps in the same river twice, for it's not the same river and he's not the same man.", author: "Heraclitus", themes: ["metaphysics", "memory-time", "epistemology"] },
+    { id: 1056, quote: "Death is nothing to us.", author: "Epicurus", themes: ["existentialism", "hedonism", "metaphysics"] },
+    { id: 1057, quote: "The heart has its reasons of which reason knows nothing.", author: "Blaise Pascal", themes: ["sacred-profane", "epistemology", "truth-deception"] },
+    { id: 1058, quote: "Knowledge is power.", author: "Francis Bacon", themes: ["epistemology", "power-corruption", "truth-deception"] },
+    { id: 1059, quote: "Common sense is not so common.", author: "Voltaire", themes: ["epistemology", "humanism", "truth-deception"] },
+    { id: 1060, quote: "Over himself, over his own body and mind, the individual is sovereign.", author: "John Stuart Mill", themes: ["political-philosophy", "existentialism", "humanism"] },
+    { id: 1061, quote: "Thou hast made us for thyself, O Lord, and our heart is restless until it finds its rest in thee.", author: "Saint Augustine", themes: ["sacred-profane", "existentialism", "humanism"] },
+    { id: 1062, quote: "Life can only be understood backwards; but it must be lived forwards.", author: "Søren Kierkegaard", themes: ["existentialism", "memory-time", "self-knowledge"] },
+    { id: 1064, quote: "The interpretation of dreams is the royal road to a knowledge of the unconscious activities of the mind.", author: "Sigmund Freud", themes: ["self-knowledge", "truth-deception", "memory-time"] },
+    { id: 1066, quote: "God is dead. God remains dead. And we have killed him.", author: "Friedrich Nietzsche", themes: ["existentialism", "sacred-profane", "truth-deception"] },
 ];

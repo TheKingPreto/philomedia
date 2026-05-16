@@ -48,8 +48,9 @@ const MOJIBAKE_PATTERN = /[ÃÂâ€]/;
 
 /**
  * Fetches quotes from the backend REST API (/api/quotes).
- * Maps MongoDB document fields to the shape the rest of the frontend expects:
- *   { id, quote, author, themes }
+ * The API returns paginated MongoDB documents; this helper walks every page.
+ * Maps { quoteText, authorName, legacyId } → { id, quote, author, themes }
+ * so curatedmatches.js numeric IDs keep working.
  *
  * The `id` field is set to `legacyId` so curatedmatches.js numeric lookups work.
  * Falls back to `_id` (string) for AI-generated quotes that have no legacyId.
@@ -57,15 +58,41 @@ const MOJIBAKE_PATTERN = /[ÃÂâ€]/;
  * @returns {Promise<Array>} normalised quotes, or [] on any error
  */
 async function fetchFromDB() {
-  const res = await fetch(API_QUOTES_ENDPOINT);
-  if (!res.ok) throw new Error(`/api/quotes responded ${res.status}`);
+  const pageSize = 500;
+  let page = 1;
+  const docs = [];
 
-  const docs = await res.json();
-  if (!Array.isArray(docs) || docs.length === 0) throw new Error('Empty quotes from DB');
+  for (;;) {
+    const qs = new URLSearchParams({
+      page: String(page),
+      limit: String(pageSize),
+    });
+    const res = await fetch(`${API_QUOTES_ENDPOINT}?${qs.toString()}`);
+    if (!res.ok) throw new Error(`/api/quotes responded ${res.status}`);
+
+    const payload = await res.json();
+
+    if (payload?.data && Array.isArray(payload.data)) {
+      docs.push(...payload.data);
+      const totalPages = typeof payload.totalPages === 'number' ? payload.totalPages : page;
+      if (page >= totalPages || payload.data.length === 0) break;
+      page += 1;
+      continue;
+    }
+
+    if (Array.isArray(payload)) {
+      docs.push(...payload);
+      break;
+    }
+
+    throw new Error('Unexpected quotes payload shape from /api/quotes');
+  }
+
+  if (docs.length === 0) throw new Error('Empty quotes from DB');
 
   return docs.map(doc => ({
-    id:     doc.legacyId ?? doc._id,   // numeric for curated match, ObjectId string otherwise
-    quote:  doc.quoteText,
+    id: doc.legacyId ?? doc._id,
+    quote: doc.quoteText,
     author: doc.authorName,
     themes: doc.themes || [],
   }));
