@@ -3,10 +3,14 @@ import { jest } from '@jest/globals';
 // Mock tmdbClient antes de importar o service
 const mockGetDetails = jest.fn();
 const mockGetReviews = jest.fn();
+const mockGetRecommendations = jest.fn();
+const mockGetSimilar = jest.fn();
 
 await jest.unstable_mockModule('../../src/services/tmdbClient.js', () => ({
   getDetails: mockGetDetails,
   getReviews: mockGetReviews,
+  getRecommendations: mockGetRecommendations,
+  getSimilar: mockGetSimilar,
 }));
 
 // Mock Gemini: generateContent retorna JSON válido
@@ -42,6 +46,8 @@ describe('AIQuoteGeneratorService unit tests', () => {
     mockGetReviews.mockResolvedValue([
       { content: 'A masterpiece about time and love.' },
     ]);
+    mockGetRecommendations.mockResolvedValue([]);
+    mockGetSimilar.mockResolvedValue([]);
   });
 
   describe('getValidThemes', () => {
@@ -144,6 +150,42 @@ describe('AIQuoteGeneratorService unit tests', () => {
         tmdbId: '1396',
         mediaType: 'tv',
       });
+    });
+
+    test('when suggestMatches is true, merges TMDB recommendations and similar titles', async () => {
+      mockGetRecommendations.mockResolvedValueOnce([
+        {
+          id: 27205,
+          media_type: 'movie',
+          title: 'Inception',
+          name: null,
+        },
+      ]);
+      mockGetSimilar.mockResolvedValueOnce([
+        {
+          id: 27205,
+          media_type: 'movie',
+          title: 'Inception',
+        },
+        {
+          id: 603,
+          media_type: 'movie',
+          title: 'The Matrix',
+        },
+      ]);
+
+      const result = await AIQuoteGeneratorService.generateByMediaContext(
+        '157336',
+        'movie',
+        { suggestMatches: true }
+      );
+
+      expect(mockGetRecommendations).toHaveBeenCalledWith('157336', 'movie');
+      expect(mockGetSimilar).toHaveBeenCalledWith('157336', 'movie');
+      expect(result.suggestedMatches).toEqual([
+        { tmdbId: '27205', mediaType: 'movie', title: 'Inception' },
+        { tmdbId: '603', mediaType: 'movie', title: 'The Matrix' },
+      ]);
     });
   });
 });

@@ -78,26 +78,26 @@ export function getDefaultOAuthCallbackUrl() {
   return OAUTH_CALLBACK_PATH;
 }
 
+/**
+ * Resolves the Google OAuth callback URL for Passport.
+ * Decision order: explicit env callback → derived from public base URL → env fallback → relative path.
+ */
 export function resolveOAuthCallbackUrl(req) {
-  const configuredCallbackUrl = cleanUrl(process.env.GOOGLE_CALLBACK_URL);
-  const requestBaseUrl = getRequestBaseUrl(req);
+  const configured = cleanUrl(process.env.GOOGLE_CALLBACK_URL);
+  const requestBase = getRequestBaseUrl(req);
 
-  if (
-    configuredCallbackUrl
-    && (
-      !isLocalUrl(configuredCallbackUrl)
-      || !requestBaseUrl
-      || isLocalUrl(requestBaseUrl)
-    )
-  ) {
-    return configuredCallbackUrl;
+  const useConfigured = Boolean(
+    configured
+    && (!isLocalUrl(configured) || !requestBase || isLocalUrl(requestBase)),
+  );
+  if (useConfigured) {
+    return configured;
   }
 
   const baseUrl = getPublicBaseUrl(req, { allowLocalOverride: false });
-
   if (baseUrl) {
     return new URL(OAUTH_CALLBACK_PATH, `${baseUrl.replace(/\/+$/, '')}/`).toString();
   }
 
-  return configuredCallbackUrl || OAUTH_CALLBACK_PATH;
+  return configured || OAUTH_CALLBACK_PATH;
 }

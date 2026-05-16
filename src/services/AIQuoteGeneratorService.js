@@ -1,10 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { THEME_DATABASE } from '../../public/scripts/themedatabase.js';
 import * as tmdbClient from './tmdbClient.js';
+import { GEMINI_MODEL_NAME } from '../config/geminiModel.js';
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-const MODEL_NAME = 'gemini-flash-latest';
 const MAX_OUTPUT_TOKENS = 2048;
 const VALID_THEMES = Object.keys(THEME_DATABASE);
 
@@ -17,6 +17,29 @@ const INJECTION_PATTERNS = [
   /\[INST\]/i,
   /<\|.*?\|>/i,
 ];
+
+const VALID_TMDB_MEDIA_TYPES = new Set(['movie', 'tv']);
+
+async function buildSuggestedMatches(tmdbId, mediaType) {
+  const [recs, similar] = await Promise.all([
+    tmdbClient.getRecommendations(tmdbId, mediaType),
+    tmdbClient.getSimilar(tmdbId, mediaType),
+  ]);
+
+  const merged = new Map();
+  for (const item of [...recs, ...similar]) {
+    const id = String(item.id);
+    if (!merged.has(id)) {
+      merged.set(id, {
+        tmdbId: id,
+        mediaType: item.media_type || mediaType,
+        title: item.title || item.name || '',
+      });
+    }
+  }
+
+  return [...merged.values()].slice(0, 12);
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,7 +86,7 @@ function getGeminiClient() {
 async function callGemini(prompt) {
   const genAI = getGeminiClient();
   const model = genAI.getGenerativeModel({
-    model: MODEL_NAME,
+    model: GEMINI_MODEL_NAME,
     generationConfig: {
       maxOutputTokens: MAX_OUTPUT_TOKENS,
       temperature: 0.3,
@@ -145,7 +168,7 @@ Respond ONLY with valid JSON:
       generationContext: {
         mode: 'by-theme',
         inputThemes: validThemes,
-        model: MODEL_NAME,
+        model: GEMINI_MODEL_NAME,
         failed: true,
         generatedAt: new Date(),
       },
@@ -158,7 +181,7 @@ Respond ONLY with valid JSON:
     generationContext: {
       mode: 'by-theme',
       inputThemes: validThemes,
-      model: MODEL_NAME,
+      model: GEMINI_MODEL_NAME,
       generatedAt: new Date(),
     },
   };
@@ -194,7 +217,7 @@ Respond ONLY with valid JSON:
       generationContext: {
         mode: 'by-philosopher',
         inputPhilosopher: name,
-        model: MODEL_NAME,
+        model: GEMINI_MODEL_NAME,
         failed: true,
         generatedAt: new Date(),
       },
@@ -207,13 +230,13 @@ Respond ONLY with valid JSON:
     generationContext: {
       mode: 'by-philosopher',
       inputPhilosopher: name,
-      model: MODEL_NAME,
+      model: GEMINI_MODEL_NAME,
       generatedAt: new Date(),
     },
   };
 }
 
-export async function generateByMediaContext(tmdbId, mediaType) {
+export async function generateByMediaContext(tmdbId, mediaType, { suggestMatches = false } = {}) {
   const [details, reviews] = await Promise.all([
     tmdbClient.getDetails(tmdbId, mediaType),
     tmdbClient.getReviews(tmdbId, mediaType),
@@ -242,6 +265,22 @@ Respond ONLY with valid JSON:
   const rawText = await callGemini(prompt);
   const parsed = parseAIResponse(rawText);
 
+  let suggestedMatches;
+  if (
+    suggestMatches
+    && tmdbId
+    && VALID_TMDB_MEDIA_TYPES.has(mediaType)
+  ) {
+    try {
+      const matches = await buildSuggestedMatches(String(tmdbId), mediaType);
+      if (matches.length > 0) {
+        suggestedMatches = matches;
+      }
+    } catch {
+      /* TMDB optional — omit suggestions on failure */
+    }
+  }
+
   if (!parsed) {
     return {
       quoteText: null,
@@ -252,10 +291,11 @@ Respond ONLY with valid JSON:
       generationContext: {
         mode: 'by-media-context',
         mediaContext: { tmdbId, mediaType },
-        model: MODEL_NAME,
+        model: GEMINI_MODEL_NAME,
         failed: true,
         generatedAt: new Date(),
       },
+      ...(suggestedMatches ? { suggestedMatches } : {}),
     };
   }
 
@@ -265,9 +305,10 @@ Respond ONLY with valid JSON:
     generationContext: {
       mode: 'by-media-context',
       mediaContext: { tmdbId, mediaType },
-      model: MODEL_NAME,
+      model: GEMINI_MODEL_NAME,
       generatedAt: new Date(),
     },
+    ...(suggestedMatches ? { suggestedMatches } : {}),
   };
 }
 

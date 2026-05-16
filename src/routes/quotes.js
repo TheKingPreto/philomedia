@@ -54,17 +54,47 @@ const updateQuoteRules = [
  * @swagger
  * /api/quotes:
  *   get:
- *     summary: Returns all quotes.
+ *     summary: Returns quotes with pagination.
  *     tags: [Quotes]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 50
+ *       - in: query
+ *         name: lang
+ *         schema:
+ *           type: string
+ *         description: Filter by quoteLanguage (e.g. en, pt)
  *     responses:
  *       200:
- *         description: List of quotes returned successfully.
+ *         description: Paginated list of quotes.
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Quote'
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Quote'
+ *                 page:
+ *                   type: integer
+ *                 limit:
+ *                   type: integer
+ *                 total:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
  *       500:
  *         description: Error retrieving quotes.
  */

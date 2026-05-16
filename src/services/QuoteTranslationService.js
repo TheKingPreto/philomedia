@@ -1,6 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const MODEL_NAME = 'gemini-flash-latest';
+import { GEMINI_MODEL_NAME } from '../config/geminiModel.js';
 const MAX_OUTPUT_TOKENS = 4096;
 const MAX_BATCH_SIZE = 10;
 const MAX_RETRIES = 3;
@@ -97,7 +96,7 @@ export async function translateQuotesBatch(entries = []) {
   const sanitizedEntries = entries.map(sanitizeEntry);
   const genAI = getGeminiClient();
   const model = genAI.getGenerativeModel({
-    model: MODEL_NAME,
+    model: GEMINI_MODEL_NAME,
     generationConfig: {
       maxOutputTokens: MAX_OUTPUT_TOKENS,
       temperature: 0.2,
