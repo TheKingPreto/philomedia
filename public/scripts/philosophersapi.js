@@ -7,7 +7,7 @@
  *     Maps { quoteText, authorName, legacyId } → { id, quote, author, themes }
  *     so curatedmatches.js numeric IDs keep working.
  *
- *  2. External philosophersapi.com (via corsproxy) + local custom-quotes.js
+ *  2. External philosophersapi.com + local custom-quotes.js
  *     Used as fallback if the backend is unreachable (offline, cold start, etc.)
  *
  * The frontend never needs to know which source was used.
@@ -19,7 +19,6 @@ import { getCustomQuoteTranslationPt } from '/scripts/services/customQuoteTransl
 const API_QUOTES_ENDPOINT = '/api/quotes';
 const API_QUOTES_CATALOG_ENDPOINT = '/api/quotes/catalog';
 const API_PHILOSOPHERS_ENDPOINT = '/api/philosophers';
-const PROXY_URL = 'https://corsproxy.io/?';
 const PHILOSOPHERS_API_URL = 'https://philosophersapi.com/api/quotes';
 const PHILOSOPHERS_URL = 'https://philosophersapi.com/api/philosophers';
 const WIKIPEDIA_SUMMARY_ENDPOINTS = [
@@ -138,7 +137,7 @@ async function fetchQuoteCatalogFromBackend(lang = 'en') {
 // ─── Source 2: External API + local fallback ──────────────────────────────────
 
 /**
- * Fetches from philosophersapi.com (via corsproxy) and merges with local custom-quotes.
+ * Fetches from philosophersapi.com and merges with local custom-quotes.
  * Returns the same { id, quote, author, themes } shape.
  */
 async function fetchFromExternalAndLocal() {
@@ -146,8 +145,8 @@ async function fetchFromExternalAndLocal() {
 
   try {
     const [quotesRes, philosophersRes] = await Promise.all([
-      fetch(PROXY_URL + encodeURIComponent(PHILOSOPHERS_API_URL)),
-      fetch(PROXY_URL + encodeURIComponent(PHILOSOPHERS_URL)),
+      fetch(PHILOSOPHERS_API_URL),
+      fetch(PHILOSOPHERS_URL),
     ]);
 
     if (!quotesRes.ok || !philosophersRes.ok) {
@@ -313,7 +312,7 @@ function normalizePhilosopherEntry(entry) {
 
 export async function getPhilosopherDirectory() {
   if (!philosopherDirectoryPromise) {
-    philosopherDirectoryPromise = fetch(PROXY_URL + encodeURIComponent(PHILOSOPHERS_URL))
+    philosopherDirectoryPromise = fetch(PHILOSOPHERS_URL)
       .then(async response => {
         if (!response.ok) throw new Error(`Philosophers API responded ${response.status}`);
         const data = await response.json();
@@ -480,7 +479,7 @@ async function fetchReferenceFromSummaryEndpoint(name, title) {
   for (const baseUrl of WIKIPEDIA_SUMMARY_ENDPOINTS) {
     for (const candidate of candidates) {
       try {
-        const response = await fetch(PROXY_URL + encodeURIComponent(`${baseUrl}${encodeURIComponent(candidate)}`));
+        const response = await fetch(`${baseUrl}${encodeURIComponent(candidate)}`);
         if (!response.ok) continue;
 
         const data = await response.json();

@@ -86,7 +86,7 @@ app.use((req, res, next) => {
       "script-src 'self'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: https://image.tmdb.org https://philosophersapi.com https://upload.wikimedia.org",
-      "connect-src 'self' https://api.themoviedb.org https://corsproxy.io https://philosophersapi.com",
+      "connect-src 'self' https://api.themoviedb.org https://philosophersapi.com https://en.wikipedia.org https://pt.wikipedia.org",
       "font-src 'self' https://fonts.gstatic.com https://r2cdn.perplexity.ai",
       "base-uri 'self'",
       "form-action 'self'",
@@ -324,6 +324,10 @@ app.get('/api-docs/swagger.json', (req, res) => {
   res.send(specs);
 });
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+
+app.get('/favicon.ico', (req, res) => {
+  res.redirect(302, '/favicon.svg');
+});
 
 app.get('/', (req, res) => {
   res.redirect('/html/index.html');

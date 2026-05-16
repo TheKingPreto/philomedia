@@ -904,11 +904,16 @@ export function buildPhilosopherProfiles(quotes = [], philosopherDirectory = [],
 export function buildPhilosopherIndexProfiles(quotes = [], philosopherDirectory = [], submittedProfiles = []) {
   const fromQuotes = buildPhilosopherProfiles(quotes, philosopherDirectory, submittedProfiles);
   const bySlug = new Map(fromQuotes.map(profile => [profile.slug, profile]));
+  const directoryIndex = createDirectoryIndex(philosopherDirectory);
 
   const profiles = PHILOSOPHER_DEFINITIONS.map(definition => {
     const existing = bySlug.get(definition.slug);
     if (existing) return existing;
 
+    const directoryEntry = findDirectoryEntry(
+      [definition.name, ...(definition.aliases || [])],
+      directoryIndex
+    );
     const topThemes = definition.priorityThemes || [];
     const themeLabels = topThemes.map(formatThemeLabel);
     const name = definition.name;
@@ -934,8 +939,8 @@ export function buildPhilosopherIndexProfiles(quotes = [], philosopherDirectory 
       linkedWorkIds: [],
       linkedWorkCount: 0,
       url: getPhilosopherUrl(definition.slug),
-      portraitUrl: '',
-      wikiTitle: '',
+      portraitUrl: directoryEntry?.portraitUrl || '',
+      wikiTitle: directoryEntry?.wikiTitle || '',
       needsReferenceMetadata: false,
       isCommunitySubmitted: false,
       initials: name
