@@ -802,9 +802,6 @@ export function filterPhilosopherCatalogQuotes(quotes = [], uiLocale = 'en') {
 
   return (quotes || []).filter(quote => {
     if (!quote?.quote || !quote?.author) return false;
-    if (quote.source === 'wikiquote' || quote.source === 'database-import') {
-      return false;
-    }
     if (loc === 'pt') return true;
     return isLikelyEnglishQuote(quote.quote);
   });
@@ -899,6 +896,64 @@ export function buildPhilosopherProfiles(quotes = [], philosopherDirectory = [],
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Index page: always include curated PHILOSOPHER_DEFINITIONS, enriched with quote data when available.
+ */
+export function buildPhilosopherIndexProfiles(quotes = [], philosopherDirectory = [], submittedProfiles = []) {
+  const fromQuotes = buildPhilosopherProfiles(quotes, philosopherDirectory, submittedProfiles);
+  const bySlug = new Map(fromQuotes.map(profile => [profile.slug, profile]));
+
+  const profiles = PHILOSOPHER_DEFINITIONS.map(definition => {
+    const existing = bySlug.get(definition.slug);
+    if (existing) return existing;
+
+    const topThemes = definition.priorityThemes || [];
+    const themeLabels = topThemes.map(formatThemeLabel);
+    const name = definition.name;
+
+    return {
+      slug: definition.slug,
+      name,
+      period: definition.period,
+      summary: definition.summary,
+      focus: definition.focus,
+      aliases: [...(definition.aliases || [])],
+      featuredQuote: null,
+      featuredQuotePreview: '',
+      quoteCount: 0,
+      quotes: [],
+      quoteIds: [],
+      topThemes,
+      themeLabels,
+      lenses: resolvePrimaryLens(topThemes).map(lens => ({
+        ...lens,
+        url: getLensSearchUrl(lens.id),
+      })),
+      linkedWorkIds: [],
+      linkedWorkCount: 0,
+      url: getPhilosopherUrl(definition.slug),
+      portraitUrl: '',
+      wikiTitle: '',
+      needsReferenceMetadata: false,
+      isCommunitySubmitted: false,
+      initials: name
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(part => part.charAt(0).toUpperCase())
+        .join(''),
+    };
+  });
+
+  fromQuotes.forEach(profile => {
+    if (!profiles.some(item => item.slug === profile.slug)) {
+      profiles.push(profile);
+    }
+  });
+
+  return profiles.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function getPhilosopherProfileBySlug(quotes = [], slug, philosopherDirectory = [], submittedProfiles = []) {

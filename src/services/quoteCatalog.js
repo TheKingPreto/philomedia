@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import Quote from '../models/Quote.js';
 import { customQuotes } from '../../public/scripts/custom-quotes.js';
+import { getCustomQuoteTranslationPt } from '../../public/scripts/services/customQuoteTranslationsPt.js';
 import { normalizeQuoteThemes } from '../../public/scripts/domain/canonicalThemes.js';
 import { resolveQuoteForLocale } from '../domain/i18n/quoteDisplay.js';
 
@@ -84,6 +85,7 @@ async function readJsonArray(filePath) {
 export function mapCustomQuoteEntry(entry) {
   const author = normalizeTranslatedAuthor(entry.author);
   const q = String(entry.quote || '').trim();
+  const quotePt = getCustomQuoteTranslationPt(entry.id);
 
   return {
     id: entry.id,
@@ -93,8 +95,8 @@ export function mapCustomQuoteEntry(entry) {
     originalLanguage: 'en',
     quote_original: q,
     quote_en: q,
-    quote_pt: '',
-    translationStatus: '',
+    quote_pt: quotePt,
+    translationStatus: quotePt ? 'curated' : '',
   };
 }
 

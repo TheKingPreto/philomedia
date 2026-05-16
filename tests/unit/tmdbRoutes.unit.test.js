@@ -57,7 +57,7 @@ describe('tmdb routes', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual([{ id: 1, media_type: 'movie', title: 'Dune' }]);
-    expect(mockSearchMulti).toHaveBeenCalledWith('dune');
+    expect(mockSearchMulti).toHaveBeenCalledWith('dune', { language: 'en-US' });
   });
 
   test('GET /details validates required params before calling the client', async () => {
@@ -84,6 +84,7 @@ describe('tmdb routes', () => {
       withGenres: '18|10765',
       withOriginalLanguage: 'ja',
       sortBy: 'popularity.desc',
+      language: 'en-US',
     });
   });
 

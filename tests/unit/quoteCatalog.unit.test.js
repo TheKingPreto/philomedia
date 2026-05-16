@@ -1,4 +1,5 @@
 import {
+  mapCustomQuoteEntry,
   mapDatabaseQuoteEntry,
   mapWikiQuoteEntry,
   mapTranslatedWikiQuoteEntry,
@@ -7,6 +8,18 @@ import {
 } from '../../src/services/quoteCatalog.js';
 
 describe('quote catalog service', () => {
+  test('maps custom quotes with curated Portuguese translations', () => {
+    const entry = mapCustomQuoteEntry({
+      id: 1001,
+      quote: 'The unexamined life is not worth living.',
+      author: 'Socrates',
+      themes: ['self-knowledge'],
+    });
+
+    expect(entry.quote_pt).toBe('A vida não examinada não vale a pena ser vivida.');
+    expect(entry.translationStatus).toBe('curated');
+  });
+
   test('maps local wikiquote records into normalized catalog entries', () => {
     const entry = mapWikiQuoteEntry({
       text: 'A felicidade nao e um ideal da razao, mas sim da imaginacao.',

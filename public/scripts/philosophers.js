@@ -5,8 +5,16 @@ import {
   getQuoteCatalog,
   getSubmittedPhilosophers,
 } from '/scripts/philosophersapi.js';
-import { buildPhilosopherProfiles, filterPhilosopherCatalogQuotes } from '/scripts/philosopher-data.js';
-import { getThinkerCopyForLocale, getUiLocale } from '/scripts/services/uiLocale.js';
+import {
+  buildPhilosopherIndexProfiles,
+  PHILOSOPHER_DEFINITIONS,
+  filterPhilosopherCatalogQuotes,
+} from '/scripts/philosopher-data.js';
+import {
+  localizeThinkerCard,
+} from '/scripts/services/philosopherDisplayI18n.js';
+import { t } from '/scripts/services/i18n.js';
+import { getUiLocale } from '/scripts/services/uiLocale.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 
 const PAGE_SIZE = 12;
@@ -17,7 +25,8 @@ const state = {
 
 function isIndexReadyProfile(profile) {
   if (!profile) return false;
-  return profile.quoteCount >= 2 || profile.isCommunitySubmitted;
+  if (PHILOSOPHER_DEFINITIONS.some(definition => definition.slug === profile.slug)) return true;
+  return profile.quoteCount >= 1 || profile.isCommunitySubmitted;
 }
 
 function escapeHtml(text) {
@@ -34,27 +43,27 @@ function renderStats(container, profiles) {
 
   container.innerHTML = `
     <article class="profile-stat-card">
-      <span class="profile-stat-label">Thinkers</span>
+      <span class="profile-stat-label">${escapeHtml(t('philosophers.stat_thinkers'))}</span>
       <span class="profile-stat-value">${profiles.length}</span>
-      <p class="profile-stat-caption">Voices with dedicated pages and thematic links inside the collection.</p>
+      <p class="profile-stat-caption">${escapeHtml(t('philosophers.stat_thinkers_caption'))}</p>
     </article>
     <article class="profile-stat-card">
-      <span class="profile-stat-label">Quotes in focus</span>
+      <span class="profile-stat-label">${escapeHtml(t('philosophers.stat_quotes'))}</span>
       <span class="profile-stat-value">${totalQuotes}</span>
-      <p class="profile-stat-caption">Curated lines used to shape the readings, lenses, and match logic throughout the site.</p>
+      <p class="profile-stat-caption">${escapeHtml(t('philosophers.stat_quotes_caption'))}</p>
     </article>
     <article class="profile-stat-card">
-      <span class="profile-stat-label">Linked works</span>
+      <span class="profile-stat-label">${escapeHtml(t('philosophers.stat_works'))}</span>
       <span class="profile-stat-value">${totalWorks}</span>
-      <p class="profile-stat-caption">TMDB titles already connected to these thinkers through curated pairings.</p>
+      <p class="profile-stat-caption">${escapeHtml(t('philosophers.stat_works_caption'))}</p>
     </article>
   `;
 }
 
-function createThemeChips(profile) {
-  return profile.topThemes
+function createThemeChips(profile, themeLabels) {
+  return (themeLabels || profile.themeLabels || [])
     .slice(0, 3)
-    .map(theme => `<span class="philosopher-chip">${escapeHtml(profile.themeLabels[profile.topThemes.indexOf(theme)] || theme)}</span>`)
+    .map(label => `<span class="philosopher-chip">${escapeHtml(label)}</span>`)
     .join('');
 }
 
@@ -65,7 +74,7 @@ function renderPortrait(profile) {
 
   return `
     <div class="philosopher-sigil philosopher-sigil-small philosopher-sigil-photo" aria-hidden="true">
-      <img src="${profile.portraitUrl}" alt="${escapeHtml(profile.name)} portrait" loading="lazy">
+      <img src="${profile.portraitUrl}" alt="${escapeHtml(t('philosophers.portrait_alt', { name: profile.name }))}" loading="lazy">
     </div>
   `;
 }
@@ -75,25 +84,25 @@ function renderCards(container, profiles) {
 
   const loc = getUiLocale();
   container.innerHTML = profiles.map(profile => {
-    const copy = getThinkerCopyForLocale(profile, loc);
+    const display = localizeThinkerCard(profile, loc);
     return `
     <a href="${profile.url}" class="philosopher-card-link" data-philosopher-slug="${profile.slug}">
       <article class="philosopher-card">
         <div class="philosopher-card-top">
           ${renderPortrait(profile)}
           <div class="philosopher-card-headline">
-            <p class="philosopher-card-period" data-philosopher-period>${escapeHtml(profile.period)}</p>
+            <p class="philosopher-card-period" data-philosopher-period>${escapeHtml(display.period)}</p>
             <h3>${escapeHtml(profile.name)}</h3>
           </div>
         </div>
-        <p class="philosopher-card-summary" data-philosopher-summary>${escapeHtml(copy.summary)}</p>
-        <div class="philosopher-chip-row">${createThemeChips(profile)}</div>
+        <p class="philosopher-card-summary" data-philosopher-summary>${escapeHtml(display.summary)}</p>
+        <div class="philosopher-chip-row">${createThemeChips(profile, display.themeLabels)}</div>
         <div class="philosopher-card-quote">
-          <p>"${escapeHtml(profile.featuredQuotePreview)}"</p>
+          <p>${display.quotePreview ? `"${escapeHtml(display.quotePreview)}"` : ''}</p>
         </div>
         <div class="philosopher-card-footer">
-          <span>${profile.quoteCount} quotes</span>
-          <span>${profile.linkedWorkCount} related works</span>
+          <span>${escapeHtml(t('philosophers.quotes_count', { count: profile.quoteCount }))}</span>
+          <span>${escapeHtml(t('philosophers.works_count', { count: profile.linkedWorkCount }))}</span>
         </div>
       </article>
     </a>
@@ -119,7 +128,11 @@ function renderPaginationSummary(container) {
 
   const start = ((state.page - 1) * PAGE_SIZE) + 1;
   const end = Math.min(state.page * PAGE_SIZE, state.profiles.length);
-  container.textContent = `Showing ${start}-${end} of ${state.profiles.length} thinkers.`;
+  container.textContent = t('philosophers.pagination_summary', {
+    start,
+    end,
+    total: state.profiles.length,
+  });
 }
 
 function renderPaginationControls(container) {
@@ -134,9 +147,9 @@ function renderPaginationControls(container) {
 
   container.hidden = false;
   container.innerHTML = `
-    <button type="button" class="ghost-button" data-page-action="prev" ${state.page === 1 ? 'disabled' : ''}>Previous</button>
-    <span class="philosopher-pagination-label">Page ${state.page} of ${pageCount}</span>
-    <button type="button" class="ghost-button" data-page-action="next" ${state.page === pageCount ? 'disabled' : ''}>Next</button>
+    <button type="button" class="ghost-button" data-page-action="prev" ${state.page === 1 ? 'disabled' : ''}>${escapeHtml(t('philosophers.prev'))}</button>
+    <span class="philosopher-pagination-label">${escapeHtml(t('philosophers.page_label', { page: state.page, total: pageCount }))}</span>
+    <button type="button" class="ghost-button" data-page-action="next" ${state.page === pageCount ? 'disabled' : ''}>${escapeHtml(t('philosophers.next'))}</button>
   `;
 }
 
@@ -196,14 +209,15 @@ async function hydrateVisibleProfiles(container, profiles) {
       const image = card.querySelector('.philosopher-sigil');
       if (image && profile.portraitUrl) {
         image.classList.add('philosopher-sigil-photo');
-        image.innerHTML = `<img src="${profile.portraitUrl}" alt="${escapeHtml(profile.name)} portrait" loading="lazy">`;
+        image.innerHTML = `<img src="${profile.portraitUrl}" alt="${escapeHtml(t('philosophers.portrait_alt', { name: profile.name }))}" loading="lazy">`;
       }
 
       const period = card.querySelector('[data-philosopher-period]');
-      if (period) period.textContent = profile.period;
+      const localized = localizeThinkerCard(profile, getUiLocale());
+      if (period) period.textContent = localized.period;
 
       const summary = card.querySelector('[data-philosopher-summary]');
-      if (summary) summary.textContent = getThinkerCopyForLocale(profile, getUiLocale()).summary;
+      if (summary) summary.textContent = localizeThinkerCard(profile, getUiLocale()).summary;
     })
   );
 }
@@ -228,7 +242,7 @@ function renderError(container, message) {
   container.innerHTML = `
     <div class="error-state">
       <p class="error-state-title">${escapeHtml(message)}</p>
-      <p class="error-state-text">Try reloading the page. If the quote source is unavailable, the thinker index cannot be built yet.</p>
+      <p class="error-state-text">${escapeHtml(t('philosophers.error_reload'))}</p>
     </div>
   `;
 }
@@ -252,23 +266,27 @@ async function init() {
 
   try {
     const locale = getUiLocale();
-    const [quotes, philosopherDirectory, submittedProfiles] = await Promise.all([
+    const [quotesForIndex, philosopherDirectory, submittedProfiles] = await Promise.all([
       getQuoteCatalog(locale),
       getPhilosopherDirectory(),
       getSubmittedPhilosophers(),
     ]);
-    const profiles = buildPhilosopherProfiles(filterPhilosopherCatalogQuotes(quotes, locale), philosopherDirectory, submittedProfiles)
+    const profiles = buildPhilosopherIndexProfiles(
+      filterPhilosopherCatalogQuotes(quotesForIndex, locale),
+      philosopherDirectory,
+      submittedProfiles,
+    )
       .filter(isIndexReadyProfile);
 
     if (!profiles.length) {
-      renderError(gridContainer, 'No thinker profiles are available right now.');
+      renderError(gridContainer, t('philosophers.error_none'));
       return;
     }
 
     state.profiles = profiles;
     renderPage();
   } catch (error) {
-    renderError(gridContainer, 'We could not build the thinker index.');
+    renderError(gridContainer, t('philosophers.error_build'));
   }
 }
 

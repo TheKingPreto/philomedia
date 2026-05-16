@@ -1,3 +1,5 @@
+import { t } from '/scripts/services/i18n.js';
+
 const SESSION_ENDPOINT = '/auth/session';
 
 let cachedSession = null;
@@ -82,7 +84,7 @@ function createTextChip(text, className) {
 }
 
 export function getFirstName(displayName = '') {
-  return displayName.trim().split(/\s+/)[0] || 'Account';
+  return displayName.trim().split(/\s+/)[0] || t('auth.account');
 }
 
 export async function setupAuthUI() {
@@ -109,7 +111,7 @@ export async function setupAuthUI() {
     authSlot.appendChild(
       createNavLink({
         href: '/html/contribute.html',
-        text: 'Contribute',
+        text: t('nav.contribute'),
         dataRole: 'contribute',
       })
     );
@@ -123,7 +125,7 @@ export async function setupAuthUI() {
     authSlot.appendChild(
       createNavLink({
         href: '/auth/logout',
-        text: 'Logout',
+        text: t('nav.logout'),
         dataRole: 'logout',
       })
     );
@@ -134,7 +136,7 @@ export async function setupAuthUI() {
     authSlot.appendChild(
       createNavLink({
         href: '/auth/google',
-        text: 'Login',
+        text: t('nav.login'),
         dataRole: 'login',
       })
     );
@@ -142,7 +144,7 @@ export async function setupAuthUI() {
   }
 
   authSlot.appendChild(
-    createTextChip('Login unavailable', 'nav-muted-chip')
+    createTextChip(t('nav.login_unavailable'), 'nav-muted-chip')
   );
   return session;
 }

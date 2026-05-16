@@ -14,21 +14,24 @@ function getApiKey() {
   return key;
 }
 
-function buildTMDBUrl(path, params = {}, { includeLanguage = true } = {}) {
+function buildTMDBUrl(path, params = {}, { includeLanguage = true, language = DEFAULT_LANGUAGE } = {}) {
   const searchParams = new URLSearchParams({
     api_key: getApiKey(),
     ...params,
   });
 
   if (includeLanguage && !searchParams.has('language')) {
-    searchParams.set('language', DEFAULT_LANGUAGE);
+    searchParams.set('language', language || DEFAULT_LANGUAGE);
   }
 
   return `${TMDB_BASE_URL}${path}?${searchParams.toString()}`;
 }
 
 async function fetchTMDBJson(path, params = {}, options = {}) {
-  const response = await fetch(buildTMDBUrl(path, params, options));
+  const response = await fetch(buildTMDBUrl(path, params, {
+    includeLanguage: options.includeLanguage !== false,
+    language: options.language || DEFAULT_LANGUAGE,
+  }));
   if (!response.ok) {
     throw new Error(`TMDB request failed with status ${response.status}.`);
   }
@@ -37,7 +40,10 @@ async function fetchTMDBJson(path, params = {}, options = {}) {
 }
 
 async function fetchOptionalTMDBJson(path, params = {}, options = {}) {
-  const response = await fetch(buildTMDBUrl(path, params, options));
+  const response = await fetch(buildTMDBUrl(path, params, {
+    includeLanguage: options.includeLanguage !== false,
+    language: options.language || DEFAULT_LANGUAGE,
+  }));
   if (!response.ok) {
     return null;
   }
@@ -95,21 +101,21 @@ function assertValidMediaType(type) {
   }
 }
 
-export async function searchMulti(query) {
+export async function searchMulti(query, { language = DEFAULT_LANGUAGE } = {}) {
   if (!query) return [];
 
   const data = await fetchTMDBJson('/search/multi', {
     query,
     page: '1',
     include_adult: 'false',
-  });
+  }, { language });
 
   return Array.isArray(data.results)
     ? data.results.filter(item => VALID_MEDIA_TYPES.has(item.media_type))
     : [];
 }
 
-export async function getDetails(id, type) {
+export async function getDetails(id, type, { language = DEFAULT_LANGUAGE } = {}) {
   if (!id) {
     throw new Error('Missing TMDB id.');
   }
@@ -117,8 +123,8 @@ export async function getDetails(id, type) {
   assertValidMediaType(type);
 
   const [details, watchProvidersPayload] = await Promise.all([
-    fetchTMDBJson(`/${type}/${id}`, { append_to_response: 'credits' }),
-    fetchOptionalTMDBJson(`/${type}/${id}/watch/providers`, {}, { includeLanguage: false }),
+    fetchTMDBJson(`/${type}/${id}`, { append_to_response: 'credits' }, { language }),
+    fetchOptionalTMDBJson(`/${type}/${id}/watch/providers`, {}, { includeLanguage: false, language }),
   ]);
 
   return {
@@ -142,36 +148,37 @@ export async function getReviews(id, type) {
   }));
 }
 
-export async function getSimilar(id, type) {
+export async function getSimilar(id, type, { language = DEFAULT_LANGUAGE } = {}) {
   if (!id || !VALID_MEDIA_TYPES.has(type)) {
     return [];
   }
 
-  const data = await fetchOptionalTMDBJson(`/${type}/${id}/similar`, { page: '1' });
+  const data = await fetchOptionalTMDBJson(`/${type}/${id}/similar`, { page: '1' }, { language });
   return Array.isArray(data?.results)
     ? data.results.slice(0, 8).map(item => mapMediaSummary(item, type))
     : [];
 }
 
-export async function getRecommendations(id, type) {
+export async function getRecommendations(id, type, { language = DEFAULT_LANGUAGE } = {}) {
   if (!id || !VALID_MEDIA_TYPES.has(type)) {
     return [];
   }
 
-  const data = await fetchOptionalTMDBJson(`/${type}/${id}/recommendations`, { page: '1' });
+  const data = await fetchOptionalTMDBJson(`/${type}/${id}/recommendations`, { page: '1' }, { language });
   return Array.isArray(data?.results)
     ? data.results.slice(0, 12).map(item => mapMediaSummary(item, type))
     : [];
 }
 
 export async function getDiscover(media = 'movie', page = 1, options = {}) {
+  const language = options.language || DEFAULT_LANGUAGE;
   const data = await fetchOptionalTMDBJson(`/discover/${media}`, {
     sort_by: options.sortBy || 'vote_average.desc',
     'vote_count.gte': String(options.voteCountGte || 120),
     page: String(page),
     ...(options.withGenres ? { with_genres: options.withGenres } : {}),
     ...(options.withOriginalLanguage ? { with_original_language: options.withOriginalLanguage } : {}),
-  });
+  }, { language });
 
   return Array.isArray(data?.results)
     ? data.results.map(item => mapMediaSummary(item, media))

@@ -17,50 +17,50 @@
   <link rel="stylesheet" href="/css/styles/animations.css">
 </head>
 <body class="library-page">
-  <a class="skip-link" href="#main-content">Skip to content</a>
+  <a class="skip-link" href="#main-content" data-i18n="nav.skip_to_content">Skip to content</a>
   <header>
     <div class="header-brand">
       <a href="/html/index.html" class="logo">PhiloMedia</a>
-      <span class="header-context">Your Library</span>
+      <span class="header-context" data-i18n="header.context.library">Your Library</span>
     </div>
     <nav aria-label="Primary">
-      <a href="/html/index.html">Home</a>
-      <a href="/html/search.html">Search</a>
-      <a href="/html/philosophers.html">Thinkers</a>
-      <a href="/html/library.html" data-auth-link="library" aria-current="page" hidden>Library</a>
+      <a href="/html/index.html" data-i18n="nav.home">Home</a>
+      <a href="/html/search.html" data-i18n="nav.search">Search</a>
+      <a href="/html/philosophers.html" data-i18n="nav.thinkers">Thinkers</a>
+      <a href="/html/library.html" data-auth-link="library" aria-current="page" hidden data-i18n="nav.library">Library</a>
       <span id="nav-auth-slot" class="nav-auth-slot"></span>
     </nav>
   </header>
 
   <main id="main-content" class="library-shell">
     <section class="library-hero">
-      <h1 class="section-title">Your saved works</h1>
-      <p id="library-intro" class="section-subtitle">Build a personal map of films and series to revisit later.</p>
+      <h1 class="section-title" data-i18n="library.hero_title">Your saved works</h1>
+      <p id="library-intro" class="section-subtitle" data-i18n="library.hero_subtitle">Build a personal map of films and series to revisit later.</p>
     </section>
 
     <section id="library-toolbar" class="library-toolbar" hidden>
       <label class="library-search-field" for="library-search">
-        <span class="filter-label">Search your library</span>
-        <input type="search" id="library-search" placeholder="Find a saved title..." autocomplete="off">
+        <span class="filter-label" data-i18n="library.search_label">Search your library</span>
+        <input type="search" id="library-search" data-i18n-placeholder="library.search_placeholder" placeholder="Find a saved title..." autocomplete="off">
       </label>
       <div class="library-toolbar-row">
         <div class="filter-cluster library-filter-group">
-          <p class="filter-label">Media</p>
+          <p class="filter-label" data-i18n="library.media_label">Media</p>
           <div id="library-media-filters" class="filter-chip-row" aria-label="Filter library by media type"></div>
         </div>
         <label class="sort-control" for="library-sort">
-          <span>Sort by</span>
+          <span data-i18n="library.sort_label">Sort by</span>
           <select id="library-sort" aria-label="Sort library works"></select>
         </label>
-        <button type="button" id="clear-library-filters" class="ghost-button">Clear filters</button>
+        <button type="button" id="clear-library-filters" class="ghost-button" data-i18n="library.clear_filters">Clear filters</button>
       </div>
     </section>
 
     <section id="watchlist-section" class="library-section">
       <div class="results-meta">
         <div class="results-meta-copy">
-          <h2 class="section-title">Watchlist</h2>
-          <p class="section-subtitle">Titles you want to come back to.</p>
+          <h2 class="section-title" data-i18n="library.watchlist_title">Watchlist</h2>
+          <p class="section-subtitle" data-i18n="library.watchlist_subtitle">Titles you want to come back to.</p>
         </div>
       </div>
       <div id="watchlist-grid" class="results-grid"></div>
@@ -69,8 +69,8 @@
     <section id="favorites-section" class="library-section">
       <div class="results-meta">
         <div class="results-meta-copy">
-          <h2 class="section-title">Favorites</h2>
-          <p class="section-subtitle">Works that stayed with you.</p>
+          <h2 class="section-title" data-i18n="library.favorites_title">Favorites</h2>
+          <p class="section-subtitle" data-i18n="library.favorites_subtitle">Works that stayed with you.</p>
         </div>
       </div>
       <div id="favorites-grid" class="results-grid"></div>
@@ -79,8 +79,8 @@
     <section id="watched-section" class="library-section">
       <div class="results-meta">
         <div class="results-meta-copy">
-          <h2 class="section-title">Watched</h2>
-          <p class="section-subtitle">Works you have already experienced.</p>
+          <h2 class="section-title" data-i18n="library.watched_title">Watched</h2>
+          <p class="section-subtitle" data-i18n="library.watched_subtitle">Works you have already experienced.</p>
         </div>
       </div>
       <div id="watched-grid" class="results-grid"></div>

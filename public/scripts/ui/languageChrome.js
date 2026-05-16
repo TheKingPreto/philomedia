@@ -1,3 +1,4 @@
+import { applyPageTranslations, t } from '/scripts/services/i18n.js';
 import { getUiLocale, initDocumentLocale, normalizeUiLocale, setUiLocale } from '/scripts/services/uiLocale.js';
 
 function syncLocaleButtons() {
@@ -26,7 +27,7 @@ export function setupLanguageChrome() {
     const wrap = document.createElement('div');
     wrap.className = 'nav-locale';
     wrap.setAttribute('role', 'group');
-    wrap.setAttribute('aria-label', 'Language');
+    wrap.setAttribute('aria-label', t('nav.language'));
 
     const en = document.createElement('button');
     en.type = 'button';
@@ -58,4 +59,5 @@ export function setupLanguageChrome() {
   });
 
   syncLocaleButtons();
+  applyPageTranslations(document);
 }

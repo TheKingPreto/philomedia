@@ -10,7 +10,10 @@ import {
   rerankLensSelectionWithReviews,
 } from '/scripts/services/searchLensReviewRerankService.js';
 import { setupAuthUI } from '/scripts/auth-ui.js';
+import { t } from '/scripts/services/i18n.js';
+import { getLocalizedLensById } from '/scripts/services/searchFilterI18n.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
+import { localizeItemOverviews } from '/scripts/services/tmdbOverviewI18n.js';
 import { createMediaCard, hydrateMediaCards, renderMediaCards } from '/scripts/media-card.js';
 import { getLensById, getRatingFilterById } from '/scripts/domain/searchFilters.js';
 import { annotateResults, mergeResultsByIdentity, scoreLensAffinity } from '/scripts/domain/searchLensRanking.js';
@@ -65,25 +68,33 @@ const LENS_DISPLAY_LIMIT = 10;
 const LENS_POOL_LIMIT = 40;
 
 function buildResultsSummary(totalResults, visibleResults) {
-  const activeLens = getLensById(state.filters.lens);
+  const activeLens = getLocalizedLensById(state.filters.lens);
 
   if (state.currentQuery) {
-    resultsTitle.textContent = `Results for "${state.currentQuery}"`;
+    resultsTitle.textContent = t('search.results_for', { query: state.currentQuery });
     if (activeLens) {
-      resultsSummary.textContent = `${visibleResults} of ${totalResults} works still resonate with ${activeLens.label.toLowerCase()}.`;
+      resultsSummary.textContent = t('search.results_resonate', {
+        visible: visibleResults,
+        total: totalResults,
+        lens: activeLens.label.toLowerCase(),
+      });
       return;
     }
 
-    resultsSummary.textContent = `${visibleResults} works found for this search.`;
+    resultsSummary.textContent = t('search.results_found', { count: visibleResults });
     return;
   }
 
   if (state.discoveryLensId) {
-    const discoveryLens = getLensById(state.discoveryLensId);
+    const discoveryLens = getLocalizedLensById(state.discoveryLensId);
     if (discoveryLens) {
       resultsTitle.textContent = discoveryLens.label;
       if (activeLens && activeLens.id !== discoveryLens.id) {
-        resultsSummary.textContent = `${visibleResults} of ${totalResults} works remain after filtering toward ${activeLens.label.toLowerCase()}.`;
+        resultsSummary.textContent = t('search.results_filtered', {
+          visible: visibleResults,
+          total: totalResults,
+          lens: activeLens.label.toLowerCase(),
+        });
         return;
       }
 
@@ -92,12 +103,13 @@ function buildResultsSummary(totalResults, visibleResults) {
     }
   }
 
-  resultsTitle.textContent = 'Search results';
-  resultsSummary.textContent = `${visibleResults} works available.`;
+  resultsTitle.textContent = t('search.results_title');
+  resultsSummary.textContent = t('search.results_available', { count: visibleResults });
 }
 
-function renderResults(items) {
-  renderMediaCards(resultsContainer, items, {
+async function renderResults(items) {
+  const localized = await localizeItemOverviews(items);
+  renderMediaCards(resultsContainer, localized, {
     overviewLength: 110,
   });
 }
@@ -194,9 +206,9 @@ function renderLensPagination(visible = 0) {
 
   paginationEl.hidden = false;
   paginationEl.innerHTML = `
-    <p class="lens-pagination-count">${visible} of ${total} works shown</p>
+    <p class="lens-pagination-count">${t('search.works_shown', { visible, total })}</p>
     <button type="button" id="load-more-lens" class="ghost-button">
-      See more related works
+      ${t('search.see_more')}
     </button>
   `;
 }
@@ -208,7 +220,7 @@ async function renderFilteredState({ append = false } = {}) {
       paginationEl.hidden = true;
       paginationEl.replaceChildren();
     }
-    setSearchEmpty(searchPageEls, 'Try a title or click one of the suggested lenses above.');
+    setSearchEmpty(searchPageEls, t('search.empty_hint_lens'));
     return;
   }
 
@@ -239,8 +251,8 @@ async function renderFilteredState({ append = false } = {}) {
     buildResultsSummary(state.rawResults.length, 0);
     resultsContainer.innerHTML = `
       <div class="empty-state">
-        <p class="empty-state-title">No works match these filters</p>
-        <p class="empty-state-text">Try another lens, lower the rating floor, or clear the filters.</p>
+        <p class="empty-state-title">${t('search.no_match_filters_title')}</p>
+        <p class="empty-state-text">${t('search.no_match_filters_text')}</p>
       </div>
     `;
     renderLensPagination(0);
@@ -263,8 +275,9 @@ async function renderFilteredState({ append = false } = {}) {
       await renderFilteredState({ append: false });
       return;
     }
+    const localizedNew = await localizeItemOverviews(newItems);
     const fragment = document.createDocumentFragment();
-    newItems.forEach((item, i) => {
+    localizedNew.forEach((item, i) => {
       fragment.appendChild(createMediaCard(item, {
         index: startIdx + i,
         overviewLength: 110,
@@ -273,7 +286,7 @@ async function renderFilteredState({ append = false } = {}) {
     resultsContainer.appendChild(fragment);
     hydrateMediaCards(resultsContainer).catch(() => {});
   } else {
-    renderResults(pageResults);
+    await renderResults(pageResults);
   }
 
   renderLensPagination(pageResults.length);
@@ -284,7 +297,7 @@ async function handleLensLoadMoreClick(event) {
   if (!button || button.disabled) return;
 
   button.disabled = true;
-  button.textContent = 'Loading...';
+  button.textContent = t('search.loading');
 
   state.lensPage += 1;
 
@@ -300,7 +313,7 @@ async function handleLensLoadMoreClick(event) {
     const nextBtn = document.getElementById('load-more-lens');
     if (nextBtn) {
       nextBtn.disabled = false;
-      nextBtn.textContent = 'See more related works';
+      nextBtn.textContent = t('search.see_more');
     }
   }
 }
@@ -426,7 +439,7 @@ async function runThemeDiscovery(lensId) {
 
 async function runSearch(query) {
   state.lensPage = 0;
-  setSearchLoading(searchPageEls, 'Searching for thoughtful matches...');
+  setSearchLoading(searchPageEls, t('search.searching'));
 
   const results = await searchTMDBCached(query);
   state.rawResults = annotateResults(results);
@@ -444,13 +457,13 @@ async function handleSubmit(event) {
         await runThemeDiscovery(state.filters.lens);
       } catch (error) {
         const is502 = error.message && (error.message.includes('TMDB') || error.message.includes('unavailable'));
-        setSearchError(searchPageEls, error.message || 'Error fetching data. Please try again.', is502);
+        setSearchError(searchPageEls, error.message || t('search.fetch_error'), is502);
       }
       return;
     }
 
     resultsMeta.hidden = true;
-    resultsContainer.innerHTML = '<p class="inline-message">Enter a title or choose one of the suggested lenses.</p>';
+    resultsContainer.innerHTML = `<p class="inline-message">${t('search.enter_title')}</p>`;
     return;
   }
 
@@ -458,14 +471,14 @@ async function handleSubmit(event) {
     await runSearch(query);
 
     if (!state.rawResults.length) {
-      setSearchEmpty(searchPageEls, 'Try another title or use a philosophical lens to explore.');
+      setSearchEmpty(searchPageEls, t('search.empty_hint_search'));
       return;
     }
 
     await renderFilteredState();
   } catch (error) {
     const is502 = error.message && (error.message.includes('TMDB') || error.message.includes('unavailable'));
-    setSearchError(searchPageEls, error.message || 'Error fetching data. Please try again.', is502);
+    setSearchError(searchPageEls, error.message || t('search.fetch_error'), is502);
   }
 }
 
@@ -490,7 +503,7 @@ async function handleLensClick(event) {
       await runThemeDiscovery(nextLens);
     } catch (error) {
       const is502 = error.message && (error.message.includes('TMDB') || error.message.includes('unavailable'));
-      setSearchError(searchPageEls, error.message || 'Error fetching data. Please try again.', is502);
+      setSearchError(searchPageEls, error.message || t('search.fetch_error'), is502);
     }
     return;
   }
@@ -585,14 +598,14 @@ async function hydrateFromQueryParams() {
       await runSearch(query);
 
       if (!state.rawResults.length) {
-        setSearchEmpty(searchPageEls, 'Try another title or use a philosophical lens to explore.');
+        setSearchEmpty(searchPageEls, t('search.empty_hint_search'));
         return;
       }
 
       await renderFilteredState();
     } catch (error) {
       const is502 = error.message && (error.message.includes('TMDB') || error.message.includes('unavailable'));
-      setSearchError(searchPageEls, error.message || 'Error fetching data. Please try again.', is502);
+      setSearchError(searchPageEls, error.message || t('search.fetch_error'), is502);
     }
     return;
   }
@@ -602,7 +615,7 @@ async function hydrateFromQueryParams() {
       await runThemeDiscovery(lens);
     } catch (error) {
       const is502 = error.message && (error.message.includes('TMDB') || error.message.includes('unavailable'));
-      setSearchError(searchPageEls, error.message || 'Error fetching data. Please try again.', is502);
+      setSearchError(searchPageEls, error.message || t('search.fetch_error'), is502);
     }
   }
 }

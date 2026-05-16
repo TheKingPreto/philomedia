@@ -26,17 +26,17 @@
   <link rel="stylesheet" href="/css/styles/details.css">
 </head>
 <body class="details-page">
-  <a class="skip-link" href="#main-content">Skip to content</a>
+  <a class="skip-link" href="#main-content" data-i18n="nav.skip_to_content">Skip to content</a>
   <header class="details-header">
     <div class="header-brand">
       <a href="/html/index.html" class="logo">PhiloMedia</a>
-      <span class="header-context">Media Reading</span>
+      <span class="header-context" data-i18n="header.context.media_reading">Media Reading</span>
     </div>
     <nav aria-label="Primary">
-      <a href="/html/index.html">Home</a>
-      <a href="/html/search.html">Search</a>
-      <a href="/html/philosophers.html">Thinkers</a>
-      <a href="/html/library.html" data-auth-link="library" hidden>Library</a>
+      <a href="/html/index.html" data-i18n="nav.home">Home</a>
+      <a href="/html/search.html" data-i18n="nav.search">Search</a>
+      <a href="/html/philosophers.html" data-i18n="nav.thinkers">Thinkers</a>
+      <a href="/html/library.html" data-auth-link="library" hidden data-i18n="nav.library">Library</a>
       <span id="nav-auth-slot" class="nav-auth-slot"></span>
     </nav>
   </header>
@@ -48,11 +48,11 @@
       <div class="details-info">
         <h1 id="details-title"></h1>
         <p id="details-meta"></p>
-        <div id="details-facts" class="details-facts" aria-label="Work details"></div>
+        <div id="details-facts" class="details-facts" data-i18n-aria-label="details.work_details" aria-label="Work details"></div>
         <div id="details-actions" class="details-actions" hidden>
-          <button type="button" id="watchlist-button" class="library-action-button">Save to watchlist</button>
-          <button type="button" id="favorite-button" class="library-action-button">Add to favorites</button>
-          <button type="button" id="watched-button" class="library-action-button">Mark as watched</button>
+          <button type="button" id="watchlist-button" class="library-action-button" data-i18n="details.save_watchlist">Save to watchlist</button>
+          <button type="button" id="favorite-button" class="library-action-button" data-i18n="details.add_favorites">Add to favorites</button>
+          <button type="button" id="watched-button" class="library-action-button" data-i18n="details.mark_watched">Mark as watched</button>
         </div>
         <p id="details-actions-hint" class="details-actions-hint" hidden></p>
         <p id="details-attribution" class="details-attribution" hidden></p>
@@ -61,7 +61,7 @@
     </section>
 
     <section id="philosophy-quote">
-      <h2>Related Philosophical Reading</h2>
+      <h2 data-i18n="details.philosophy_title">Related Philosophical Reading</h2>
 
       <div id="static-quote">
         <p id="quote-text" class="quote-text"></p>
@@ -71,15 +71,15 @@
       <div id="ai-quote-container">
         <div class="ai-placeholder">
           <span class="ai-thinking-dot"></span>
-          <span>AI interpretive reading in progress</span>
+          <span data-i18n="details.ai_in_progress">AI interpretive reading in progress</span>
         </div>
       </div>
     </section>
 
     <section id="related-works" hidden>
       <div class="related-header">
-        <h2 class="section-title">Related Works</h2>
-        <p class="section-subtitle">More titles that orbit the same themes, genres, or mood.</p>
+        <h2 class="section-title" data-i18n="details.related_title">Related Works</h2>
+        <p class="section-subtitle" data-i18n="details.related_subtitle">More titles that orbit the same themes, genres, or mood.</p>
       </div>
       <div id="related-results"></div>
     </section>

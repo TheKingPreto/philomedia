@@ -24,43 +24,43 @@
   <link rel="stylesheet" href="/css/styles/animations.css">
 </head>
 <body>
-  <a class="skip-link" href="#main-content">Skip to content</a>
+  <a class="skip-link" href="#main-content" data-i18n="nav.skip_to_content">Skip to content</a>
   <header>
     <div class="header-brand">
       <a href="/html/index.html" class="logo">PhiloMedia</a>
-      <span class="header-context">Daily Pairing</span>
+      <span class="header-context" data-i18n="header.context.home">Daily Pairing</span>
     </div>
     <nav aria-label="Primary">
-      <a href="/html/index.html" aria-current="page">Home</a>
-      <a href="/html/search.html">Search</a>
-      <a href="/html/philosophers.html">Thinkers</a>
-      <a href="/html/library.html" data-auth-link="library" hidden>Library</a>
+      <a href="/html/index.html" aria-current="page" data-i18n="nav.home">Home</a>
+      <a href="/html/search.html" data-i18n="nav.search">Search</a>
+      <a href="/html/philosophers.html" data-i18n="nav.thinkers">Thinkers</a>
+      <a href="/html/library.html" data-auth-link="library" hidden data-i18n="nav.library">Library</a>
       <span id="nav-auth-slot" class="nav-auth-slot"></span>
     </nav>
   </header>
 
   <main id="main-content">
     <section id="quote-section" aria-live="polite">
-      <h2>Philosophical Quote of the Day</h2>
+      <h2 data-i18n="home.quote_section_title">Philosophical Quote of the Day</h2>
       <div id="quote-container">
-        <p id="quote-text">Loading quote...</p>
+        <p id="quote-text" data-i18n="home.loading_quote">Loading quote...</p>
         <p id="quote-author"></p>
       </div>
     </section>
 
     <section id="highlights-section" aria-label="Featured media">
-      <h2 id="highlights-title" class="section-title">Featured for you</h2>
-      <p id="highlights-context" class="section-subtitle">Works selected to resonate with today's quote.</p>
+      <h2 id="highlights-title" class="section-title" data-i18n="home.featured_title">Featured for you</h2>
+      <p id="highlights-context" class="section-subtitle" data-i18n="home.featured_subtitle">Works selected to resonate with today's quote.</p>
       <div id="highlights"></div>
       <div id="highlights-pagination" class="highlights-pagination" hidden>
         <p id="highlights-count" class="highlights-count"></p>
-        <button id="load-more-highlights" class="ghost-button" type="button">Load more related works</button>
+        <button id="load-more-highlights" class="ghost-button" type="button" data-i18n="home.load_more">Load more related works</button>
       </div>
     </section>
   </main>
 
   <footer>
-    <p>&copy; 2025-present PhiloMedia | Entertainment meets thought</p>
+    <p>&copy; 2025-present PhiloMedia | <span data-i18n="footer.tagline">Entertainment meets thought</span></p>
   </footer>
 
   <script type="module" src="/scripts/pages/home.page.js"></script>

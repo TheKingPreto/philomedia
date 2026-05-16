@@ -6,6 +6,7 @@ import {
   setupAuthUI,
 } from '/scripts/auth-ui.js';
 import { getLibrary } from '/scripts/library-api.js';
+import { t } from '/scripts/services/i18n.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 
 const DETAILS_BASE = '/html/details.html';
@@ -25,7 +26,7 @@ function formatCount(value) {
 
 function formatRelativeDate(dateValue) {
   const timestamp = Date.parse(dateValue || '');
-  if (!Number.isFinite(timestamp)) return 'Recently';
+  if (!Number.isFinite(timestamp)) return t('profile.recently');
 
   const diffMs = Date.now() - timestamp;
   const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
@@ -62,9 +63,9 @@ function buildUniqueCount(library) {
 
 function buildActivityFeed(library) {
   const labels = {
-    watchlist: 'Added to watchlist',
-    favorites: 'Favorited',
-    watched: 'Marked as watched',
+    watchlist: t('profile.activity_watchlist'),
+    favorites: t('profile.activity_favorites'),
+    watched: t('profile.activity_watched'),
   };
 
   return ['watchlist', 'favorites', 'watched']
@@ -84,18 +85,17 @@ function renderAuthPrompt(container, session) {
 
   container.innerHTML = `
     <div class="empty-state">
-      <p class="empty-state-title">${loginAvailable ? 'Sign in to view your profile' : 'Login unavailable'}</p>
+      <p class="empty-state-title">${escapeHtml(loginAvailable ? t('profile.sign_in_title') : t('profile.oauth_unavailable_title'))}</p>
       <p class="empty-state-text">
-        ${loginAvailable
-          ? 'Use your Google account to unlock your personal profile, stats, and recent library activity.'
-          : 'Google OAuth is not configured on this server yet.'}
+        ${escapeHtml(loginAvailable ? t('profile.sign_in_text') : t('profile.oauth_unavailable_text'))}
       </p>
-      ${loginAvailable ? '<button type="button" class="library-cta-button" id="profile-login-button">Sign in with Google</button>' : ''}
+      ${loginAvailable ? '<button type="button" class="library-cta-button" id="profile-login-button">Sign in</button>' : ''}
     </div>
   `;
 
   const loginButton = document.getElementById('profile-login-button');
   if (loginButton) {
+    loginButton.textContent = t('profile.sign_in_button');
     loginButton.addEventListener('click', redirectToLogin);
   }
 }
@@ -222,7 +222,7 @@ function setupAvatarEditor(user, elements) {
     if (!file) return;
 
     setAvatarPending(elements, true);
-    setAvatarFeedback(elements, 'Uploading and processing your photo...', 'muted');
+    setAvatarFeedback(elements, t('profile.avatar_uploading'), 'muted');
 
     try {
       const avatarUrl = await resizeAvatarFile(file);
@@ -232,9 +232,9 @@ function setupAvatarEditor(user, elements) {
 
       renderAvatar(elements.avatar, nextUser);
       updateAvatarControls(nextUser, elements);
-      setAvatarFeedback(elements, 'Photo updated.', 'success');
+      setAvatarFeedback(elements, t('profile.avatar_updated'), 'success');
     } catch (error) {
-      setAvatarFeedback(elements, error.message || 'Could not update your photo.', 'error');
+      setAvatarFeedback(elements, error.message || t('profile.avatar_error'), 'error');
     } finally {
       elements.fileInput.value = '';
       setAvatarPending(elements, false);
@@ -243,7 +243,7 @@ function setupAvatarEditor(user, elements) {
 
   elements.removeButton.addEventListener('click', async () => {
     setAvatarPending(elements, true);
-    setAvatarFeedback(elements, 'Removing photo...', 'muted');
+    setAvatarFeedback(elements, t('profile.avatar_removing'), 'muted');
 
     try {
       const payload = await updateAvatarOnServer('');
@@ -252,9 +252,9 @@ function setupAvatarEditor(user, elements) {
 
       renderAvatar(elements.avatar, nextUser);
       updateAvatarControls(nextUser, elements);
-      setAvatarFeedback(elements, 'Photo removed. Initials are back in place.', 'success');
+      setAvatarFeedback(elements, t('profile.avatar_removed'), 'success');
     } catch (error) {
-      setAvatarFeedback(elements, error.message || 'Could not remove your photo.', 'error');
+      setAvatarFeedback(elements, error.message || t('profile.avatar_remove_error'), 'error');
     } finally {
       setAvatarPending(elements, false);
     }
@@ -275,24 +275,24 @@ function createStatCard({ label, value, caption }) {
 function renderStats(container, library) {
   const stats = [
     {
-      label: 'Watchlist',
+      label: t('profile.stat_watchlist'),
       value: library?.counts?.watchlist || 0,
-      caption: 'Works you want to revisit soon.',
+      caption: t('profile.stat_watchlist_caption'),
     },
     {
-      label: 'Favorites',
+      label: t('profile.stat_favorites'),
       value: library?.counts?.favorites || 0,
-      caption: 'Titles that stayed with you most.',
+      caption: t('profile.stat_favorites_caption'),
     },
     {
-      label: 'Watched',
+      label: t('profile.stat_watched'),
       value: library?.counts?.watched || 0,
-      caption: 'Works already experienced.',
+      caption: t('profile.stat_watched_caption'),
     },
     {
-      label: 'Unique works',
+      label: t('profile.stat_unique'),
       value: buildUniqueCount(library),
-      caption: 'Distinct films and series across your library.',
+      caption: t('profile.stat_unique_caption'),
     },
   ];
 
@@ -304,8 +304,8 @@ function renderActivity(container, items) {
   if (!items.length) {
     container.innerHTML = `
       <div class="empty-state">
-        <p class="empty-state-title">No activity yet</p>
-        <p class="empty-state-text">Start saving works and this timeline will begin to tell your story.</p>
+        <p class="empty-state-title">${escapeHtml(t('profile.no_activity_title'))}</p>
+        <p class="empty-state-text">${escapeHtml(t('profile.no_activity_text'))}</p>
       </div>
     `;
     return;
@@ -321,14 +321,14 @@ function renderActivity(container, items) {
 
     const poster = item.posterPath
       ? `<img class="activity-poster" src="${POSTER_BASE}${item.posterPath}" alt="${escapeHtml(item.title)} poster" loading="lazy">`
-      : '<div class="activity-poster activity-poster-fallback" aria-hidden="true">No image</div>';
+      : `<div class="activity-poster activity-poster-fallback" aria-hidden="true">${escapeHtml(t('profile.no_image'))}</div>`;
 
     entry.innerHTML = `
       <div class="activity-poster-wrap">${poster}</div>
       <div class="activity-copy">
         <span class="activity-kicker">${escapeHtml(item.actionLabel)}</span>
         <h3>${escapeHtml(item.title)}</h3>
-        <p>${escapeHtml(item.mediaType)} | ${escapeHtml(item.releaseDate || 'Date unavailable')}</p>
+        <p>${escapeHtml(item.mediaType)} | ${escapeHtml(item.releaseDate || t('profile.date_unavailable'))}</p>
       </div>
       <span class="activity-age">${escapeHtml(formatRelativeDate(item.addedAt))}</span>
     `;
@@ -343,21 +343,21 @@ function renderActivity(container, items) {
 function renderOverview(container, library) {
   const collections = [
     {
-      label: 'Watchlist',
+      label: t('profile.overview_watchlist'),
       count: library?.counts?.watchlist || 0,
-      description: 'Return to the works you have queued for later.',
+      description: t('profile.overview_watchlist_desc'),
       href: '/html/library.html#watchlist-section',
     },
     {
-      label: 'Favorites',
+      label: t('profile.overview_favorites'),
       count: library?.counts?.favorites || 0,
-      description: 'Open the pieces that resonate most with you.',
+      description: t('profile.overview_favorites_desc'),
       href: '/html/library.html#favorites-section',
     },
     {
-      label: 'Watched',
+      label: t('profile.overview_watched'),
       count: library?.counts?.watched || 0,
-      description: 'Keep track of what you have already experienced.',
+      description: t('profile.overview_watched_desc'),
       href: '/html/library.html#watched-section',
     },
   ];
@@ -400,9 +400,9 @@ async function init() {
   gate.hidden = true;
   content.hidden = false;
 
-  name.textContent = `${getFirstName(session.user.displayName)}'s profile`;
+  name.textContent = t('profile.title_with_name', { name: getFirstName(session.user.displayName) });
   email.textContent = session.user.email || '';
-  summary.textContent = 'A quick portrait of how your personal library is evolving across saved works, favorites, and watched titles.';
+  summary.textContent = t('profile.library_summary');
   renderAvatar(avatar, session.user);
   setupAvatarEditor(session.user, {
     avatar,
@@ -420,8 +420,8 @@ async function init() {
   } catch (error) {
     stats.innerHTML = `
       <div class="error-state">
-        <p class="error-state-title">Could not load profile stats</p>
-        <p class="error-state-text">Your session is active, but the library data is unavailable right now.</p>
+        <p class="error-state-title">${escapeHtml(t('profile.error_stats_title'))}</p>
+        <p class="error-state-text">${escapeHtml(t('profile.error_stats_text'))}</p>
       </div>
     `;
     activity.innerHTML = '';

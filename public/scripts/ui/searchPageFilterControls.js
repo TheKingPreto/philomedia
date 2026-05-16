@@ -8,6 +8,7 @@ import {
   RATING_FILTERS,
   SORT_FILTERS,
 } from '/scripts/domain/searchFilters.js';
+import { getLocalizedFilterCopy } from '/scripts/services/searchFilterI18n.js';
 
 export function renderSearchFilterChip(container, filter, activeId, groupName) {
   const button = document.createElement('button');
@@ -22,9 +23,10 @@ export function renderSearchFilterChip(container, filter, activeId, groupName) {
 
   button.dataset.group = groupName;
   button.dataset.value = filter.id;
-  button.textContent = filter.label;
-  if (filter.summary) {
-    button.title = filter.summary;
+  const copy = getLocalizedFilterCopy(filter, groupName);
+  button.textContent = copy.label;
+  if (copy.summary) {
+    button.title = copy.summary;
   }
 
   container.appendChild(button);
@@ -68,7 +70,7 @@ export function renderSearchSortControl(sortSelect, sortValue) {
   SORT_FILTERS.forEach(filter => {
     const option = document.createElement('option');
     option.value = filter.id;
-    option.textContent = filter.label;
+    option.textContent = getLocalizedFilterCopy(filter, 'sort').label;
     sortSelect.appendChild(option);
   });
 

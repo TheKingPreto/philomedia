@@ -1,8 +1,21 @@
+import { getTmdbCatalogLanguage, getTmdbLanguage } from '/scripts/services/uiLocale.js';
+
 const API_BASE = '/api/tmdb';
+
+function withLanguage(params = new URLSearchParams()) {
+  params.set('language', getTmdbLanguage());
+  return params;
+}
+
+function withCatalogLanguage(params = new URLSearchParams()) {
+  params.set('language', getTmdbCatalogLanguage());
+  return params;
+}
 
 export async function searchTMDB(query) {
   if (!query) return [];
-  const url = `${API_BASE}/search?query=${encodeURIComponent(query)}`;
+  const params = withCatalogLanguage(new URLSearchParams({ query }));
+  const url = `${API_BASE}/search?${params.toString()}`;
   const response = await fetch(url);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -16,7 +29,11 @@ export async function getDetailsFromTMDB(id, type) {
   if (!id || !type || (type !== 'movie' && type !== 'tv')) {
     throw new Error('Invalid parameters for getting details');
   }
-  const url = `${API_BASE}/details?id=${encodeURIComponent(id)}&type=${encodeURIComponent(type)}`;
+  const params = withLanguage(new URLSearchParams({
+    id: String(id),
+    type: String(type),
+  }));
+  const url = `${API_BASE}/details?${params.toString()}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error('Failed to fetch details from TMDB');
   return response.json();
@@ -24,7 +41,8 @@ export async function getDetailsFromTMDB(id, type) {
 
 export async function getReviewsFromTMDB(id, type) {
   if (!id || !type) return [];
-  const url = `${API_BASE}/reviews?id=${encodeURIComponent(id)}&type=${encodeURIComponent(type)}`;
+  const params = withLanguage(new URLSearchParams({ id: String(id), type: String(type) }));
+  const url = `${API_BASE}/reviews?${params.toString()}`;
   const response = await fetch(url);
   if (!response.ok) {
     console.error('Failed to fetch reviews for', id);
@@ -35,7 +53,8 @@ export async function getReviewsFromTMDB(id, type) {
 
 export async function getSimilarFromTMDB(id, type) {
   if (!id || !type || (type !== 'movie' && type !== 'tv')) return [];
-  const url = `${API_BASE}/similar?id=${encodeURIComponent(id)}&type=${encodeURIComponent(type)}`;
+  const params = withLanguage(new URLSearchParams({ id: String(id), type: String(type) }));
+  const url = `${API_BASE}/similar?${params.toString()}`;
   const response = await fetch(url);
   if (!response.ok) {
     console.error('Failed to fetch similar works for', id);
@@ -46,7 +65,8 @@ export async function getSimilarFromTMDB(id, type) {
 
 export async function getRecommendationsFromTMDB(id, type) {
   if (!id || !type || (type !== 'movie' && type !== 'tv')) return [];
-  const url = `${API_BASE}/recommendations?id=${encodeURIComponent(id)}&type=${encodeURIComponent(type)}`;
+  const params = withLanguage(new URLSearchParams({ id: String(id), type: String(type) }));
+  const url = `${API_BASE}/recommendations?${params.toString()}`;
   const response = await fetch(url);
   if (!response.ok) {
     console.error('Failed to fetch recommendations for', id);
@@ -58,10 +78,10 @@ export async function getRecommendationsFromTMDB(id, type) {
 export async function discoverTMDB(media, options = {}) {
   if (!media || (media !== 'movie' && media !== 'tv')) return [];
 
-  const params = new URLSearchParams({
+  const params = withCatalogLanguage(new URLSearchParams({
     media,
     page: String(options.page || 1),
-  });
+  }));
 
   if (options.withGenres) params.set('with_genres', options.withGenres);
   if (options.withOriginalLanguage) {

@@ -1,19 +1,20 @@
 import { getFirstName, getSession, redirectToLogin, setupAuthUI } from '/scripts/auth-ui.js';
 import { getLibrary } from '/scripts/library-api.js';
 import { createMediaCard, hydrateMediaCards, primeLibraryContext } from '/scripts/media-card.js';
+import { t } from '/scripts/services/i18n.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 
 const MEDIA_FILTERS = [
-  { id: 'all', label: 'All' },
-  { id: 'movie', label: 'Movies' },
-  { id: 'tv', label: 'Series' },
+  { id: 'all', labelKey: 'library.media.all' },
+  { id: 'movie', labelKey: 'library.media.movie' },
+  { id: 'tv', labelKey: 'library.media.tv' },
 ];
 
 const SORT_FILTERS = [
-  { id: 'added', label: 'Recently added' },
-  { id: 'rating', label: 'Highest rated' },
-  { id: 'recent', label: 'Newest release' },
-  { id: 'title', label: 'Title A-Z' },
+  { id: 'added', labelKey: 'library.sort.added' },
+  { id: 'rating', labelKey: 'library.sort.rating' },
+  { id: 'recent', labelKey: 'library.sort.recent' },
+  { id: 'title', labelKey: 'library.sort.title' },
 ];
 
 const state = {
@@ -52,36 +53,42 @@ function getAddedTimestamp(item) {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
+function getCollectionLabel(collection) {
+  if (collection === 'watchlist') return t('library.label_watchlist');
+  if (collection === 'favorites') return t('library.label_favorites');
+  return t('library.label_watched');
+}
+
 function renderAuthPrompt(container, session) {
   const loginAvailable = Boolean(session?.oauthEnabled);
 
   container.innerHTML = `
     <div class="empty-state">
-      <p class="empty-state-title">${loginAvailable ? 'Sign in to use your library' : 'Login unavailable'}</p>
+      <p class="empty-state-title">${escapeHtml(loginAvailable ? t('library.sign_in_title') : t('library.oauth_unavailable_title'))}</p>
       <p class="empty-state-text">
-        ${loginAvailable
-          ? 'Use your Google account to save works to your watchlist, favorites, and watched list.'
-          : 'Google OAuth is not configured on this server yet.'}
+        ${escapeHtml(loginAvailable ? t('library.sign_in_text') : t('library.oauth_unavailable_text'))}
       </p>
-      ${loginAvailable ? '<button type="button" class="library-cta-button" id="library-login-button">Sign in with Google</button>' : ''}
+      ${loginAvailable ? '<button type="button" class="library-cta-button" id="library-login-button">Sign in</button>' : ''}
     </div>
   `;
 
   const loginButton = document.getElementById('library-login-button');
   if (loginButton) {
+    loginButton.textContent = t('nav.login');
     loginButton.addEventListener('click', redirectToLogin);
   }
 }
 
-function renderEmptyCollection(container, collectionLabel, hasFilters) {
+function renderEmptyCollection(container, collection, hasFilters) {
+  const collectionLabel = getCollectionLabel(collection);
   const message = hasFilters
-    ? `No ${escapeHtml(collectionLabel.toLowerCase())} items match your current filters.`
-    : `${escapeHtml(collectionLabel)} will appear here once you start saving titles from the details page or cards.`;
+    ? t('library.empty_filtered', { collection: collectionLabel })
+    : t('library.empty_collection', { collection: collectionLabel });
 
   container.innerHTML = `
     <div class="empty-state">
-      <p class="empty-state-title">${hasFilters ? 'Nothing matches these filters' : 'No saved works yet'}</p>
-      <p class="empty-state-text">${message}</p>
+      <p class="empty-state-title">${escapeHtml(hasFilters ? t('library.empty_filters_title') : t('library.empty_collection_title'))}</p>
+      <p class="empty-state-text">${escapeHtml(message)}</p>
     </div>
   `;
 }
@@ -134,7 +141,7 @@ function renderFilterButtons(container) {
     button.type = 'button';
     button.className = 'filter-chip';
     button.dataset.mediaFilter = filter.id;
-    button.textContent = filter.label;
+    button.textContent = t(filter.labelKey);
 
     if (filter.id === state.media) {
       button.classList.add('is-active');
@@ -154,12 +161,7 @@ function renderCollection(container, items, collection, onStatusChange) {
   const hasFilters = Boolean(state.query) || state.media !== 'all';
 
   if (!filtered.length) {
-    const label = collection === 'watchlist'
-      ? 'Your watchlist'
-      : collection === 'favorites'
-        ? 'Your favorites'
-        : 'Your watched list';
-    renderEmptyCollection(container, label, hasFilters);
+    renderEmptyCollection(container, collection, hasFilters);
     return;
   }
 
@@ -191,7 +193,7 @@ function renderSortOptions(select) {
   SORT_FILTERS.forEach(filter => {
     const option = document.createElement('option');
     option.value = filter.id;
-    option.textContent = filter.label;
+    option.textContent = t(filter.labelKey);
     select.appendChild(option);
   });
 
@@ -218,8 +220,8 @@ async function init() {
 
   if (!session.authenticated) {
     intro.textContent = session.oauthEnabled
-      ? 'Sign in once and start collecting works that deserve a second look.'
-      : 'Google OAuth is not configured yet, so your personal library is unavailable for now.';
+      ? t('library.intro_sign_in')
+      : t('library.intro_oauth_off');
     toolbar.hidden = true;
     renderAuthPrompt(watchlistGrid, session);
     favoritesGrid.innerHTML = '';
@@ -227,7 +229,9 @@ async function init() {
     return;
   }
 
-  intro.textContent = `Signed in as ${getFirstName(session.user.displayName)}. Keep track of what you want to revisit, what stayed with you, and what you have already seen.`;
+  intro.textContent = t('library.intro_signed_in', {
+    name: getFirstName(session.user.displayName),
+  });
   toolbar.hidden = false;
 
   function renderLibraryState() {
@@ -279,12 +283,12 @@ async function init() {
     await fetchLibraryData();
   } catch (error) {
     const message = error.status === 401
-      ? 'Your session expired. Please sign in again.'
-      : 'We could not load your library right now.';
+      ? t('library.error_session')
+      : t('library.error_load');
 
     watchlistGrid.innerHTML = `
       <div class="error-state">
-        <p class="error-state-title">Something went wrong</p>
+        <p class="error-state-title">${escapeHtml(t('library.error_title'))}</p>
         <p class="error-state-text">${escapeHtml(message)}</p>
       </div>
     `;

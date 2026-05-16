@@ -17,17 +17,17 @@
   <link rel="stylesheet" href="/css/styles/animations.css">
 </head>
 <body class="profile-page">
-  <a class="skip-link" href="#main-content">Skip to content</a>
+  <a class="skip-link" href="#main-content" data-i18n="nav.skip_to_content">Skip to content</a>
   <header>
     <div class="header-brand">
       <a href="/html/index.html" class="logo">PhiloMedia</a>
-      <span class="header-context">Your Profile</span>
+      <span class="header-context" data-i18n="header.context.profile">Your Profile</span>
     </div>
     <nav aria-label="Primary">
-      <a href="/html/index.html">Home</a>
-      <a href="/html/search.html">Search</a>
-      <a href="/html/philosophers.html">Thinkers</a>
-      <a href="/html/library.html" data-auth-link="library" hidden>Library</a>
+      <a href="/html/index.html" data-i18n="nav.home">Home</a>
+      <a href="/html/search.html" data-i18n="nav.search">Search</a>
+      <a href="/html/philosophers.html" data-i18n="nav.thinkers">Thinkers</a>
+      <a href="/html/library.html" data-auth-link="library" hidden data-i18n="nav.library">Library</a>
       <span id="nav-auth-slot" class="nav-auth-slot"></span>
     </nav>
   </header>
@@ -41,20 +41,20 @@
           <div class="profile-avatar" id="profile-avatar" aria-hidden="true"></div>
           <div class="profile-avatar-tools">
             <input type="file" id="avatar-file-input" accept="image/*" hidden>
-            <button type="button" id="avatar-upload-button" class="ghost-button">Upload photo</button>
-            <button type="button" id="avatar-remove-button" class="ghost-button" hidden>Remove photo</button>
-            <p id="avatar-feedback" class="profile-avatar-feedback">Square photos work best. We will crop and compress the image for you.</p>
+            <button type="button" id="avatar-upload-button" class="ghost-button" data-i18n="profile.upload_photo">Upload photo</button>
+            <button type="button" id="avatar-remove-button" class="ghost-button" hidden data-i18n="profile.remove_photo">Remove photo</button>
+            <p id="avatar-feedback" class="profile-avatar-feedback" data-i18n="profile.avatar_hint">Square photos work best. We will crop and compress the image for you.</p>
           </div>
         </div>
         <div class="profile-copy">
-          <p class="profile-eyebrow">Personal profile</p>
-          <h1 id="profile-name" class="section-title">Your profile</h1>
+          <p class="profile-eyebrow" data-i18n="profile.personal_eyebrow">Personal profile</p>
+          <h1 id="profile-name" class="section-title" data-i18n="profile.hero_title">Your profile</h1>
           <p id="profile-email" class="section-subtitle"></p>
           <p id="profile-summary" class="profile-summary"></p>
           <div class="profile-actions">
-            <a href="/html/library.html" class="profile-action-link">Open library</a>
-            <a href="/html/contribute.html" class="profile-action-link profile-action-link-secondary">Add thinker</a>
-            <a href="/html/search.html" class="profile-action-link profile-action-link-secondary">Discover more works</a>
+            <a href="/html/library.html" class="profile-action-link" data-i18n="profile.open_library">Open library</a>
+            <a href="/html/contribute.html" class="profile-action-link profile-action-link-secondary" data-i18n="profile.add_thinker">Add thinker</a>
+            <a href="/html/search.html" class="profile-action-link profile-action-link-secondary" data-i18n="profile.discover_works">Discover more works</a>
           </div>
         </div>
       </section>
@@ -65,8 +65,8 @@
         <article class="profile-panel">
           <div class="results-meta">
             <div class="results-meta-copy">
-              <h2 class="section-title">Recent activity</h2>
-              <p class="section-subtitle">Your latest additions across watchlist, favorites, and watched.</p>
+              <h2 class="section-title" data-i18n="profile.recent_activity">Recent activity</h2>
+              <p class="section-subtitle" data-i18n="profile.recent_subtitle">Your latest additions across watchlist, favorites, and watched.</p>
             </div>
           </div>
           <div id="profile-activity"></div>
@@ -75,8 +75,8 @@
         <article class="profile-panel">
           <div class="results-meta">
             <div class="results-meta-copy">
-              <h2 class="section-title">Library overview</h2>
-              <p class="section-subtitle">Quick shortcuts to the parts of your library you use most.</p>
+              <h2 class="section-title" data-i18n="profile.overview_title">Library overview</h2>
+              <p class="section-subtitle" data-i18n="profile.overview_subtitle">Quick shortcuts to the parts of your library you use most.</p>
             </div>
           </div>
           <div id="profile-overview" class="profile-overview"></div>

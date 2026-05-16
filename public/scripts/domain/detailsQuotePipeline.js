@@ -17,6 +17,17 @@ export function getQuoteText(quote) {
   return String(quote?.quote ?? quote?.quoteText ?? '').trim();
 }
 
+/** Texto estável para ranquear citações (independente do idioma da UI). */
+export function getQuoteTextForRanking(quote) {
+  return String(
+    quote?.quote_en
+    ?? quote?.quote_original
+    ?? quote?.quote
+    ?? quote?.quoteText
+    ?? ''
+  ).trim();
+}
+
 export function getQuoteAuthor(quote) {
   return String(quote?.author ?? quote?.authorName ?? '').trim();
 }
@@ -78,7 +89,7 @@ export function extractSalientTokenGroups(text, coreLimit = 4, contextLimit = 6)
 export function scoreQuoteTokenAlignmentGrouped(sourceTokens, quote) {
   if (!sourceTokens || (!sourceTokens.core.length && !sourceTokens.context.length)) return 0;
 
-  const quoteTokens = new Set(extractSalientTokens(`${getQuoteText(quote)} ${(quote.themes || []).join(' ')}`, 18));
+  const quoteTokens = new Set(extractSalientTokens(`${getQuoteTextForRanking(quote)} ${(quote.themes || []).join(' ')}`, 18));
   let score = 0;
   let coreMatches = 0;
   let contextMatches = 0;
@@ -132,7 +143,7 @@ export function buildQuoteThemeWeights(quote, limit = 6) {
   const explicitThemes = Array.isArray(quote.themes)
     ? quote.themes.map(theme => String(theme || '').trim().toLowerCase()).filter(Boolean)
     : [];
-  const inferredWeights = createThemeWeightMap(analyzeWorkForThemes(getQuoteText(quote)), limit);
+  const inferredWeights = createThemeWeightMap(analyzeWorkForThemes(getQuoteTextForRanking(quote)), limit);
   const weights = new Map(inferredWeights);
 
   explicitThemes.forEach((theme, index) => {
@@ -159,7 +170,7 @@ export function scoreQuoteThemeAlignment(sourceWeights, quote) {
 }
 
 export function scoreQuoteQuality(quote) {
-  const quoteText = getQuoteText(quote);
+  const quoteText = getQuoteTextForRanking(quote);
   const author = getQuoteAuthor(quote);
   if (!quoteText || !author) return -Infinity;
 
@@ -188,6 +199,10 @@ export function normalizeQuoteEntry(quote) {
     author: getQuoteAuthor(quote),
     themes: Array.isArray(quote?.themes) ? quote.themes : [],
     source: getQuoteSource(quote),
+    originalLanguage: quote?.originalLanguage,
+    quote_original: quote?.quote_original,
+    quote_en: quote?.quote_en,
+    quote_pt: quote?.quote_pt,
   };
 }
 

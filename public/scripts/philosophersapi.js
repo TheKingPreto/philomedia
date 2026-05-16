@@ -14,6 +14,7 @@
  */
 
 import { customQuotes } from '/scripts/custom-quotes.js';
+import { getCustomQuoteTranslationPt } from '/scripts/services/customQuoteTranslationsPt.js';
 
 const API_QUOTES_ENDPOINT = '/api/quotes';
 const API_QUOTES_CATALOG_ENDPOINT = '/api/quotes/catalog';
@@ -90,12 +91,26 @@ async function fetchFromDB() {
 
   if (docs.length === 0) throw new Error('Empty quotes from DB');
 
-  return docs.map(doc => ({
-    id: doc.legacyId ?? doc._id,
-    quote: doc.quoteText,
-    author: doc.authorName,
-    themes: doc.themes || [],
-  }));
+  return docs.map(doc => {
+    const orig = String(doc.quoteLanguage || 'en').trim().toLowerCase() || 'en';
+    const trans = doc.quoteTranslations && typeof doc.quoteTranslations === 'object'
+      ? doc.quoteTranslations
+      : {};
+    const canonical = String(doc.quoteText || '').trim();
+    const quoteEn = String(trans.en || '').trim() || (orig === 'en' ? canonical : '');
+    const quotePt = String(trans.pt || '').trim() || (orig === 'pt' ? canonical : '');
+
+    return {
+      id: doc.legacyId ?? doc._id,
+      quote: canonical,
+      author: doc.authorName,
+      themes: doc.themes || [],
+      originalLanguage: orig,
+      quote_original: canonical,
+      quote_en: quoteEn,
+      quote_pt: quotePt,
+    };
+  });
 }
 
 async function fetchQuoteCatalogFromBackend(lang = 'en') {
@@ -156,7 +171,19 @@ async function fetchFromExternalAndLocal() {
 
   // Merge: custom-quotes take priority (deduplicate by quote text)
   const combined = new Map();
-  customQuotes.forEach(q => combined.set(q.quote, { id: q.id, quote: q.quote, author: q.author, themes: q.themes || [] }));
+  customQuotes.forEach(q => {
+    const quotePt = getCustomQuoteTranslationPt(q.id);
+    combined.set(q.quote, {
+      id: q.id,
+      quote: q.quote,
+      author: q.author,
+      themes: q.themes || [],
+      originalLanguage: 'en',
+      quote_original: q.quote,
+      quote_en: q.quote,
+      quote_pt: quotePt,
+    });
+  });
   apiQuotes.forEach(q => { if (!combined.has(q.quote)) combined.set(q.quote, q); });
 
   return Array.from(combined.values());

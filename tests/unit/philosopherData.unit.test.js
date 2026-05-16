@@ -1,5 +1,6 @@
 import {
   buildPhilosopherProfiles,
+  filterPhilosopherCatalogQuotes,
   getDisplayAuthorName,
   getPhilosopherDefinitionByAuthor,
   getPhilosopherProfileBySlug,
@@ -125,6 +126,17 @@ describe('philosopher data helpers', () => {
     expect(profile.topThemes[0]).toBe('epistemology');
     expect(profile.focus).toContain('natural selection');
     expect(profile.contextKeywords).toEqual(expect.arrayContaining(['evolution', 'biology', 'natural selection']));
+  });
+
+  test('filterPhilosopherCatalogQuotes keeps wikiquote and database-import entries', () => {
+    const quotes = [
+      { id: 'wiki-35', quote: 'Deus ou a Natureza.', author: 'Baruch Spinoza', source: 'wikiquote' },
+      { id: 2001, quote: 'Imported line.', author: 'Charles Darwin', source: 'database-import' },
+      { id: 2002, quote: '', author: 'Nobody', source: 'custom' },
+    ];
+
+    expect(filterPhilosopherCatalogQuotes(quotes, 'pt')).toHaveLength(2);
+    expect(filterPhilosopherCatalogQuotes(quotes, 'en')).toHaveLength(2);
   });
 
   test('normalizes translated wikiquote themes into English canonical labels', () => {

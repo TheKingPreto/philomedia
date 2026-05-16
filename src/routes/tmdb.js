@@ -5,6 +5,11 @@ import { postRankCandidates } from '../controllers/TmdbRankingController.js';
 const router = express.Router();
 const VALID_MEDIA_TYPES = new Set(['movie', 'tv']);
 
+function resolveTmdbLanguage(req) {
+  const raw = String(req.query.language || 'en-US').trim();
+  return raw.toLowerCase().startsWith('pt') ? 'pt-BR' : 'en-US';
+}
+
 function isConfiguredError(error) {
   return error?.message?.includes('TMDB_API_KEY');
 }
@@ -24,7 +29,9 @@ router.get('/search', async (req, res) => {
   if (!query) return res.json([]);
 
   try {
-    const results = await tmdbClient.searchMulti(String(query));
+    const results = await tmdbClient.searchMulti(String(query), {
+      language: resolveTmdbLanguage(req),
+    });
     res.json(results);
   } catch (error) {
     handleTMDBError(res, error, 'TMDB proxy search error:', 'Failed to fetch from TMDB');
@@ -38,7 +45,9 @@ router.get('/details', async (req, res) => {
   }
 
   try {
-    const details = await tmdbClient.getDetails(String(id), String(type));
+    const details = await tmdbClient.getDetails(String(id), String(type), {
+      language: resolveTmdbLanguage(req),
+    });
     res.json(details);
   } catch (error) {
     handleTMDBError(res, error, 'TMDB proxy details error:', 'Failed to fetch details from TMDB');
@@ -71,6 +80,7 @@ router.get('/discover', async (req, res) => {
       withGenres: with_genres ? String(with_genres) : undefined,
       withOriginalLanguage: with_original_language ? String(with_original_language) : undefined,
       sortBy: String(sort_by),
+      language: resolveTmdbLanguage(req),
     });
     res.json(results);
   } catch (error) {
@@ -85,7 +95,9 @@ router.get('/recommendations', async (req, res) => {
   }
 
   try {
-    const results = await tmdbClient.getRecommendations(String(id), String(type));
+    const results = await tmdbClient.getRecommendations(String(id), String(type), {
+      language: resolveTmdbLanguage(req),
+    });
     res.json(results);
   } catch (error) {
     handleTMDBError(res, error, 'TMDB proxy recommendations error:', 'Failed to fetch recommendations from TMDB');
@@ -99,7 +111,9 @@ router.get('/similar', async (req, res) => {
   }
 
   try {
-    const results = await tmdbClient.getSimilar(String(id), String(type));
+    const results = await tmdbClient.getSimilar(String(id), String(type), {
+      language: resolveTmdbLanguage(req),
+    });
     res.json(results);
   } catch (error) {
     handleTMDBError(res, error, 'TMDB proxy similar error:', 'Failed to fetch similar results from TMDB');

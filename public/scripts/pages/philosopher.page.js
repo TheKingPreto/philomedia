@@ -28,6 +28,11 @@ import {
   scorePhilosophicalTagsAgainstThemeWeights,
 } from '/scripts/curatedPhilosophicalProfiles.js';
 import { escapeHtml, normalizeText } from '/scripts/ui/viewHelpers.js';
+import {
+  formatThemeLabelForLocale,
+  localizeThinkerCard,
+} from '/scripts/services/philosopherDisplayI18n.js';
+import { getDisplayQuoteText } from '/scripts/services/quoteDisplayResolve.js';
 import { getThinkerCopyForLocale, getUiLocale } from '/scripts/services/uiLocale.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 
@@ -367,7 +372,9 @@ function renderState(container, html) {
 }
 
 function renderHeader(profile) {
-  const copy = getThinkerCopyForLocale(profile, getUiLocale());
+  const loc = getUiLocale();
+  const copy = getThinkerCopyForLocale(profile, loc);
+  const display = localizeThinkerCard(profile, loc);
   updatePageSeo({
     title: `PhiloMedia | ${profile.name}`,
     description: copy.summary || `${profile.name} in PhiloMedia, with signature quotes, philosophical lenses, and related works.`,
@@ -393,13 +400,18 @@ function renderHeader(profile) {
     }
   }
   if (name) name.textContent = profile.name;
-  if (period) period.textContent = profile.period;
-  if (summary) summary.textContent = copy.summary;
+  if (period) period.textContent = display.period;
+  if (summary) summary.textContent = display.summary;
   if (focus) focus.textContent = copy.focus;
 
   if (lenses) {
     lenses.innerHTML = profile.lenses
-      .map(lens => `<a href="${lens.url}" class="philosopher-chip philosopher-lens-link">${escapeHtml(lens.label)}</a>`)
+      .map(lens => {
+        const label = lens.id
+          ? formatThemeLabelForLocale(lens.id, loc)
+          : lens.label;
+        return `<a href="${lens.url}" class="philosopher-chip philosopher-lens-link">${escapeHtml(label)}</a>`;
+      })
       .join('');
   }
 }
@@ -444,7 +456,7 @@ function renderQuotes(profile) {
     .slice(0, QUOTE_LIMIT)
     .map(quote => `
       <article class="philosopher-quote-card">
-        <p class="philosopher-quote-text">"${escapeHtml(quote.quote)}"</p>
+        <p class="philosopher-quote-text">"${escapeHtml(getDisplayQuoteText(quote))}"</p>
         <div class="philosopher-chip-row">
           ${getQuoteThemeLabels(quote).map(label => `<span class="philosopher-chip">${escapeHtml(label)}</span>`).join('')}
         </div>

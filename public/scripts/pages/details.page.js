@@ -29,6 +29,9 @@ import {
   saveLibraryItem,
 } from '/scripts/library-api.js';
 import { escapeHtml } from '/scripts/ui/viewHelpers.js';
+import { t } from '/scripts/services/i18n.js';
+import { getDisplayQuoteText } from '/scripts/services/quoteDisplayResolve.js';
+import { localizeItemOverviews } from '/scripts/services/tmdbOverviewI18n.js';
 import { getUiLocale } from '/scripts/services/uiLocale.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 import { formatYear, formatRuntime } from '/scripts/ui/detailsFormatters.js';
@@ -78,7 +81,7 @@ function setLoading(visible) {
     overlay.setAttribute('aria-live', 'polite');
     overlay.innerHTML = `
       <div class="loading-spinner" aria-hidden="true"></div>
-      <p>Loading details...</p>
+      <p>${t('details.loading')}</p>
     `;
     document.querySelector('main').prepend(overlay);
   }
@@ -111,9 +114,9 @@ function showError(message) {
   }
 
   el.innerHTML = `
-    <h2>Something went wrong</h2>
-    <p>${message}</p>
-    <a href="/html/index.html" class="btn-back">Back to home</a>
+    <h2>${t('details.error_title')}</h2>
+    <p>${escapeHtml(message)}</p>
+    <a href="/html/index.html" class="btn-back">${t('details.back_home')}</a>
   `;
 }
 
@@ -148,11 +151,11 @@ function renderAttribution(details) {
   attribution.hidden = false;
 
   if (watchLink) {
-    attribution.innerHTML = `Streaming availability via <a href="${watchLink}" target="_blank" rel="noreferrer">JustWatch on TMDB</a>.`;
+    attribution.innerHTML = `${escapeHtml(t('details.streaming_prefix'))} <a href="${watchLink}" target="_blank" rel="noreferrer">${escapeHtml(t('details.streaming_link_label'))}</a>.`;
     return;
   }
 
-  attribution.textContent = 'Streaming availability via JustWatch on TMDB.';
+  attribution.textContent = t('details.streaming_attribution');
 }
 
 function setActionButtonState(button, { active, loading, activeLabel, idleLabel }) {
@@ -162,7 +165,7 @@ function setActionButtonState(button, { active, loading, activeLabel, idleLabel 
   button.classList.toggle('is-active', Boolean(active));
   button.classList.toggle('is-loading', Boolean(loading));
   button.textContent = loading
-    ? 'Saving...'
+    ? t('details.saving')
     : (active ? activeLabel : idleLabel);
 }
 
@@ -201,22 +204,22 @@ async function initializeLibraryActions(details, type) {
     setActionButtonState(watchlistButton, {
       active: status.inWatchlist,
       loading: loadingWatchlist,
-      activeLabel: 'Saved to watchlist',
-      idleLabel: 'Save to watchlist',
+      activeLabel: t('details.saved_watchlist'),
+      idleLabel: t('details.save_watchlist'),
     });
 
     setActionButtonState(favoriteButton, {
       active: status.inFavorites,
       loading: loadingFavorites,
-      activeLabel: 'Saved to favorites',
-      idleLabel: 'Add to favorites',
+      activeLabel: t('details.saved_favorites'),
+      idleLabel: t('details.add_favorites'),
     });
 
     setActionButtonState(watchedButton, {
       active: status.inWatched,
       loading: loadingWatched,
-      activeLabel: 'Marked as watched',
-      idleLabel: 'Mark as watched',
+      activeLabel: t('details.marked_watched'),
+      idleLabel: t('details.mark_watched'),
     });
 
     if (feedbackMessage) {
@@ -225,16 +228,16 @@ async function initializeLibraryActions(details, type) {
     }
 
     if (!session.authenticated) {
-      hint.textContent = 'Sign in with Google to save this work to your personal library.';
+      hint.textContent = t('details.sign_in_hint');
       return;
     }
 
     if (status.inWatchlist || status.inFavorites || status.inWatched) {
-      hint.textContent = 'This work is already saved in your library.';
+      hint.textContent = t('details.already_saved');
       return;
     }
 
-    hint.textContent = 'Use your library to keep track of titles you want to revisit.';
+    hint.textContent = t('details.library_hint');
   };
 
   if (session.authenticated) {
@@ -260,7 +263,7 @@ async function initializeLibraryActions(details, type) {
       feedbackMessage = '';
       render();
     } catch (error) {
-      feedbackMessage = 'We could not update your watchlist right now.';
+      feedbackMessage = t('details.watchlist_error');
       render();
     }
   });
@@ -282,7 +285,7 @@ async function initializeLibraryActions(details, type) {
       feedbackMessage = '';
       render();
     } catch (error) {
-      feedbackMessage = 'We could not update your favorites right now.';
+      feedbackMessage = t('details.favorites_error');
       render();
     }
   });
@@ -304,7 +307,7 @@ async function initializeLibraryActions(details, type) {
       feedbackMessage = '';
       render();
     } catch (error) {
-      feedbackMessage = 'We could not update your watched list right now.';
+      feedbackMessage = t('details.watched_error');
       render();
     }
   });
@@ -313,19 +316,19 @@ async function initializeLibraryActions(details, type) {
 function populateDetails(details, type) {
   const img = document.getElementById('details-image');
   const title = getDisplayTitle(details);
-  const mediaLabel = type === 'tv' ? 'Series' : 'Movie';
+  const mediaLabel = type === 'tv' ? t('details.series') : t('details.movie');
   const releaseDate = type === 'tv' ? details.first_air_date : details.release_date;
   const posterUrl = details.poster_path ? `${TMDB_IMAGE_BASE}${details.poster_path}` : '';
 
   if (img) {
     if (details.poster_path) {
       img.src = posterUrl;
-      img.alt = `Poster of ${title}`;
+      img.alt = t('details.poster_alt', { title });
       img.classList.remove('no-poster');
     } else {
       img.removeAttribute('src');
       img.classList.add('no-poster');
-      img.alt = 'No poster available';
+      img.alt = t('details.no_poster');
     }
   }
 
@@ -344,7 +347,7 @@ function populateDetails(details, type) {
   );
   renderFacts(details, type);
   renderAttribution(details);
-  setText('details-overview', details.overview || 'No overview available.');
+  setText('details-overview', details.overview || t('details.no_overview'));
 }
 
 async function loadRelatedWorks(id, type, details, reviews) {
@@ -383,7 +386,7 @@ async function loadRelatedWorks(id, type, details, reviews) {
   return rankRelatedCandidates(details, reviews, merged, id);
 }
 
-function renderRelatedWorks(works) {
+async function renderRelatedWorks(works) {
   const section = document.getElementById('related-works');
   const container = document.getElementById('related-results');
   if (!section || !container) return;
@@ -395,7 +398,8 @@ function renderRelatedWorks(works) {
   }
 
   section.hidden = false;
-  renderMediaCards(container, works, {
+  const localized = await localizeItemOverviews(works);
+  renderMediaCards(container, localized, {
     overviewLength: 110,
   });
 }
@@ -499,10 +503,10 @@ function renderAIExpansion({ text, author, explanation }) {
     : `- ${escapeHtml(displayName)}`;
 
   block.innerHTML = `
-    <div class="ai-badge">AI interpretive reading</div>
-    <p class="ai-quote-text">"${text}"</p>
+    <div class="ai-badge">${escapeHtml(t('details.ai_reading'))}</div>
+    <p class="ai-quote-text">"${escapeHtml(text)}"</p>
     <span class="ai-quote-author">${authorMarkup}</span>
-    ${explanation ? `<p class="ai-quote-explanation">${explanation}</p>` : ''}
+    ${explanation ? `<p class="ai-quote-explanation">${escapeHtml(explanation)}</p>` : ''}
   `;
 
   container.appendChild(block);
@@ -517,7 +521,7 @@ function renderAIPlaceholder() {
   container.innerHTML = `
     <div class="ai-placeholder visible">
       <span class="ai-thinking-dot"></span>
-      <span>AI interpretive reading in progress...</span>
+      <span>${escapeHtml(t('details.ai_in_progress'))}</span>
     </div>
   `;
 }
@@ -531,26 +535,54 @@ function scheduleAIEnhancement(id, type) {
       const res = await fetch(AI_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tmdbId: id, mediaType: type }),
+        body: JSON.stringify({
+          tmdbId: String(id),
+          mediaType: type,
+          locale: getUiLocale(),
+        }),
       });
 
+      const raw = await res.text();
+      let data = null;
+      if (raw) {
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          data = null;
+        }
+      }
+
       if (!res.ok) {
+        const reason = data?.code || data?.error;
+        const message = reason === 'ai_not_configured'
+          ? t('details.ai_not_configured')
+          : reason === 'ai_quota_exceeded'
+            ? t('details.ai_quota_exceeded')
+            : t('details.ai_unavailable');
         container.innerHTML = `
           <div class="ai-placeholder error">
-            <span>AI interpretation unavailable.</span>
+            <span>${escapeHtml(message)}</span>
           </div>
         `;
         return;
       }
 
-      const data = await res.json();
-      const quoteText = data.quote?.quoteText || data.quoteText;
-      const authorName = data.quote?.authorName || data.authorName;
+      if (data?.available === false) {
+        container.innerHTML = `
+          <div class="ai-placeholder error">
+            <span>${escapeHtml(t('details.ai_incomplete'))}</span>
+          </div>
+        `;
+        return;
+      }
+
+      const quoteText = data?.quote?.quoteText || data?.quoteText;
+      const authorName = data?.quote?.authorName || data?.authorName;
 
       if (!quoteText || !authorName) {
         container.innerHTML = `
           <div class="ai-placeholder error">
-            <span>AI interpretation incomplete.</span>
+            <span>${escapeHtml(t('details.ai_incomplete'))}</span>
           </div>
         `;
         return;
@@ -564,7 +596,7 @@ function scheduleAIEnhancement(id, type) {
     } catch (err) {
       container.innerHTML = `
         <div class="ai-placeholder error">
-          <span>AI interpretation failed.</span>
+          <span>${escapeHtml(t('details.ai_failed'))}</span>
         </div>
       `;
     }
@@ -578,7 +610,7 @@ async function init() {
   const { id, type } = getQueryParams();
 
   if (!id || !type || (type !== 'movie' && type !== 'tv')) {
-    showError('Invalid or missing media identifier.');
+    showError(t('details.invalid_id'));
     return;
   }
 
@@ -587,12 +619,12 @@ async function init() {
   try {
     const [details, allQuotes, reviews] = await Promise.all([
       getDetailsFromTMDB(id, type).catch(() => null),
-      getQuoteCatalog(getUiLocale()).catch(() => getQuotes()).catch(() => []),
+      getQuoteCatalog('en').catch(() => getQuoteCatalog(getUiLocale())).catch(() => getQuotes()).catch(() => []),
       getReviewsFromTMDB(id, type).catch(() => []),
     ]);
 
     if (!details) {
-      showError('Could not load media details.');
+      showError(t('details.load_failed'));
       return;
     }
 
@@ -604,15 +636,15 @@ async function init() {
       resolveStaticQuote(id, type, details, allQuotes, reviews),
     ]);
 
-    renderRelatedWorks(relatedWorks);
+    await renderRelatedWorks(relatedWorks);
 
     if (staticQuote) {
       renderStaticQuote({
-        text: staticQuote.quote,
+        text: getDisplayQuoteText(staticQuote),
         author: staticQuote.author,
       });
     } else {
-      setText('quote-text', 'No philosophical quote available.');
+      setText('quote-text', t('details.no_quote'));
       setText('quote-author', '');
     }
 
@@ -620,7 +652,7 @@ async function init() {
     scheduleAIEnhancement(id, type);
   } catch (err) {
     console.error('[PhiloMedia] Unexpected error:', err);
-    showError('An unexpected error occurred.');
+    showError(t('details.unexpected_error'));
   } finally {
     setLoading(false);
   }

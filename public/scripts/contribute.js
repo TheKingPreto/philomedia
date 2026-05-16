@@ -10,9 +10,11 @@ import {
   submitPhilosopherContribution,
 } from '/scripts/philosophersapi.js';
 import {
-  buildPhilosopherProfiles,
+  buildPhilosopherIndexProfiles,
   filterPhilosopherCatalogQuotes,
 } from '/scripts/philosopher-data.js';
+import { t } from '/scripts/services/i18n.js';
+import { localizeThinkerCard } from '/scripts/services/philosopherDisplayI18n.js';
 import { getUiLocale } from '/scripts/services/uiLocale.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 
@@ -59,17 +61,19 @@ function renderAuthPrompt(container, session) {
 
   container.innerHTML = `
     <div class="empty-state">
-      <p class="empty-state-title">${loginAvailable ? 'Sign in to contribute' : 'Login unavailable'}</p>
+      <p class="empty-state-title">${escapeHtml(loginAvailable ? t('contribute.sign_in_title') : t('library.oauth_unavailable_title'))}</p>
       <p class="empty-state-text">
-        ${loginAvailable
-          ? 'Use your Google account to add thinkers and quotes to the public reading archive.'
-          : 'Google OAuth is not configured on this server yet.'}
+        ${escapeHtml(loginAvailable ? t('contribute.sign_in_text') : t('library.oauth_unavailable_text'))}
       </p>
-      ${loginAvailable ? '<button type="button" class="library-cta-button" id="contribute-login-button">Sign in with Google</button>' : ''}
+      ${loginAvailable ? '<button type="button" class="library-cta-button" id="contribute-login-button">Sign in</button>' : ''}
     </div>
   `;
 
-  document.getElementById('contribute-login-button')?.addEventListener('click', redirectToLogin);
+  const loginButton = document.getElementById('contribute-login-button');
+  if (loginButton) {
+    loginButton.textContent = t('contribute.sign_in_button');
+    loginButton.addEventListener('click', redirectToLogin);
+  }
 }
 
 function createQuoteCard(index) {
@@ -78,17 +82,17 @@ function createQuoteCard(index) {
   article.dataset.quoteIndex = String(index);
   article.innerHTML = `
     <div class="quote-entry-header">
-      <h3>Quote ${index + 1}</h3>
-      <button type="button" class="ghost-button quote-remove-button" data-role="remove-quote">Remove</button>
+      <h3>${escapeHtml(t('contribute.quote_heading', { index: index + 1 }))}</h3>
+      <button type="button" class="ghost-button quote-remove-button" data-role="remove-quote">${escapeHtml(t('contribute.quote_remove'))}</button>
     </div>
     <div class="contribution-grid">
       <div class="contribution-field contribution-field-wide">
-        <label>Quote text</label>
-        <textarea name="quoteText" rows="4" maxlength="500" placeholder="Enter the quote in English." required></textarea>
+        <label>${escapeHtml(t('contribute.quote_text_label'))}</label>
+        <textarea name="quoteText" rows="4" maxlength="500" placeholder="${escapeHtml(t('contribute.quote_text_placeholder'))}" required></textarea>
       </div>
       <div class="contribution-field contribution-field-wide">
-        <label>Suggested themes</label>
-        <input name="themes" type="text" maxlength="240" placeholder="Comma-separated, e.g. existentialism, absurd, self-knowledge">
+        <label>${escapeHtml(t('contribute.quote_themes_label'))}</label>
+        <input name="themes" type="text" maxlength="240" placeholder="${escapeHtml(t('contribute.quote_themes_placeholder'))}">
       </div>
     </div>
   `;
@@ -101,13 +105,24 @@ function syncQuoteLabels() {
     card.dataset.quoteIndex = String(index);
     const title = card.querySelector('h3');
     if (title) {
-      title.textContent = `Quote ${index + 1}`;
+      title.textContent = t('contribute.quote_heading', { index: index + 1 });
     }
 
     const removeButton = card.querySelector('[data-role="remove-quote"]');
     if (removeButton) {
+      removeButton.textContent = t('contribute.quote_remove');
       removeButton.hidden = quoteList.children.length <= 1;
     }
+
+    const quoteLabel = card.querySelector('label');
+    const quoteTextarea = card.querySelector('textarea[name="quoteText"]');
+    if (quoteLabel) quoteLabel.textContent = t('contribute.quote_text_label');
+    if (quoteTextarea) quoteTextarea.placeholder = t('contribute.quote_text_placeholder');
+
+    const themesLabel = card.querySelectorAll('label')[1];
+    const themesInput = card.querySelector('input[name="themes"]');
+    if (themesLabel) themesLabel.textContent = t('contribute.quote_themes_label');
+    if (themesInput) themesInput.placeholder = t('contribute.quote_themes_placeholder');
   });
 }
 
@@ -190,17 +205,22 @@ function buildPayload(form) {
 
 function buildValidationMessage(error) {
   if (Array.isArray(error?.details) && error.details.length > 0) {
-    return error.details[0]?.msg || 'Please review the form fields.';
+    return error.details[0]?.msg || t('contribute.error_validation');
   }
 
-  return error?.message || 'Could not submit this thinker.';
+  return error?.message || t('contribute.error_submit');
+}
+
+function formatCountLabel(count, singularKey, pluralKey) {
+  const n = Number(count || 0);
+  return n === 1 ? t(singularKey, { count: n }) : t(pluralKey, { count: n });
 }
 
 function renderExistingPortrait(profile) {
   if (profile?.portraitUrl) {
     return `
       <div class="philosopher-sigil philosopher-sigil-small philosopher-sigil-photo contribution-profile-sigil" aria-hidden="true">
-        <img src="${profile.portraitUrl}" alt="${escapeHtml(profile.name)} portrait" loading="lazy">
+        <img src="${profile.portraitUrl}" alt="${escapeHtml(t('contribute.portrait_alt', { name: profile.name }))}" loading="lazy">
       </div>
     `;
   }
@@ -215,26 +235,29 @@ function renderExistingPortrait(profile) {
 function renderExistingPreview(profile) {
   if (!existingThinkerPreview || !profile) return;
 
+  const display = localizeThinkerCard(profile, getUiLocale());
+  const themeLabels = display.themeLabels?.length ? display.themeLabels : profile.themeLabels;
+
   existingThinkerPreview.hidden = false;
   existingThinkerPreview.innerHTML = `
     <div class="contribution-profile-preview-top">
       <div class="contribution-profile-preview-identity">
         ${renderExistingPortrait(profile)}
         <div>
-          <p class="profile-eyebrow contribution-profile-preview-eyebrow">Existing thinker</p>
+          <p class="profile-eyebrow contribution-profile-preview-eyebrow">${escapeHtml(t('contribute.existing_eyebrow'))}</p>
           <h3>${escapeHtml(profile.name)}</h3>
-          <p class="section-subtitle">${escapeHtml(profile.period || 'Thinker in the archive')}</p>
+          <p class="section-subtitle">${escapeHtml(display.period || t('contribute.existing_archive'))}</p>
         </div>
       </div>
-      <a href="${profile.url}" class="profile-action-link profile-action-link-secondary contribution-preview-link">Open page</a>
+      <a href="${profile.url}" class="profile-action-link profile-action-link-secondary contribution-preview-link">${escapeHtml(t('contribute.existing_open'))}</a>
     </div>
-    <p class="contribution-profile-preview-summary">${escapeHtml(profile.summary || profile.focus || 'This profile is already part of the site archive.')}</p>
-    ${Array.isArray(profile.themeLabels) && profile.themeLabels.length
-      ? `<div class="philosopher-chip-row">${profile.themeLabels.slice(0, 3).map(label => `<span class="philosopher-chip">${escapeHtml(label)}</span>`).join('')}</div>`
+    <p class="contribution-profile-preview-summary">${escapeHtml(display.summary || profile.focus || t('contribute.existing_summary_fallback'))}</p>
+    ${Array.isArray(themeLabels) && themeLabels.length
+      ? `<div class="philosopher-chip-row">${themeLabels.slice(0, 3).map(label => `<span class="philosopher-chip">${escapeHtml(label)}</span>`).join('')}</div>`
       : ''}
     <div class="contribution-profile-preview-stats">
-      <span>${Number(profile.quoteCount || 0)} quote${Number(profile.quoteCount || 0) === 1 ? '' : 's'}</span>
-      <span>${Number(profile.linkedWorkCount || 0)} related work${Number(profile.linkedWorkCount || 0) === 1 ? '' : 's'}</span>
+      <span>${escapeHtml(formatCountLabel(profile.quoteCount, 'contribute.existing_quotes_stat', 'contribute.existing_quotes_stat_plural'))}</span>
+      <span>${escapeHtml(formatCountLabel(profile.linkedWorkCount, 'contribute.existing_works_stat', 'contribute.existing_works_stat_plural'))}</span>
     </div>
   `;
 }
@@ -257,23 +280,27 @@ function updateModeCopy() {
   }
 
   if (submitButton) {
-    submitButton.textContent = isExistingMode ? 'Publish quotes' : 'Publish thinker';
+    submitButton.textContent = isExistingMode ? t('contribute.publish_quotes') : t('contribute.publish_thinker');
   }
 
   if (quotesSectionSubtitle) {
     quotesSectionSubtitle.textContent = isExistingMode
-      ? 'Add one or more English quotes. They will be attached to the selected thinker and re-used across the thinker pages.'
-      : 'Add one or more English quotes. Optional themes help the first match, but the site also analyzes the quote text.';
+      ? t('contribute.quotes_subtitle_existing')
+      : t('contribute.quotes_subtitle_new');
+  }
+
+  if (addQuoteButton) {
+    addQuoteButton.textContent = t('contribute.add_quote');
   }
 
   if (isExistingMode) {
     if (state.selectedExistingProfile) {
-      setExistingFeedback('Existing thinker found — your quotes will be added to this profile.', 'success');
+      setExistingFeedback(t('contribute.existing_found'), 'success');
       renderExistingPreview(state.selectedExistingProfile);
     } else if (state.existingProfilesReady) {
-      setExistingFeedback('Select a thinker from the site list to attach new quotes to that existing profile.', 'muted');
+      setExistingFeedback(t('contribute.existing_select'), 'muted');
     } else {
-      setExistingFeedback('Loading thinker index...', 'muted');
+      setExistingFeedback(t('contribute.existing_loading'), 'muted');
     }
   } else {
     setExistingFeedback('', 'muted');
@@ -363,7 +390,7 @@ function renderExistingOptions(profiles = []) {
 
   existingThinkerOptions.innerHTML = profiles
     .map(profile => `
-      <option value="${escapeHtml(profile.name)}">${escapeHtml(`${profile.period || 'Thinker in the archive'} · ${profile.quoteCount} quotes`)}</option>
+      <option value="${escapeHtml(profile.name)}">${escapeHtml(t('contribute.existing_quotes_option', { period: localizeThinkerCard(profile, getUiLocale()).period || t('contribute.existing_archive'), count: profile.quoteCount }))}</option>
     `)
     .join('');
 }
@@ -393,7 +420,7 @@ function selectExistingProfile(profile, announce = true) {
   if (profile) {
     renderExistingPreview(profile);
     if (announce) {
-      setExistingFeedback('Existing thinker found — your quotes will be added to this profile.', 'success');
+      setExistingFeedback(t('contribute.existing_found'), 'success');
     }
     return;
   }
@@ -405,7 +432,7 @@ async function loadExistingProfiles() {
   if (!existingThinkerInput) return;
 
   existingThinkerInput.disabled = true;
-  setExistingFeedback('Loading thinker index...', 'muted');
+  setExistingFeedback(t('contribute.existing_loading'), 'muted');
 
   try {
     const locale = getUiLocale();
@@ -415,7 +442,7 @@ async function loadExistingProfiles() {
       getSubmittedPhilosophers(),
     ]);
 
-    const profiles = buildPhilosopherProfiles(
+    const profiles = buildPhilosopherIndexProfiles(
       filterPhilosopherCatalogQuotes(quotes, locale),
       philosopherDirectory,
       submittedProfiles
@@ -429,12 +456,12 @@ async function loadExistingProfiles() {
     existingThinkerInput.disabled = false;
 
     if (state.mode === 'existing' && !state.selectedExistingProfile) {
-      setExistingFeedback(`Select from ${profiles.length} existing thinkers to attach new quotes instantly.`, 'muted');
+      setExistingFeedback(t('contribute.existing_select_count', { count: profiles.length }), 'muted');
     }
   } catch (error) {
     existingThinkerInput.disabled = true;
     state.existingProfilesReady = false;
-    setExistingFeedback('Could not load the thinker index right now. You can still create a new thinker.', 'error');
+    setExistingFeedback(t('contribute.existing_load_error'), 'error');
   }
 }
 
@@ -445,8 +472,8 @@ function syncExistingSelectionFromInput({ strict = false } = {}) {
     clearExistingPreview();
     setExistingFeedback(
       state.existingProfilesReady
-        ? 'Select a thinker from the site list to attach new quotes to that existing profile.'
-        : 'Loading thinker index...',
+        ? t('contribute.existing_select')
+        : t('contribute.existing_loading'),
       'muted'
     );
     return;
@@ -462,8 +489,8 @@ function syncExistingSelectionFromInput({ strict = false } = {}) {
   clearExistingPreview();
   setExistingFeedback(
     strict
-      ? 'Select an existing thinker from the suggestions before publishing.'
-      : 'Keep typing or choose one of the existing thinkers from the suggestions.',
+      ? t('contribute.existing_type_strict')
+      : t('contribute.existing_type_select'),
     strict ? 'error' : 'muted'
   );
 }
@@ -488,41 +515,48 @@ async function handleSubmit(event) {
   event.preventDefault();
 
   if (state.mode === 'existing' && !state.selectedExistingProfile) {
-    setFeedback('Choose an existing thinker from the list before publishing.', 'error');
+    setFeedback(t('contribute.error_choose_thinker'), 'error');
     return;
   }
 
   const payload = buildPayload(contributionForm);
   if (!payload.quotes.length) {
-    setFeedback('Add at least one quote before publishing.', 'error');
+    setFeedback(t('contribute.error_one_quote'), 'error');
     return;
   }
 
   if (state.mode === 'new' && !payload.name) {
-    setFeedback('Add a thinker name and at least one quote before publishing.', 'error');
+    setFeedback(t('contribute.error_name_quote'), 'error');
     return;
   }
 
   setPending(true);
   setFeedback(
     state.mode === 'existing'
-      ? 'Publishing quotes to the selected thinker...'
-      : 'Publishing thinker and quotes...',
+      ? t('contribute.publishing_quotes')
+      : t('contribute.publishing_thinker'),
     'muted'
   );
 
   try {
     const result = await submitPhilosopherContribution(payload);
     upsertExistingProfileOption(result.philosopher, result.createdQuotes);
-    const title = state.mode === 'existing' ? 'Quotes published.' : 'Contribution published.';
+    const title = state.mode === 'existing' ? t('contribute.success_quotes_title') : t('contribute.success_thinker_title');
     const copy = state.mode === 'existing'
-      ? `${escapeHtml(result.createdQuotes)} quote(s) added to ${escapeHtml(result.philosopher.name)}, ${escapeHtml(result.skippedQuotes)} skipped as duplicates.`
-      : `${escapeHtml(result.createdQuotes)} quote(s) created, ${escapeHtml(result.skippedQuotes)} skipped as duplicates.`;
+      ? t('contribute.success_quotes_copy', {
+        created: result.createdQuotes,
+        name: result.philosopher.name,
+        skipped: result.skippedQuotes,
+      })
+      : t('contribute.success_thinker_copy', {
+        created: result.createdQuotes,
+        skipped: result.skippedQuotes,
+      });
 
     feedback.innerHTML = `
-      <p class="contribution-feedback-title">${title}</p>
-      <p>${copy}</p>
-      <a class="profile-action-link profile-action-link-secondary" href="/html/philosopher.html?slug=${encodeURIComponent(result.philosopher.slug)}">Open thinker page</a>
+      <p class="contribution-feedback-title">${escapeHtml(title)}</p>
+      <p>${escapeHtml(copy)}</p>
+      <a class="profile-action-link profile-action-link-secondary" href="/html/philosopher.html?slug=${encodeURIComponent(result.philosopher.slug)}">${escapeHtml(t('contribute.success_open'))}</a>
     `;
     feedback.dataset.tone = 'success';
 
@@ -581,6 +615,15 @@ existingThinkerInput?.addEventListener('change', () => {
 addQuoteButton?.addEventListener('click', addQuoteCard);
 contributionForm?.addEventListener('submit', handleSubmit);
 
+window.addEventListener('philomedia:locale-changed', () => {
+  updateModeCopy();
+  syncQuoteLabels();
+  if (state.selectedExistingProfile) {
+    renderExistingPreview(state.selectedExistingProfile);
+    renderExistingOptions(state.existingProfiles);
+  }
+});
+
 init().catch(() => {
-  setFeedback('Could not load the contribution page right now.', 'error');
+  setFeedback(t('contribute.error_load_page'), 'error');
 });

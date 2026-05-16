@@ -24,56 +24,56 @@
   <link rel="stylesheet" href="/css/styles/animations.css">
 </head>
 <body>
-  <a class="skip-link" href="#main-content">Skip to content</a>
+  <a class="skip-link" href="#main-content" data-i18n="nav.skip_to_content">Skip to content</a>
   <header>
     <div class="header-brand">
       <a href="/html/index.html" class="logo">PhiloMedia</a>
-      <span class="header-context">Search</span>
+      <span class="header-context" data-i18n="header.context.search">Search</span>
     </div>
     <nav aria-label="Primary">
-      <a href="/html/index.html">Home</a>
-      <a href="/html/search.html" aria-current="page">Search</a>
-      <a href="/html/philosophers.html">Thinkers</a>
-      <a href="/html/library.html" data-auth-link="library" hidden>Library</a>
+      <a href="/html/index.html" data-i18n="nav.home">Home</a>
+      <a href="/html/search.html" aria-current="page" data-i18n="nav.search">Search</a>
+      <a href="/html/philosophers.html" data-i18n="nav.thinkers">Thinkers</a>
+      <a href="/html/library.html" data-auth-link="library" hidden data-i18n="nav.library">Library</a>
       <span id="nav-auth-slot" class="nav-auth-slot"></span>
     </nav>
   </header>
 
   <main id="main-content">
     <section class="search-section">
-      <h2 class="section-title">Find movies &amp; series</h2>
-      <p class="section-subtitle">Search by title or start from a philosophical lens to discover works and their connections.</p>
+      <h2 class="section-title" data-i18n="search.title">Find movies &amp; series</h2>
+      <p class="section-subtitle" data-i18n="search.subtitle">Search by title or start from a philosophical lens to discover works and their connections.</p>
       <form id="search-form" role="search">
-        <label for="search-input" class="sr-only">Search for a movie or series</label>
-        <input type="search" id="search-input" placeholder="e.g. Interstellar, Breaking Bad..." autocomplete="off" />
-        <button type="submit">Search</button>
+        <label for="search-input" class="sr-only" data-i18n="search.input_label">Search for a movie or series</label>
+        <input type="search" id="search-input" data-i18n-placeholder="search.placeholder" placeholder="e.g. Interstellar, Breaking Bad..." autocomplete="off" />
+        <button type="submit" data-i18n="search.submit">Search</button>
       </form>
       <div class="search-discovery">
         <div class="filter-cluster">
-          <p class="filter-label">Suggested lenses</p>
+          <p class="filter-label" data-i18n="search.lenses_label">Suggested lenses</p>
           <div id="lens-suggestions" class="filter-chip-row" aria-label="Suggested philosophical lenses"></div>
         </div>
         <div id="search-toolbar" class="search-toolbar" hidden>
           <div class="filter-cluster">
-            <p class="filter-label">Media</p>
+            <p class="filter-label" data-i18n="search.media_label">Media</p>
             <div id="media-filters" class="filter-chip-row" aria-label="Filter by media type"></div>
           </div>
           <div class="filter-cluster">
-            <p class="filter-label">Rating</p>
+            <p class="filter-label" data-i18n="search.rating_label">Rating</p>
             <div id="rating-filters" class="filter-chip-row" aria-label="Filter by TMDB rating"></div>
           </div>
-          <button type="button" id="clear-search-filters" class="ghost-button">Clear filters</button>
+          <button type="button" id="clear-search-filters" class="ghost-button" data-i18n="search.clear_filters">Clear filters</button>
         </div>
       </div>
     </section>
     <section id="search-results-section" aria-live="polite">
       <div id="search-results-meta" class="results-meta" hidden>
         <div class="results-meta-copy">
-          <h3 id="search-results-title" class="section-title">Search results</h3>
+          <h3 id="search-results-title" class="section-title" data-i18n="search.results_title">Search results</h3>
           <p id="search-results-summary" class="section-subtitle"></p>
         </div>
         <label class="sort-control" for="sort-select">
-          <span>Sort</span>
+          <span data-i18n="search.sort_label">Sort</span>
           <select id="sort-select" aria-label="Sort results"></select>
         </label>
       </div>

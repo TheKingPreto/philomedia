@@ -40,6 +40,16 @@ export function setUiLocale(lang) {
   return normalized;
 }
 
+/** TMDB API language tag for localized titles/overviews. */
+export function getTmdbLanguage(locale = getUiLocale()) {
+  return normalizeUiLocale(locale) === 'pt' ? 'pt-BR' : 'en-US';
+}
+
+/** Stable catalog language for discover/search so EN and PT show the same curated pools. */
+export function getTmdbCatalogLanguage() {
+  return 'en-US';
+}
+
 export function initDocumentLocale() {
   const loc = getUiLocale();
   if (typeof document !== 'undefined') {

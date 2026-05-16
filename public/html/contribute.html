@@ -17,17 +17,17 @@
   <link rel="stylesheet" href="/css/styles/animations.css">
 </head>
 <body class="contribute-page">
-  <a class="skip-link" href="#main-content">Skip to content</a>
+  <a class="skip-link" href="#main-content" data-i18n="nav.skip_to_content">Skip to content</a>
   <header>
     <div class="header-brand">
       <a href="/html/index.html" class="logo">PhiloMedia</a>
-      <span class="header-context">Contribute</span>
+      <span class="header-context" data-i18n="header.context.contribute">Contribute</span>
     </div>
     <nav aria-label="Primary">
-      <a href="/html/index.html">Home</a>
-      <a href="/html/search.html">Search</a>
-      <a href="/html/philosophers.html">Thinkers</a>
-      <a href="/html/library.html" data-auth-link="library" hidden>Library</a>
+      <a href="/html/index.html" data-i18n="nav.home">Home</a>
+      <a href="/html/search.html" data-i18n="nav.search">Search</a>
+      <a href="/html/philosophers.html" data-i18n="nav.thinkers">Thinkers</a>
+      <a href="/html/library.html" data-auth-link="library" hidden data-i18n="nav.library">Library</a>
       <span id="nav-auth-slot" class="nav-auth-slot"></span>
     </nav>
   </header>
@@ -38,9 +38,9 @@
     <section id="contribute-content" hidden>
       <section class="profile-hero contribute-hero">
         <div class="profile-copy">
-          <p class="profile-eyebrow">Community archive</p>
-          <h1 class="section-title">Add a thinker and their quotes</h1>
-          <p class="profile-summary">Logged-in readers can extend PhiloMedia with new thinkers, including philosophers and psychologists, or deepen an existing thinker profile with more quotes.</p>
+          <p class="profile-eyebrow" data-i18n="contribute.eyebrow">Community archive</p>
+          <h1 class="section-title" data-i18n="contribute.hero_title">Add a thinker and their quotes</h1>
+          <p class="profile-summary" data-i18n="contribute.hero_summary">Logged-in readers can extend PhiloMedia with new thinkers, including philosophers and psychologists, or deepen an existing thinker profile with more quotes.</p>
         </div>
       </section>
 
@@ -48,23 +48,23 @@
         <form id="contribution-form" class="contribution-form" novalidate>
           <div class="results-meta contribute-section-meta">
             <div class="results-meta-copy">
-              <h2 class="section-title">Choose contribution mode</h2>
-              <p class="section-subtitle">Create a new thinker page or select someone already on the site to add more English quotes to that profile.</p>
+              <h2 class="section-title" data-i18n="contribute.mode_title">Choose contribution mode</h2>
+              <p class="section-subtitle" data-i18n="contribute.mode_subtitle">Create a new thinker page or select someone already on the site to add more quotes to that profile.</p>
             </div>
           </div>
 
-          <div class="filter-chip-row contribution-mode-tabs" role="tablist" aria-label="Contribution mode">
-            <button type="button" class="filter-chip contribution-mode-tab is-active" data-contribution-mode="new" aria-selected="true">New thinker</button>
-            <button type="button" class="filter-chip contribution-mode-tab" data-contribution-mode="existing" aria-selected="false">Existing thinker</button>
+          <div class="filter-chip-row contribution-mode-tabs" role="tablist" data-i18n-aria-label="contribute.mode_tabs_aria" aria-label="Contribution mode">
+            <button type="button" class="filter-chip contribution-mode-tab is-active" data-contribution-mode="new" aria-selected="true" data-i18n="contribute.mode_new">New thinker</button>
+            <button type="button" class="filter-chip contribution-mode-tab" data-contribution-mode="existing" aria-selected="false" data-i18n="contribute.mode_existing">Existing thinker</button>
           </div>
 
           <section id="existing-thinker-panel" class="contribution-existing-panel" hidden>
             <div class="contribution-grid">
               <div class="contribution-field contribution-field-wide">
-                <label for="existing-thinker-input">Select an existing thinker</label>
-                <input id="existing-thinker-input" type="text" list="existing-thinker-options" maxlength="160" placeholder="Search for an existing philosopher, psychologist, or thinker" aria-describedby="existing-thinker-help">
+                <label for="existing-thinker-input" data-i18n="contribute.existing_label">Select an existing thinker</label>
+                <input id="existing-thinker-input" type="text" list="existing-thinker-options" maxlength="160" data-i18n-placeholder="contribute.existing_placeholder" placeholder="Search for an existing philosopher, psychologist, or thinker" aria-describedby="existing-thinker-help">
                 <datalist id="existing-thinker-options"></datalist>
-                <p id="existing-thinker-help" class="contribution-help-text">Choose someone already in PhiloMedia and any new quotes will be attached to that profile.</p>
+                <p id="existing-thinker-help" class="contribution-help-text" data-i18n="contribute.existing_help">Choose someone already in PhiloMedia and any new quotes will be attached to that profile.</p>
               </div>
             </div>
             <div id="existing-thinker-feedback" class="contribution-inline-feedback" data-tone="muted" aria-live="polite" hidden></div>
@@ -73,47 +73,47 @@
 
           <div id="new-thinker-fields" class="contribution-grid">
             <div class="contribution-field contribution-field-wide">
-              <label for="contribution-name">Thinker name</label>
-              <input id="contribution-name" name="name" type="text" maxlength="120" placeholder="e.g. Albert Camus" required>
+              <label for="contribution-name" data-i18n="contribute.name_label">Thinker name</label>
+              <input id="contribution-name" name="name" type="text" maxlength="120" data-i18n-placeholder="contribute.name_placeholder" placeholder="e.g. Albert Camus" required>
             </div>
             <div class="contribution-field">
-              <label for="contribution-period">Period</label>
-              <input id="contribution-period" name="period" type="text" maxlength="160" placeholder="e.g. 20th-century France · 1913-1960">
+              <label for="contribution-period" data-i18n="contribute.period_label">Period</label>
+              <input id="contribution-period" name="period" type="text" maxlength="160" data-i18n-placeholder="contribute.period_placeholder" placeholder="e.g. 20th-century France · 1913-1960">
             </div>
             <div class="contribution-field">
-              <label for="contribution-wiki-title">Wikipedia title</label>
-              <input id="contribution-wiki-title" name="wikiTitle" type="text" maxlength="180" placeholder="e.g. Albert Camus">
+              <label for="contribution-wiki-title" data-i18n="contribute.wiki_label">Wikipedia title</label>
+              <input id="contribution-wiki-title" name="wikiTitle" type="text" maxlength="180" data-i18n-placeholder="contribute.wiki_placeholder" placeholder="e.g. Albert Camus">
             </div>
             <div class="contribution-field contribution-field-wide">
-              <label for="contribution-summary">Summary</label>
-              <textarea id="contribution-summary" name="summary" rows="3" maxlength="600" placeholder="A short English overview of how this thinker thinks."></textarea>
+              <label for="contribution-summary" data-i18n="contribute.summary_label">Summary</label>
+              <textarea id="contribution-summary" name="summary" rows="3" maxlength="600" data-i18n-placeholder="contribute.summary_placeholder" placeholder="A short overview of how this thinker thinks."></textarea>
             </div>
             <div class="contribution-field contribution-field-wide">
-              <label for="contribution-focus">PhiloMedia focus</label>
-              <textarea id="contribution-focus" name="focus" rows="3" maxlength="600" placeholder="How this thinker should resonate with the site's readings and related works."></textarea>
+              <label for="contribution-focus" data-i18n="contribute.focus_label">PhiloMedia focus</label>
+              <textarea id="contribution-focus" name="focus" rows="3" maxlength="600" data-i18n-placeholder="contribute.focus_placeholder" placeholder="How this thinker should resonate with the site's readings and related works."></textarea>
             </div>
             <div class="contribution-field contribution-field-wide">
-              <label for="contribution-portrait-url">Portrait URL</label>
-              <input id="contribution-portrait-url" name="portraitUrl" type="url" maxlength="400" placeholder="Optional https:// image URL">
+              <label for="contribution-portrait-url" data-i18n="contribute.portrait_label">Portrait URL</label>
+              <input id="contribution-portrait-url" name="portraitUrl" type="url" maxlength="400" data-i18n-placeholder="contribute.portrait_placeholder" placeholder="Optional https:// image URL">
             </div>
             <div class="contribution-field contribution-field-wide">
-              <label for="contribution-aliases">Aliases</label>
-              <input id="contribution-aliases" name="aliases" type="text" maxlength="500" placeholder="Comma-separated names or spellings">
+              <label for="contribution-aliases" data-i18n="contribute.aliases_label">Aliases</label>
+              <input id="contribution-aliases" name="aliases" type="text" maxlength="500" data-i18n-placeholder="contribute.aliases_placeholder" placeholder="Comma-separated names or spellings">
             </div>
           </div>
 
           <div class="results-meta contribute-section-meta">
             <div class="results-meta-copy">
-              <h2 class="section-title">Quotes</h2>
-              <p id="quotes-section-subtitle" class="section-subtitle">Add one or more English quotes. Optional themes help the first match, but the site also analyzes the quote text.</p>
+              <h2 class="section-title" data-i18n="contribute.quotes_title">Quotes</h2>
+              <p id="quotes-section-subtitle" class="section-subtitle" data-i18n="contribute.quotes_subtitle_new">Add one or more quotes. Optional themes help the first match, but the site also analyzes the quote text.</p>
             </div>
           </div>
 
           <div id="quote-list" class="quote-list"></div>
 
           <div class="contribution-actions">
-            <button type="button" id="add-quote-button" class="ghost-button">Add another quote</button>
-            <button type="submit" id="submit-contribution-button" class="profile-action-link">Publish thinker</button>
+            <button type="button" id="add-quote-button" class="ghost-button" data-i18n="contribute.add_quote">Add another quote</button>
+            <button type="submit" id="submit-contribution-button" class="profile-action-link" data-i18n="contribute.publish_thinker">Publish thinker</button>
           </div>
 
           <div id="contribution-feedback" class="contribution-feedback" aria-live="polite"></div>

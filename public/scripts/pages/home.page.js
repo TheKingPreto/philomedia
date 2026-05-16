@@ -23,6 +23,9 @@ import {
 } from '/scripts/mediaRankCore.js';
 import { setupAuthUI } from '/scripts/auth-ui.js';
 import { renderMediaCards } from '/scripts/media-card.js';
+import { t } from '/scripts/services/i18n.js';
+import { localizeItemOverviews } from '/scripts/services/tmdbOverviewI18n.js';
+import { resolveDisplayQuoteText } from '/scripts/services/quoteDisplayResolve.js';
 import { getUiLocale } from '/scripts/services/uiLocale.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 
@@ -110,6 +113,10 @@ function normalizeQuoteEntry(entry) {
     author: getQuoteAuthor(entry),
     themes: Array.isArray(entry.themes) ? entry.themes : [],
     source: getQuoteSource(entry),
+    originalLanguage: entry.originalLanguage,
+    quote_original: entry.quote_original,
+    quote_en: entry.quote_en,
+    quote_pt: entry.quote_pt,
     _qualityScore: scoreQuoteCandidate(entry),
   };
 }
@@ -162,9 +169,8 @@ async function getCuratedCandidatesForQuote(quoteId) {
 }
 
 async function getQuoteForHome() {
-  const lang = getUiLocale();
   try {
-    const res = await fetch(`${API_BASE}/quotes/catalog?lang=${encodeURIComponent(lang)}`);
+    const res = await fetch(`${API_BASE}/quotes/catalog?lang=en`);
     if (!res.ok) throw new Error('Quotes API error');
     const quotes = await res.json();
     if (Array.isArray(quotes) && quotes.length > 0) {
@@ -217,21 +223,47 @@ function buildDailyPairingUrl({ limit = HOME_RESULT_LIMIT, offset = 0 } = {}) {
   return `${DAILY_PAIRING_ENDPOINT}?${params.toString()}`;
 }
 
-function mapDailyPairingContent(payload) {
+function buildHighlightsContext(profile) {
+  if (!profile || !Array.isArray(profile.themes) || profile.themes.length === 0) {
+    return t('home.dialogue_context_default');
+  }
+
+  const themes = profile.themes.slice(0, 2).map(formatThemeLabel);
+
+  if (themes.length === 1) {
+    return t('home.dialogue_context_one', { theme: themes[0] });
+  }
+
+  return t('home.dialogue_context_two', { themeA: themes[0], themeB: themes[1] });
+}
+
+function localizeHomeContent(content) {
+  const themes = content.themes || [];
+  const highlightsContext = getUiLocale() === 'en' && content.highlightsContext
+    ? content.highlightsContext
+    : (themes.length ? buildHighlightsContext({ themes }) : t('home.dialogue_context_default'));
+
   return {
+    ...content,
+    highlightsTitle: t('home.dialogue_title'),
+    highlightsContext,
+  };
+}
+
+function mapDailyPairingContent(payload) {
+  return localizeHomeContent({
     id: payload.slug || null,
     source: payload.source || 'editorial-calendar',
     quote: payload.quote,
     author: payload.author,
     themes: payload.themes || [],
-    highlightsTitle: payload.highlightsTitle || 'In dialogue with today\'s quote',
-    highlightsContext: payload.highlightsContext || 'Works selected to resonate with today\'s quote.',
+    highlightsContext: payload.highlightsContext || '',
     results: Array.isArray(payload.results) ? payload.results : [],
     totalWorks: Number(payload.totalWorks) || 0,
     returnedWorks: Number(payload.returnedWorks) || 0,
     nextOffset: Number(payload.nextOffset) || 0,
     hasMore: Boolean(payload.hasMore),
-  };
+  });
 }
 
 async function getEditorialDailyContent({ offset = 0, limit = HOME_RESULT_LIMIT } = {}) {
@@ -311,20 +343,6 @@ async function getFeaturedMediaForQuote(quoteData) {
   };
 }
 
-function buildHighlightsContext(profile) {
-  if (!profile || !Array.isArray(profile.themes) || profile.themes.length === 0) {
-    return 'Works selected to resonate with today\'s quote.';
-  }
-
-  const themes = profile.themes.slice(0, 2).map(formatThemeLabel);
-
-  if (themes.length === 1) {
-    return `Works chosen for their affinity with ${themes[0]}.`;
-  }
-
-  return `Works chosen for their affinity with ${themes[0]} and ${themes[1]}.`;
-}
-
 async function loadContent() {
   try {
     return await getEditorialDailyContent();
@@ -335,15 +353,13 @@ async function loadContent() {
   const quoteData = await getQuoteForHome();
   const { results, profile } = await getFeaturedMediaForQuote(quoteData);
 
-  return {
+  return localizeHomeContent({
     id: quoteData.id,
     quote: quoteData.quote,
     author: quoteData.author,
     themes: profile.themes,
-    highlightsTitle: 'In dialogue with today\'s quote',
-    highlightsContext: buildHighlightsContext(profile),
     results: Array.isArray(results) ? results : [],
-  };
+  });
 }
 
 async function loadMoreContent(offset, limit = HOME_RESULT_LIMIT) {
@@ -396,9 +412,9 @@ function updatePagination({ button, count, visibleCount, totalWorks, hasMore }) 
   wrapper.hidden = totalWorks <= visibleCount && !hasMore;
   button.hidden = !hasMore;
   button.disabled = false;
-  button.textContent = 'Load more related works';
+  button.textContent = t('home.load_more');
   count.textContent = totalWorks > 0
-    ? `${visibleCount} of ${totalWorks} works shown`
+    ? t('home.works_shown', { visible: visibleCount, total: totalWorks })
     : '';
 }
 
@@ -424,8 +440,17 @@ async function init() {
 
   try {
     const content = await loadContent();
+    const displayQuote = await resolveDisplayQuoteText({
+      quote: content.quote,
+      author: content.author,
+      id: content.id,
+      quote_en: content.quote_en,
+      quote_pt: content.quote_pt,
+      quote_original: content.quote_original,
+      originalLanguage: content.originalLanguage,
+    });
 
-    quoteTextEl.textContent = `"${content.quote}"`;
+    quoteTextEl.textContent = `"${displayQuote}"`;
     quoteTextEl.setAttribute('aria-busy', 'false');
     renderQuoteAuthor(quoteAuthorEl, content.author);
     if (highlightsTitleEl && content.highlightsTitle) {
@@ -455,7 +480,8 @@ async function init() {
       totalWorks: Number(content.totalWorks) || visibleResults.length,
     };
 
-    renderMediaCards(highlightsEl, visibleResults, {
+    const localizedResults = await localizeItemOverviews(visibleResults);
+    renderMediaCards(highlightsEl, localizedResults, {
       overviewLength: 100,
     });
     updatePagination({
@@ -467,10 +493,15 @@ async function init() {
     });
   } catch (err) {
     console.error(err);
+    if (quoteTextEl) {
+      quoteTextEl.textContent = t('home.error_title');
+      quoteTextEl.setAttribute('aria-busy', 'false');
+    }
+    if (quoteAuthorEl) quoteAuthorEl.textContent = '';
     highlightsEl.innerHTML = `
       <div class="error-state">
-        <p class="error-state-title">Something went wrong</p>
-        <p class="error-state-text">We couldn't load recommendations. Please try again or use <a href="/html/search.html">search</a>.</p>
+        <p class="error-state-title">${t('home.error_title')}</p>
+        <p class="error-state-text">${t('home.error_retry')}</p>
       </div>
     `;
   }
@@ -479,7 +510,7 @@ async function init() {
     if (!pagination.hasMore) return;
 
     loadMoreButton.disabled = true;
-    loadMoreButton.textContent = 'Loading...';
+    loadMoreButton.textContent = t('home.loading');
 
     try {
       const nextContent = await loadMoreContent(pagination.nextOffset);
@@ -490,11 +521,12 @@ async function init() {
         totalWorks: Number(nextContent.totalWorks) || visibleResults.length,
       };
 
-      renderMediaCards(highlightsEl, visibleResults, {
+      const localizedResults = await localizeItemOverviews(visibleResults);
+      renderMediaCards(highlightsEl, localizedResults, {
         overviewLength: 100,
       });
     } catch (error) {
-      loadMoreButton.textContent = 'Could not load more';
+      loadMoreButton.textContent = t('home.load_more_failed');
     } finally {
       updatePagination({
         button: loadMoreButton,
