@@ -1,190 +1,85 @@
 # PhiloMedia
 
-PhiloMedia is a media discovery project that connects films and TV series to philosophical quotes. The current MVP lets you browse featured works, search TMDB, open a details page with richer work metadata, and receive both a curated philosophical quote and an AI-generated interpretive reading for the selected title. The UI is available in **English** and **Brazilian Portuguese** (`EN` / `PT`).
+> Discover films and series through the lens of philosophy — with AI-powered interpretations.
 
-## Current Status
+![PhiloMedia Screenshot](./docs/screenshot.png)
 
-The MVP is production-shaped: TMDB search and details, curated and AI-assisted quotes, Mongo-backed storage, Google OAuth, user library collections, Swagger docs, and Render deployment config.
+🔗 **[Live Demo](https://philomedia.onrender.com/)** &nbsp;|&nbsp; 📖 **[API Docs (Swagger)](https://philomedia.onrender.com/api-docs)**
 
-Roadmap (non-blocking for the core flow):
+---
 
-- Richer search filters and sorting
-- Deeper metadata and presentation polish
-- Community and sharing features
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat&logo=javascript&logoColor=black)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express-000000?style=flat&logo=express&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=flat&logo=mongodb&logoColor=white)
+![Google Gemini](https://img.shields.io/badge/Google%20Gemini-4285F4?style=flat&logo=google&logoColor=white)
+![Render](https://img.shields.io/badge/Deployed%20on-Render-46E3B7?style=flat&logo=render&logoColor=white)
 
-## Product Scope
+---
 
-The MVP is focused on one main promise:
+## About
 
-1. Find a movie or series.
-2. Open its details page.
-3. Read a philosophical quote that resonates with that work.
-4. Get an AI interpretation that expands the connection.
+PhiloMedia connects films and TV series to philosophical quotes, offering users a unique lens to reflect on the media they consume. Browse featured works, search the TMDB catalog, and receive a curated philosophical quote paired with an AI-generated interpretation — available in **English** and **Brazilian Portuguese**.
 
-That core flow is the part of the project that is currently production-shaped. The rest is roadmap.
+## User Flow
+
+1. Search for a movie or series
+2. Open its details page
+3. Read a resonant philosophical quote
+4. Receive an AI-generated interpretation tailored to that title
 
 ## Tech Stack
 
-- Frontend: HTML, CSS, vanilla JavaScript
-- Backend: Node.js, Express
-- Database: MongoDB with Mongoose
-- AI: Google Gemini
-- External catalog: TMDB
-- Auth foundation: Passport + Google OAuth
-- Docs: Swagger UI
-- Deployment target: Render
+| Layer | Technology |
+|---|---|
+| **Frontend** | HTML, CSS, Vanilla JavaScript |
+| **Backend** | Node.js, Express |
+| **Database** | MongoDB + Mongoose |
+| **AI** | Google Gemini API |
+| **Auth** | Passport.js + Google OAuth |
+| **External API** | TMDB |
+| **Docs** | Swagger UI |
+| **Deployment** | Render |
+
+## Key Features
+
+- **Internationalization (i18n):** Language selection (EN/PT) persists via `localStorage`. Translations cover UI strings, TMDB metadata, quote catalogs, and philosopher biographies.
+- **AI Interpretation:** Google Gemini generates contextual readings for each title. Includes automatic model fallback (`gemini-2.5-flash` → `gemini-2.0-flash-lite` → `gemini-1.5-flash`) to handle rate limits gracefully.
+- **User Library:** Google OAuth authentication with personal media collection support.
+- **API Documentation:** Full Swagger UI available at `/api-docs`.
+- **Data Utilities:** Scripts for seeding quotes, importing Wikiquote datasets, and machine-translating content.
 
 ## Local Setup
 
-1. Install dependencies:
-
 ```bash
+# 1. Clone the repository
+git clone https://github.com/Lucassilva027/philomedia.git
+cd philomedia
+
+# 2. Install dependencies
 npm install
-```
 
-2. Create or update your `.env`.
+# 3. Configure environment variables
+cp .env.example .env
+# Fill in: MONGODB_URI, SESSION_SECRET, TMDB_API_KEY, GOOGLE_AI_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 
-3. Fill in the required values there.
-
-4. Start the app in development mode:
-
-```bash
+# 4. Start development server
 npm run dev
+# App running at http://localhost:3000
 ```
 
-5. Open:
+## API Endpoints
 
-- App: `http://localhost:3000`
-- API docs: `http://localhost:3000/api-docs`
-
-## Environment Variables
-
-Required to boot the server:
-
-- `MONGODB_URI`
-- `SESSION_SECRET`
-- `TMDB_API_KEY`
-- `GOOGLE_AI_API_KEY`
-- `GOOGLE_AI_MODEL` (optional; defaults to `gemini-2.5-flash` — see `src/config/geminiModel.js`)
-
-Optional for Google login:
-
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-
-Optional for deployment or frontend integration:
-
-- `PORT`
-- `NODE_ENV`
-- `CORS_ORIGIN`
-- `TMDB_WATCH_REGION` (defaults to `BR`)
-
-## Internationalization (EN / PT)
-
-The language selector in the header persists the choice in `localStorage` (`philomedia_ui_lang`) and dispatches `philomedia:locale-changed` so pages can refresh copy without a full reload.
-
-| Area | Behavior |
-|------|----------|
-| UI strings | `public/scripts/services/translations.js` + `i18n.js` (`t('key')`) |
-| TMDB metadata | `language=pt-BR` or `en-US` on search, details, discover, and related calls |
-| Quote catalog | `GET /api/quotes/catalog?lang=en\|pt` and client-side PT overlays for curated quotes |
-| Philosopher bios | English source in `philosopher-data.js`; PT definitions in `philosopherDefPt.js` |
-| AI interpretation | `POST /api/ai/quotes/generate/media-context` accepts `locale: "en" \| "pt"` |
-
-Default locale is English; if nothing is stored, browsers with `pt` in `navigator.language` start in Portuguese.
-
-## AI interpretation (Gemini)
-
-On the details page, a static quote renders immediately; the interpretive layer loads asynchronously via `POST /api/ai/quotes/generate/media-context` (`tmdbId`, `mediaType`, `locale`).
-
-Model selection lives in `src/config/geminiModel.js`:
-
-- **Primary:** `GOOGLE_AI_MODEL` or `gemini-2.5-flash`
-- **Fallbacks** (on quota / model unavailable): `gemini-2.5-flash` → `gemini-2.0-flash-lite` → `gemini-1.5-flash` — implemented in `src/services/geminiGenerate.js`
-
-If every model is rate-limited, the API returns `503` with `code: "ai_quota_exceeded"`. Check quotas in [Google AI Studio](https://aistudio.google.com/) or set `GOOGLE_AI_MODEL` to a model your project still has capacity for.
-
-## Quote Data Utilities
-
-The project includes utilities for loading and maintaining the quote collection.
-
-Seed the curated local quotes into MongoDB:
-
-```bash
-node public/scripts/seed-quotes.js
-```
-
-Import the larger Wikiquote dataset into MongoDB:
-
-```bash
-node public/scripts/import_quotes_wikiquote.js
-```
-
-Machine-translate curated custom quotes to Portuguese (requires `GOOGLE_AI_API_KEY`):
-
-```bash
-npm run translate:quotes:pt
-```
-
-## Useful Commands
-
-Run the test suite:
-
-```bash
-npm test
-```
-
-Run tests with open-handle detection:
-
-```bash
-npm run test:detect
-```
-
-Regenerate `public/scripts/mediaRankCore.js` after editing scoring logic in `src/domain/mediaRanking/mediaRankCore.js`:
-
-```bash
-npm run extract:media-rank
-```
-
-Start the production server locally:
-
-```bash
-npm start
-```
-
-## API Surface
-
-Main route groups:
-
-- `GET /health` — process and Mongo connection state
-- `GET /api/quotes` — paginated quotes: `?page=1&limit=50&lang=en` → `{ data, page, limit, total, totalPages }`
-- `GET /api/quotes/catalog` — merged quote catalog for the frontend (`?lang=en|pt`)
-- `POST /api/tmdb/rank-candidates` — ranks TMDB candidates for a serialized quote profile (same scoring as the home page module)
-- `POST /api/ai/quotes/generate/media-context` — AI quote + explanation for a title (`locale`, `tmdbId`, `mediaType`)
-- `/api/matches`, `/api/tmdb`, `/api/ai/quotes`, `/api/me`, `/api/daily-pairing`, `/auth` (when OAuth env vars are set)
-
-Curated static data lives under `public/data/` (`curatedMatches.json`, `curatedPhilosophicalProfiles.json`); daily pairings load from `src/data/dailyPairings.json`.
-
-Swagger is available at `/api-docs`.
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/health` | Process and database health check |
+| GET | `/api/quotes` | Paginated quote retrieval |
+| POST | `/api/ai/quotes/generate/media-context` | AI interpretation by `tmdbId` + `mediaType` |
+| GET | `/api-docs` | Swagger documentation |
 
 ## Roadmap
 
-Short-term priorities:
-
-- Discovery filters and sorting on search
-- Deeper work metadata and layout polish
-- Refine quote relevance and editorial tooling
-
-Long-term ideas:
-
-- Social sharing
-- Community feedback on quote relevance
-- Browser extension or companion app
-
-## Deployment
-
-The repository includes a `render.yaml` file for Render. To deploy successfully, configure the same environment variables listed above in the Render dashboard.
-
-## License
-
-ISC
+- [ ] Discovery filters and genre-based browsing
+- [ ] Improved metadata layout and editorial tooling
+- [ ] Social sharing and community feedback
+- [ ] Browser extension
