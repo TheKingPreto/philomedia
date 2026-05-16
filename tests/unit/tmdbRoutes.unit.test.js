@@ -22,6 +22,7 @@ const { default: tmdbRoutes } = await import('../../src/routes/tmdb.js');
 
 function buildApp() {
   const app = express();
+  app.use(express.json());
   app.use('/api/tmdb', tmdbRoutes);
   return app;
 }
@@ -104,5 +105,14 @@ describe('tmdb routes', () => {
 
     expect(response.status).toBe(502);
     expect(response.body).toEqual({ error: 'TMDB API key not configured' });
+  });
+
+  test('POST /rank-candidates returns 400 when profile is missing', async () => {
+    const app = buildApp();
+    const response = await request(app)
+      .post('/api/tmdb/rank-candidates')
+      .send({ candidates: [{ id: 1, title: 'X', overview: 'y', media_type: 'movie', genre_ids: [] }] });
+
+    expect(response.status).toBe(400);
   });
 });

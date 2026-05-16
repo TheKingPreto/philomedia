@@ -139,6 +139,119 @@ const options = {
           },
         },
 
+        ErrorMessage: {
+          type: 'object',
+          required: ['error'],
+          properties: {
+            error: {
+              type: 'string',
+              description: 'Human-readable error message.',
+            },
+          },
+        },
+
+        SerializedQuoteProfile: {
+          type: 'object',
+          required: ['themes', 'themeWeights', 'keywords', 'preferredGenres'],
+          description: 'Quote-side features used for ranking (JSON-safe; themeWeights is a plain object, not a Map).',
+          properties: {
+            themes: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Ordered theme ids (see THEME_DATABASE keys in the app).',
+              example: ['existentialism', 'self-knowledge'],
+            },
+            themeWeights: {
+              type: 'object',
+              additionalProperties: { type: 'number', minimum: 0, maximum: 1 },
+              description: 'Normalized weights per theme (sums to ~1 across top slice).',
+              example: { existentialism: 0.55, 'self-knowledge': 0.45 },
+            },
+            keywords: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Short lexical hints derived from top themes.',
+            },
+            preferredGenres: {
+              type: 'array',
+              items: { type: 'integer' },
+              description: 'TMDB genre ids preferred for discover queries.',
+            },
+          },
+        },
+
+        RankCandidatesRequest: {
+          type: 'object',
+          required: ['profile', 'candidates'],
+          properties: {
+            profile: { $ref: '#/components/schemas/SerializedQuoteProfile' },
+            candidates: {
+              type: 'array',
+              minItems: 1,
+              description: 'TMDB-shaped items (merged buckets). Unknown fields are preserved in the response.',
+              items: { $ref: '#/components/schemas/TmdbRankCandidateInput' },
+            },
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              default: 10,
+              description: 'Max number of ranked items to return (server clamps 1–50).',
+            },
+          },
+        },
+
+        TmdbRankCandidateInput: {
+          type: 'object',
+          required: ['id', 'media_type'],
+          properties: {
+            id: { type: 'integer', example: 157336 },
+            title: { type: 'string', description: 'Movie title (movies).' },
+            name: { type: 'string', description: 'Series name (TV).' },
+            overview: { type: 'string' },
+            media_type: { type: 'string', enum: ['movie', 'tv'] },
+            poster_path: { type: 'string', nullable: true },
+            genre_ids: {
+              type: 'array',
+              items: { type: 'integer' },
+              description: 'TMDB genre ids attached to the work.',
+            },
+            vote_average: { type: 'number' },
+            popularity: { type: 'number' },
+            _sources: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Discovery bucket labels (e.g. curated, movie-popular) used for source boosts.',
+            },
+          },
+        },
+
+        RankedTmdbCandidate: {
+          allOf: [
+            { $ref: '#/components/schemas/TmdbRankCandidateInput' },
+            {
+              type: 'object',
+              properties: {
+                _score: { type: 'number', description: 'Aggregate affinity score (higher is better).' },
+                _primaryThemeMisses: { type: 'integer', description: 'How many primary profile themes lacked evidence.' },
+                _evidenceScore: { type: 'number', description: 'Theme + signal + keyword evidence subtotal.' },
+                _driftPenalty: { type: 'number', description: 'Concept-drift guard penalty (e.g. hedonism/utilitarianism).' },
+              },
+            },
+          ],
+        },
+
+        RankCandidatesResponse: {
+          type: 'object',
+          required: ['results'],
+          properties: {
+            results: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/RankedTmdbCandidate' },
+            },
+          },
+        },
+
         // ─── AI Quote Response ────────────────────────────────────────────────
         AIQuoteResponse: {
           type: 'object',
@@ -185,6 +298,10 @@ const options = {
       {
         name: 'AI Quotes',
         description: 'AI-powered philosophical quote generation using Google Gemini',
+      },
+      {
+        name: 'TMDB',
+        description: 'TMDB proxy and media-side helpers (search, discover, ranking)',
       },
     ],
   },
