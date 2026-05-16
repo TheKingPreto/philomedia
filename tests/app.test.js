@@ -8,6 +8,16 @@ describe('Basic API endpoints', () => {
     expect(res.headers.location).toMatch(/index\.html/i);
   });
 
+  test('GET /health should expose process and DB state', async () => {
+    const res = await request(app).get('/health');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({
+      status: expect.any(String),
+      db: expect.any(String),
+      uptime: expect.any(Number),
+    });
+  });
+
   test('GET /api-docs/swagger.json should return JSON', async () => {
     const res = await request(app).get('/api-docs/swagger.json');
     expect(res.statusCode).toBe(200);

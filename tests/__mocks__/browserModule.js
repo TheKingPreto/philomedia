@@ -41,8 +41,9 @@ export function scoreCuratedRelatedAffinity() {
 // philosophersmatch.js (se usado)
 export const matchPhilosopher = () => null;
 
-// main.js / search.js (se usados)
+// home.page.js (e outros pages) — mocks mínimos se testes importarem
 export const loadContent = async () => ({});
+export const loadMoreContent = async () => ({ results: [], hasMore: false, nextOffset: 0, totalWorks: 0 });
 
 // default export vazio para imports sem named exports
 export default {};

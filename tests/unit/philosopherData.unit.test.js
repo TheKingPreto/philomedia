@@ -81,24 +81,24 @@ describe('philosopher data helpers', () => {
     const profile = getPhilosopherProfileBySlug([
       {
         id: 'wiki-1',
-        quote: 'Sapere aude.',
-        author: 'Immanuel Kant',
-        themes: ['epistemology', 'idealism'],
+        quote: 'Justice is the first virtue of social institutions.',
+        author: 'John Rawls',
+        themes: ['political-philosophy', 'virtue'],
       },
       {
         id: 'wiki-2',
-        quote: 'Two things fill the mind with ever new admiration and awe.',
-        author: 'Immanuel Kant',
-        themes: ['metaphysics', 'ethics'],
+        quote: 'The veil of ignorance makes for fair choice against historic accident.',
+        author: 'John Rawls',
+        themes: ['social-justice', 'humanism'],
       },
-    ], 'immanuel-kant');
+    ], 'john-rawls');
 
     expect(profile).toEqual(expect.objectContaining({
-      slug: 'immanuel-kant',
-      name: 'Immanuel Kant',
+      slug: 'john-rawls',
+      name: 'John Rawls',
       quoteCount: 2,
     }));
-    expect(profile.summary).toContain('Immanuel Kant');
+    expect(profile.summary).toContain('John Rawls');
   });
 
   test('prioritizes Darwin around science and evolution instead of generic metaphysics', () => {
