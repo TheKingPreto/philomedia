@@ -4,6 +4,7 @@ import Quote from '../models/Quote.js';
 import { customQuotes } from '../../public/scripts/custom-quotes.js';
 import { getCustomQuoteTranslationPt } from '../../public/scripts/services/customQuoteTranslationsPt.js';
 import { normalizeQuoteThemes } from '../../public/scripts/domain/canonicalThemes.js';
+import { repairQuoteSpacing } from '../domain/i18n/repairQuoteSpacing.js';
 import { resolveQuoteForLocale } from '../domain/i18n/quoteDisplay.js';
 
 const WIKIQUOTE_PATH = path.resolve(process.cwd(), 'quotes_wikiquote.json');
@@ -135,7 +136,7 @@ export function mapDatabaseQuoteEntry(entry) {
 }
 
 export function mapWikiQuoteEntry(entry, index) {
-  const quote = String(entry.text || '').trim();
+  const quote = repairQuoteSpacing(String(entry.text || '').trim(), { locale: 'pt' });
 
   return {
     id: `wiki-${index + 1}`,
@@ -290,8 +291,11 @@ export function mergeQuoteCatalogEntries(entries = []) {
 }
 
 function projectCatalogEntryForLocale(entry, locale) {
-  const quote = resolveQuoteForLocale(entry, locale);
   const loc = String(locale || 'en').trim().toLowerCase() === 'pt' ? 'pt' : 'en';
+  let quote = resolveQuoteForLocale(entry, loc);
+  if (loc === 'pt') {
+    quote = repairQuoteSpacing(quote, { locale: 'pt' });
+  }
 
   return {
     ...entry,

@@ -1,4 +1,5 @@
 import { DAILY_PAIRINGS } from '../data/dailyPairings.js';
+import { resolveEditorialQuoteForLocale } from './editorialQuoteResolve.js';
 import * as tmdbClient from './tmdbClient.js';
 
 const DEFAULT_TIME_ZONE = process.env.DAILY_PAIRING_TIME_ZONE || 'America/Sao_Paulo';
@@ -204,6 +205,7 @@ export async function getDailyPairing({
   limit = DEFAULT_LIMIT,
   offset = 0,
   timeZone = DEFAULT_TIME_ZONE,
+  locale = 'en',
 } = {}) {
   const selected = getPairingForDate(date, timeZone);
   if (!selected) return null;
@@ -236,6 +238,11 @@ export async function getDailyPairing({
   const slice = allWorks.slice(safeOffset, safeOffset + safeLimit);
   const results = (await Promise.all(slice.map(getMediaSummary))).filter(Boolean);
   const nextOffset = safeOffset + slice.length;
+  const englishQuote = String(selected.entry.quote || '').trim();
+  const displayQuote = await resolveEditorialQuoteForLocale(
+    { quote: englishQuote, author: selected.entry.author },
+    locale,
+  );
 
   return {
     source: 'editorial-calendar',
@@ -243,7 +250,8 @@ export async function getDailyPairing({
     dateKey: selected.dateKey,
     dayOfYear: selected.dayOfYear,
     slug: selected.entry.slug,
-    quote: selected.entry.quote,
+    quote: displayQuote,
+    quote_en: englishQuote,
     author: selected.entry.author,
     themes: selected.entry.themes,
     highlightsTitle: 'In dialogue with today\'s quote',

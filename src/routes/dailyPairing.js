@@ -5,9 +5,13 @@ const router = express.Router();
 
 router.get('/', async (req, res) => {
   try {
+    const rawLocale = String(req.query.lang || req.query.locale || 'en').trim().toLowerCase();
+    const locale = rawLocale === 'pt' ? 'pt' : 'en';
+
     const pairing = await getDailyPairing({
       limit: req.query.limit,
       offset: req.query.offset,
+      locale,
     });
 
     if (!pairing) {

@@ -45,9 +45,26 @@ describe('daily pairing routes', () => {
     expect(mockGetDailyPairing).toHaveBeenCalledWith({
       limit: '3',
       offset: '2',
+      locale: 'en',
     });
     expect(response.body.offset).toBe(2);
     expect(response.body.limit).toBe(3);
+  });
+
+  test('GET / forwards lang=pt to the service', async () => {
+    const app = buildApp();
+    mockGetDailyPairing.mockResolvedValueOnce({
+      source: 'editorial-calendar',
+      quote: 'Citação em português.',
+      quote_en: 'Quote in English.',
+      results: [],
+    });
+
+    await request(app).get('/api/daily-pairing?lang=pt');
+
+    expect(mockGetDailyPairing).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: 'pt' }),
+    );
   });
 
   test('GET / returns 404 when the editorial calendar has no slot', async () => {

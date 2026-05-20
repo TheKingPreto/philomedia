@@ -219,6 +219,7 @@ function buildDailyPairingUrl({ limit = HOME_RESULT_LIMIT, offset = 0 } = {}) {
   const params = new URLSearchParams({
     limit: String(limit),
     offset: String(offset),
+    lang: getUiLocale(),
   });
   return `${DAILY_PAIRING_ENDPOINT}?${params.toString()}`;
 }
@@ -255,6 +256,7 @@ function mapDailyPairingContent(payload) {
     id: payload.slug || null,
     source: payload.source || 'editorial-calendar',
     quote: payload.quote,
+    quote_en: payload.quote_en || payload.quote,
     author: payload.author,
     themes: payload.themes || [],
     highlightsContext: payload.highlightsContext || '',
@@ -441,10 +443,10 @@ async function init() {
   try {
     const content = await loadContent();
     const displayQuote = await resolveDisplayQuoteText({
-      quote: content.quote,
+      quote: content.quote_en || content.quote,
       author: content.author,
       id: content.id,
-      quote_en: content.quote_en,
+      quote_en: content.quote_en || content.quote,
       quote_pt: content.quote_pt,
       quote_original: content.quote_original,
       originalLanguage: content.originalLanguage,
