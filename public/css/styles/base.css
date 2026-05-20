@@ -150,7 +150,8 @@ header {
   backdrop-filter: blur(20px) saturate(1.5);
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
   border-bottom: 1px solid var(--border);
-  padding: 0 2.5rem;
+  padding: 0 max(2.5rem, env(safe-area-inset-right)) 0 max(2.5rem, env(safe-area-inset-left));
+  padding-top: env(safe-area-inset-top);
   height: 64px;
   display: flex;
   align-items: center;
@@ -361,7 +362,7 @@ main {
   width: 100%;
   max-width: 1000px;
   margin: 0 auto;
-  padding: 3rem 2rem;
+  padding: 3rem max(2rem, env(safe-area-inset-right)) 3rem max(2rem, env(safe-area-inset-left));
 }
 
 /* ─── Quote Section (Home) ──────────────────────────────────────────────────── */
@@ -390,6 +391,11 @@ main {
   user-select: none;
 }
 
+#quote-container {
+  position: relative;
+  z-index: 1;
+}
+
 #quote-section h2 {
   font-size: 0.7rem;
   font-family: var(--font-body);
@@ -409,6 +415,8 @@ main {
   color: var(--text-primary);
   max-width: 680px;
   margin: 0 auto 1.25rem;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 
 #quote-author {
@@ -1968,7 +1976,7 @@ body.details-page main {
 /* ─── Footer ────────────────────────────────────────────────────────────────── */
 footer {
   border-top: 1px solid var(--border);
-  padding: 1.5rem 2.5rem;
+  padding: 1.5rem max(2.5rem, env(safe-area-inset-right)) max(1.5rem, env(safe-area-inset-bottom)) max(2.5rem, env(safe-area-inset-left));
   text-align: center;
   font-size: 0.8rem;
   color: var(--text-muted);
@@ -2001,32 +2009,113 @@ footer {
 /* ─── Responsive ────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   header {
-    padding: 0 1.25rem;
+    padding-left: max(1.25rem, env(safe-area-inset-left));
+    padding-right: max(1.25rem, env(safe-area-inset-right));
     min-height: 56px;
     height: auto;
-    padding-top: 0.65rem;
+    padding-top: max(0.65rem, env(safe-area-inset-top));
     padding-bottom: 0.65rem;
     align-items: flex-start;
     flex-wrap: wrap;
+    row-gap: 0.55rem;
+  }
+  .header-brand {
+    flex: 1 1 auto;
+    max-width: 100%;
   }
   .logo { font-size: 1.3rem; }
   .header-context { display: none; }
   nav {
     width: 100%;
+    flex: 1 1 100%;
     overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
     padding-bottom: 0.2rem;
     scrollbar-width: none;
+    gap: 0.15rem;
+    mask-image: linear-gradient(90deg, #000 92%, transparent);
   }
   nav::-webkit-scrollbar { display: none; }
-  nav a { padding: 0.3rem 0.6rem; font-size: 0.8rem; white-space: nowrap; }
-  .nav-auth-slot { gap: 0.2rem; }
+  nav a,
+  .nav-locale-btn {
+    min-height: 40px;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .nav-auth-slot {
+    gap: 0.2rem;
+    flex-shrink: 0;
+    margin-left: 0.2rem;
+    padding-left: 0.35rem;
+  }
   .nav-user-chip, .nav-muted-chip { display: none; }
 
-  main { padding: 2rem 1.25rem; }
+  main {
+    padding: 1.75rem max(1.25rem, env(safe-area-inset-right)) 2rem max(1.25rem, env(safe-area-inset-left));
+  }
 
-  #quote-section { padding: 2.5rem 1.5rem; }
-  #quote-text { font-size: 1.3rem; }
-  #quote-section::before { font-size: 7rem; }
+  footer {
+    padding: 1.25rem max(1.25rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+
+  .section-title { font-size: 1.45rem; }
+  .section-subtitle {
+    font-size: 0.85rem;
+    margin-bottom: 1.25rem;
+  }
+
+  #quote-section {
+    padding: 2rem 1.25rem;
+    margin-bottom: 2.5rem;
+  }
+  #quote-section h2 {
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    margin-bottom: 1.25rem;
+  }
+  #quote-text {
+    font-size: 1.25rem;
+    line-height: 1.55;
+    margin-bottom: 1rem;
+  }
+  #quote-author {
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    overflow-wrap: anywhere;
+  }
+  #quote-section::before {
+    font-size: 5.5rem;
+    top: 0.15rem;
+    left: 0.65rem;
+    opacity: 0.85;
+  }
+
+  .highlights-pagination {
+    width: 100%;
+    padding-inline: 0.15rem;
+  }
+  .highlights-pagination .ghost-button {
+    width: 100%;
+    max-width: 100%;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.35;
+    min-height: 44px;
+  }
+  .highlights-count {
+    text-align: center;
+    padding-inline: 0.25rem;
+  }
+
+  .loading-skeleton {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1rem;
+  }
 
   #details-container { flex-direction: column; gap: 1.75rem; }
   .details-poster { width: 60%; max-width: 200px; margin: 0 auto; }
@@ -2075,6 +2164,29 @@ footer {
 }
 
 @media (max-width: 480px) {
+  main {
+    padding-top: 1.35rem;
+    padding-bottom: 1.75rem;
+  }
+
+  .section-title { font-size: 1.3rem; }
+
+  #quote-section {
+    padding: 1.65rem 1rem;
+    margin-bottom: 2rem;
+    border-radius: var(--radius-md);
+  }
+  #quote-section h2 {
+    font-size: 0.58rem;
+    letter-spacing: 0.12em;
+  }
+  #quote-text { font-size: 1.1rem; }
+  #quote-section::before {
+    font-size: 4.25rem;
+    left: 0.35rem;
+    top: 0.35rem;
+  }
+
   .philosopher-hero-head {
     grid-template-columns: minmax(0, 1fr) 74px;
     gap: 0.75rem;
@@ -2085,11 +2197,22 @@ footer {
     height: 74px;
     border-radius: 20px;
   }
-}
 
-@media (max-width: 480px) {
   #highlights,
-  #search-results { grid-template-columns: repeat(2, 1fr); }
+  #search-results,
+  .results-grid,
+  .loading-skeleton {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .result-card-body { padding: 0.7rem; }
+  .result-card h3 { font-size: 0.88rem; }
+  .result-card .overview {
+    font-size: 0.74rem;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
