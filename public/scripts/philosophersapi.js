@@ -104,6 +104,7 @@ function toPortraitProxyUrl(rawUrl) {
     const host = url.hostname.toLowerCase();
     if (
       host === 'upload.wikimedia.org'
+      || host === 'thumb.wikimedia.org'
       || host === 'philosophersapi.com'
       || host === 'www.philosophersapi.com'
     ) {

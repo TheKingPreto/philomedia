@@ -112,6 +112,7 @@ body.details-page main {
   background: rgba(255, 255, 255, 0.03);
   color: #d6d4ce;
   border-radius: 999px;
+  min-height: 44px;
   padding: 0.7rem 1rem;
   font-family: 'DM Sans', system-ui, sans-serif;
   font-size: 0.74rem;
@@ -207,8 +208,8 @@ body.details-page main {
 
 .star-rating-button {
   appearance: none;
-  width: 2rem;
-  height: 2rem;
+  width: 2.75rem;
+  height: 2.75rem;
   padding: 0;
   border: 0;
   border-radius: 8px;
@@ -266,8 +267,8 @@ body.details-page main {
 
 .quote-rating-button {
   appearance: none;
-  width: 1.85rem;
-  height: 1.85rem;
+  width: 2.75rem;
+  height: 2.75rem;
   padding: 0;
   border: 0;
   border-radius: 8px;
@@ -579,6 +580,8 @@ body.details-page main {
   .details-info   { width: 100%; min-width: 0; }
   #details-title  { font-size: 1.75rem; overflow-wrap: anywhere; }
   .details-facts  { gap: 0.35rem 0.65rem; }
+  .detail-fact { max-width: 100%; }
+  .detail-fact::after { display: none; }
   .details-actions { gap: 0.65rem; flex-wrap: wrap; }
   .library-action-button { width: 100%; justify-content: center; }
   .details-user-rating { width: 100%; }

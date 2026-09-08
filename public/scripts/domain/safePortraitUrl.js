@@ -7,6 +7,7 @@
 export const ALLOWED_PORTRAIT_HOSTS = new Set([
   'philosophersapi.com',
   'upload.wikimedia.org',
+  'thumb.wikimedia.org',
 ]);
 
 function stripUrlSecrets(parsed) {
@@ -66,6 +67,17 @@ export function sanitizePortraitUrl(raw) {
 }
 
 /**
+ * Retratos remotos da allowlist só entram no DOM via proxy same-origin.
+ * A CSP bloqueia `upload.wikimedia.org` e `philosophersapi.com` em img-src.
+ */
+export function toDisplayPortraitUrl(raw) {
+  const safeUrl = sanitizePortraitUrl(raw);
+  if (!safeUrl) return '';
+  if (safeUrl.startsWith('/api/assets/portrait')) return safeUrl;
+  return sanitizePortraitUrl(`/api/assets/portrait?src=${encodeURIComponent(safeUrl)}`);
+}
+
+/**
  * Preenche um host de retrato via DOM (`src` em setAttribute). Nunca interpola a URL em HTML.
  * @returns {boolean} true se uma imagem segura foi aplicada
  */
@@ -81,10 +93,10 @@ export function fillPortraitHost(host, {
 } = {}) {
   if (!host) return false;
 
-  const safeUrl = sanitizePortraitUrl(url);
+  const displayUrl = toDisplayPortraitUrl(url);
   host.replaceChildren();
 
-  if (!safeUrl) {
+  if (!displayUrl) {
     host.classList.remove('philosopher-sigil-photo');
     host.textContent = String(initials || '');
     return false;
@@ -92,13 +104,18 @@ export function fillPortraitHost(host, {
 
   host.classList.add('philosopher-sigil-photo');
   const img = document.createElement('img');
-  img.setAttribute('src', safeUrl);
+  img.setAttribute('src', displayUrl);
   img.setAttribute('alt', String(alt || ''));
   img.loading = loading;
   if (width) img.setAttribute('width', String(width));
   if (height) img.setAttribute('height', String(height));
   if (fetchPriority) img.setAttribute('fetchpriority', fetchPriority);
   if (decoding) img.decoding = decoding;
+  img.addEventListener('error', () => {
+    host.classList.remove('philosopher-sigil-photo');
+    host.replaceChildren();
+    host.textContent = String(initials || '');
+  }, { once: true });
   host.appendChild(img);
   return true;
 }

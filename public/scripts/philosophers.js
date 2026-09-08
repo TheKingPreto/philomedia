@@ -101,8 +101,10 @@ function renderCards(container, profiles) {
         </div>
         <p class="philosopher-card-summary" data-philosopher-summary>${escapeHtml(display.summary)}</p>
         <div class="philosopher-chip-row">${createThemeChips(profile, display.themeLabels)}</div>
-        <div class="philosopher-card-quote">
-          <p>${display.quotePreview ? `"${escapeHtml(display.quotePreview)}"` : ''}</p>
+        <div class="philosopher-card-quote${display.quotePreview ? '' : ' is-empty'}">
+          <p>${display.quotePreview
+            ? `"${escapeHtml(display.quotePreview)}"`
+            : escapeHtml(t('philosophers.quote_pending'))}</p>
         </div>
         <div class="philosopher-card-footer">
           <span>${escapeHtml(t('philosophers.quotes_count', { count: profile.quoteCount }))}</span>

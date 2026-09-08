@@ -356,7 +356,10 @@ async function renderPhilosophicalTrending() {
 
     section.hidden = false;
     const localized = await localizeItemOverviews(ranked);
-    renderMediaCards(container, localized, { overviewLength: 100 });
+    renderMediaCards(container, localized, {
+      overviewLength: 80,
+      showOverview: false,
+    });
   } catch (error) {
     console.warn('Philosophical trending unavailable:', error.message);
     section.hidden = true;

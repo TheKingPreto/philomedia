@@ -5,6 +5,7 @@ export const MAX_JSON_PROXY_BYTES = 512 * 1024;
 
 export const PORTRAIT_ALLOWED_HOSTS = new Set([
   'upload.wikimedia.org',
+  'thumb.wikimedia.org',
   'philosophersapi.com',
   'www.philosophersapi.com',
 ]);

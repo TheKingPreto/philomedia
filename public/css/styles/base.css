@@ -52,6 +52,8 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 img {
@@ -162,6 +164,8 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .logo {
@@ -245,7 +249,8 @@ nav {
 }
 
 .nav-locale-btn {
-  min-height: 32px;
+  min-height: 44px;
+  min-width: 44px;
   padding: 0.2rem 0.55rem;
   font-size: 0.72rem;
   font-weight: 500;
@@ -275,7 +280,7 @@ nav a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
+  min-height: 44px;
   color: var(--text-secondary);
   font-size: 0.875rem;
   font-weight: 400;
@@ -310,7 +315,7 @@ nav a:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
+  min-height: 44px;
   padding: 0.4rem 0.85rem;
   color: var(--text-secondary);
   font: inherit;
@@ -651,6 +656,8 @@ a.result-card-link:hover .result-card-poster::after {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
   width: auto;
   height: auto;
   border: none;
@@ -736,6 +743,8 @@ a.result-card-link:hover .result-card-poster::after {
 
 #search-input {
   flex: 1;
+  min-width: 0;
+  min-height: 44px;
   background: var(--ink-muted);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -753,6 +762,7 @@ a.result-card-link:hover .result-card-poster::after {
 }
 
 #search-form button {
+  min-height: 44px;
   padding: 0.75rem 1.5rem;
   background: var(--gold);
   color: var(--ink);
@@ -822,6 +832,7 @@ a.result-card-link:hover .result-card-poster::after {
   background: rgba(255, 255, 255, 0.02);
   color: var(--text-secondary);
   border-radius: 999px;
+  min-height: 44px;
   padding: 0.55rem 0.9rem;
   font-family: var(--font-body);
   font-size: 0.74rem;
@@ -885,6 +896,7 @@ a.result-card-link:hover .result-card-poster::after {
   background: transparent;
   color: var(--text-secondary);
   border-radius: 999px;
+  min-height: 44px;
   padding: 0.65rem 1rem;
   font-family: var(--font-body);
   font-size: 0.74rem;
@@ -1048,6 +1060,7 @@ a.result-card-link:hover .result-card-poster::after {
   background: rgba(255, 255, 255, 0.03);
   color: var(--text-primary);
   border-radius: 999px;
+  min-height: 44px;
   padding: 0.7rem 1rem;
   font-family: var(--font-body);
   font-size: 0.78rem;
@@ -1177,7 +1190,7 @@ a.result-card-link:hover .result-card-poster::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
+  min-height: 44px;
   padding: 0.75rem 1.1rem;
   border-radius: 999px;
   background: rgba(201, 168, 76, 0.12);
@@ -1694,6 +1707,15 @@ a.result-card-link:hover .result-card-poster::after {
   line-height: 1.55;
 }
 
+.philosopher-card-quote.is-empty p,
+.philosopher-card-quote-empty {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-style: normal;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
 .philosopher-card-footer {
   display: flex;
   flex-wrap: wrap;
@@ -1833,7 +1855,7 @@ body.philosopher-detail-page .philosopher-sigil {
 .philosopher-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 34px;
+  min-height: 44px;
   padding: 0.45rem 0.8rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.03);
@@ -2196,6 +2218,7 @@ footer {
   font-size: 0.8rem;
   color: var(--text-muted);
   letter-spacing: 0.06em;
+  overflow-wrap: anywhere;
 }
 
 .tmdb-attribution {
@@ -2237,6 +2260,37 @@ footer {
   display: none;
 }
 
+/* Catalog shelf — several posters per row, never a full-bleed mural */
+.shelf-grid,
+#trending-results {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.shelf-grid .result-card-action {
+  font-size: 1.05rem;
+}
+
+.shelf-grid .result-card-actions {
+  top: 0.45rem;
+  left: 0.45rem;
+  right: 0.45rem;
+}
+
+.shelf-grid .result-card-body {
+  padding: 0.7rem 0.7rem 0.8rem;
+}
+
+.shelf-grid .result-card h3 {
+  font-size: 0.88rem;
+}
+
+.shelf-grid .result-card .overview {
+  display: none;
+}
+
 /* ─── Highlights Section ────────────────────────────────────────────────────── */
 #highlights-section {
   margin-top: 1rem;
@@ -2261,6 +2315,13 @@ footer {
 }
 
 /* ─── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 920px) {
+  .shelf-grid,
+  #trending-results {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 768px) {
   header {
     padding-left: max(1.25rem, env(safe-area-inset-left));
@@ -2282,22 +2343,19 @@ footer {
   nav {
     width: 100%;
     flex: 1 1 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 0.2rem;
-    scrollbar-width: none;
-    gap: 0.15rem;
-    mask-image: linear-gradient(90deg, #000 92%, transparent);
+    flex-wrap: wrap;
+    overflow: visible;
+    padding-bottom: 0;
+    gap: 0.2rem;
   }
-  nav::-webkit-scrollbar { display: none; }
   nav a,
-  .nav-locale-btn {
-    min-height: 40px;
-    padding: 0.35rem 0.65rem;
-    font-size: 0.8rem;
+  .nav-locale-btn,
+  .nav-logout-button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.78rem;
     white-space: nowrap;
-    flex-shrink: 0;
   }
   .nav-auth-slot {
     gap: 0.2rem;
@@ -2424,7 +2482,10 @@ footer {
   .philosopher-quote-text {
     font-size: 1.28rem;
   }
-  .philosopher-card-grid { gap: 1rem; }
+  .philosopher-card-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 1rem;
+  }
   .philosopher-pagination {
     margin-top: 2rem;
     padding-top: 0.5rem;
@@ -2440,6 +2501,12 @@ footer {
   #highlights,
   #search-results,
   .results-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
+
+  .shelf-grid,
+  #trending-results {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -2485,7 +2552,9 @@ footer {
   #highlights,
   #search-results,
   .results-grid,
-  .loading-skeleton {
+  .loading-skeleton,
+  .shelf-grid,
+  #trending-results {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.85rem;
   }

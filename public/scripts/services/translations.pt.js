@@ -190,6 +190,7 @@ export const PT_TRANSLATIONS = {
   'philosophers.stat_works': 'Obras vinculadas',
   'philosophers.stat_works_caption': 'Títulos do TMDB já conectados a esses pensadores por pareamentos curados.',
   'philosophers.quotes_count': '{{count}} citações',
+  'philosophers.quote_pending': 'Ainda sem citação catalogada para este pensador.',
   'philosophers.works_count': '{{count}} obras relacionadas',
   'philosophers.pagination_summary': 'Exibindo {{start}}–{{end}} de {{total}} pensadores.',
   'philosophers.page_label': 'Página {{page}} de {{total}}',

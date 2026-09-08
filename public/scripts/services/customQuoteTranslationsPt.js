@@ -1,5 +1,5 @@
 /**
- * Traduções revisadas (PT) das citações custom-quotes.js (ids 1001–1066).
+ * Traduções revisadas (PT) das citações custom-quotes.js (ids 1001–1074).
  * Geradas para exibição idiomática; atualize via `npm run translate:quotes:pt`.
  */
 export const CUSTOM_QUOTE_TRANSLATIONS_PT = {
@@ -65,8 +65,18 @@ export const CUSTOM_QUOTE_TRANSLATIONS_PT = {
   1060: 'Sobre si mesmo, sobre o próprio corpo e a própria mente, o indivíduo é soberano.',
   1061: 'Fizeste-nos para ti, Senhor, e inquieto está nosso coração enquanto não repousar em ti.',
   1062: 'A vida só pode ser compreendida retrospectivamente, mas deve ser vivida prospectivamente.',
+  1063: 'Não é o homem, mas os homens, que habitam esta terra. A pluralidade é a lei da Terra.',
   1064: 'A interpretação dos sonhos é a via régia para o conhecimento das atividades inconscientes da mente.',
+  1065: 'O revolucionário mais radical tornar-se-á um conservador no dia seguinte à revolução.',
   1066: 'Deus está morto. Deus continua morto. E nós o matamos.',
+  1067: 'A ignorância gera confiança com mais frequência do que o conhecimento: são os que sabem pouco, e não os que sabem muito, que afirmam de forma tão categórica que este ou aquele problema nunca será resolvido pela ciência.',
+  1068: 'Duas coisas enchem o ânimo de admiração e respeito sempre novos e crescentes, quanto mais frequentemente e com mais persistência delas se ocupa a reflexão: o céu estrelado acima de mim e a lei moral em mim.',
+  1069: 'Pensamentos sem conteúdo são vazios; intuições sem conceitos são cegas.',
+  1070: 'A felicidade não é o prémio da virtude, é a própria virtude.',
+  1071: 'Lute pelo sucesso e não pela fama. Se a fama vier, dê-lhe pouca importância.',
+  1072: 'Esforço-me por reunir o que há de divino em mim ao que há de Divino no Universo.',
+  1073: 'Se vi mais longe, foi por estar de pé sobre ombros de gigantes.',
+  1074: 'O que sabemos é uma gota; o que ignoramos é um oceano.',
 };
 
 export function getCustomQuoteTranslationPt(id) {

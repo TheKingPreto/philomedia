@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import {
   fillPortraitHost,
   sanitizePortraitUrl,
+  toDisplayPortraitUrl,
 } from '../../public/scripts/domain/safePortraitUrl.js';
 
 describe('sanitizePortraitUrl', () => {
@@ -16,6 +17,12 @@ describe('sanitizePortraitUrl', () => {
     const src = 'https://upload.wikimedia.org/wikipedia/commons/a/a2/x.jpg';
     expect(sanitizePortraitUrl(`/api/assets/portrait?src=${encodeURIComponent(src)}`))
       .toBe(`/api/assets/portrait?src=${encodeURIComponent(src)}`);
+  });
+
+  test('toDisplayPortraitUrl força o proxy para hosts remotos da allowlist', () => {
+    const src = 'https://upload.wikimedia.org/wikipedia/commons/a/a2/x.jpg';
+    expect(toDisplayPortraitUrl(src)).toBe(`/api/assets/portrait?src=${encodeURIComponent(src)}`);
+    expect(toDisplayPortraitUrl('javascript:alert(1)')).toBe('');
   });
 
   test('rejeita javascript, data, http e hosts fora da CSP', () => {
@@ -68,6 +75,7 @@ describe('fillPortraitHost', () => {
           setAttribute(name, value) {
             this.attrs[name] = value;
           },
+          addEventListener() {},
         };
         created.push(node);
         return node;
@@ -81,7 +89,9 @@ describe('fillPortraitHost', () => {
     });
 
     expect(ok).toBe(true);
-    expect(created[0].attrs.src).toBe('https://philosophersapi.com/face.jpg');
+    expect(created[0].attrs.src).toBe(
+      `/api/assets/portrait?src=${encodeURIComponent('https://philosophersapi.com/face.jpg')}`
+    );
     expect(created[0].attrs.alt).toBe('Kant');
     expect(host.child).toBe(created[0]);
 

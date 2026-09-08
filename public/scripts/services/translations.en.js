@@ -190,6 +190,7 @@ export const EN_TRANSLATIONS = {
   'philosophers.stat_works': 'Linked works',
   'philosophers.stat_works_caption': 'TMDB titles already connected to these thinkers through curated pairings.',
   'philosophers.quotes_count': '{{count}} quotes',
+  'philosophers.quote_pending': 'No catalogued quote for this thinker yet.',
   'philosophers.works_count': '{{count}} related works',
   'philosophers.pagination_summary': 'Showing {{start}}-{{end}} of {{total}} thinkers.',
   'philosophers.page_label': 'Page {{page}} of {{total}}',

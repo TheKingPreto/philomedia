@@ -40,6 +40,8 @@ describe('remoteAssetProxy', () => {
     expect(parsePortraitSource('https://evil.example/a.jpg')).toMatchObject({ status: 403 });
     expect(parsePortraitSource('https://upload.wikimedia.org/foo.jpg').url.hostname)
       .toBe('upload.wikimedia.org');
+    expect(parsePortraitSource('https://thumb.wikimedia.org/wikipedia/commons/a.jpg').url.hostname)
+      .toBe('thumb.wikimedia.org');
     expect(parsePortraitSource('https://philosophersapi.com/face.jpg').url.hostname)
       .toBe('philosophersapi.com');
   });

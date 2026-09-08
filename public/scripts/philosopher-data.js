@@ -17,6 +17,7 @@ import {
 import { THEME_GENRE_HINTS, flattenThemeGenreHint } from './domain/themeGenreHints.js';
 import { CURATED_TV_IDS } from './domain/curatedTvIds.js';
 import { LENS_DEFINITIONS as SHARED_LENS_DEFINITIONS } from './domain/lensCatalog.js';
+import { CURATED_PORTRAIT_URLS } from './domain/curatedPortraits.js';
 
 export { formatThemeLabel, normalizePhilosopherTheme, normalizeQuoteThemes };
 
@@ -123,7 +124,7 @@ const PHILOSOPHER_PROFILE_DETAILS = {
     ],
     discoveryQueries: ['evolution', 'natural selection', 'biology', 'scientific discovery'],
     relatedWorkThreshold: 30,
-    featuredQuoteId: 'wiki-318',
+    featuredQuoteId: 1067,
   },
   'karl-marx': {
     period: '19th-century Germany · 1818-1883',
@@ -178,14 +179,14 @@ const PHILOSOPHER_PROFILE_DETAILS = {
     period: 'Enlightenment Prussia · 1724-1804',
     summary: 'Kant ties together critique of knowledge, the moral law, and the conditions that make experience possible as parts of one rigorous project.',
     focus: 'On PhiloMedia he reads best next to works about duty, evidence, limits of reason, and the tension between scientific law and human dignity.',
-    featuredQuoteId: 'wiki-11',
+    featuredQuoteId: 1069,
     priorityThemes: ['epistemology', 'virtue', 'metaphysics', 'political-philosophy'],
   },
   'baruch-spinoza': {
     period: 'Dutch Golden Age · 1632-1677',
     summary: 'Spinoza thinks God, nature, and reason as one substance, linking knowledge of causes with human freedom and the love of what is necessary.',
     focus: 'He matches narratives where clarity, affect, and metaphysical stakes reshape ethics rather than quick confessional drama.',
-    featuredQuoteId: 'wiki-35',
+    featuredQuoteId: 1070,
     priorityThemes: ['metaphysics', 'virtue', 'epistemology'],
   },
   'david-hume': {
@@ -269,14 +270,14 @@ const PHILOSOPHER_PROFILE_DETAILS = {
     period: '20th-century Germany and United States · 1906-1975',
     summary: 'Arendt studies plurality, power, and political action, tracing how total domination and thoughtlessness hollow out common worlds.',
     focus: 'She aligns with fiction about public life, responsibility, revolution, and evil as banal routine.',
-    featuredQuoteId: 'wiki-267',
+    featuredQuoteId: 1063,
     priorityThemes: ['political-philosophy', 'power-corruption', 'truth-deception'],
   },
   'augusto-cury': {
     period: 'Contemporary Brazil',
     summary: 'Cury writes at the crossroads of clinical insight and popular ethics, stressing anxiety management, creativity, and emotional education.',
     focus: 'His quotes pair with accessible dramas about burnout, resilience, and everyday mental hygiene.',
-    featuredQuoteId: 'wiki-279',
+    featuredQuoteId: 1071,
     priorityThemes: ['self-knowledge', 'humanism', 'virtue'],
   },
   'sigmund-freud': {
@@ -290,14 +291,14 @@ const PHILOSOPHER_PROFILE_DETAILS = {
     period: 'Late antiquity · 204-270',
     summary: 'Plotinus renews Platonism through contemplative ascent, describing soul, intellect, and the One as layered emanations of the good.',
     focus: 'He fits mystical arcs, beauty as revelation, and narratives longing to reunite with source.',
-    featuredQuoteId: 'wiki-97',
+    featuredQuoteId: 1072,
     priorityThemes: ['metaphysics', 'sacred-profane', 'aesthetics'],
   },
   'isaac-newton': {
     period: 'Early modern England · 1643-1727',
     summary: 'Newton fuses bold mathematics with experiment, modeling force, motion, and celestial order while insisting humility before what remains unknown.',
     focus: 'Use him where rigor, mystery, and the scale of the cosmos frame human inquiry.',
-    featuredQuoteId: 'wiki-335',
+    featuredQuoteId: 1073,
     priorityThemes: ['epistemology', 'metaphysics', 'truth-deception'],
   },
 };
@@ -305,6 +306,7 @@ const PHILOSOPHER_PROFILE_DETAILS = {
 export const PHILOSOPHER_DEFINITIONS = PHILOSOPHER_AUTHORS.map((author) => ({
   ...author,
   ...PHILOSOPHER_PROFILE_DETAILS[author.slug],
+  portraitUrl: CURATED_PORTRAIT_URLS[author.slug] || '',
 }));
 
 /** Deriva do catálogo único em domain/lensCatalog.js — ids/labels/temas não se duplicam. */
@@ -779,7 +781,7 @@ export function buildPhilosopherIndexProfiles(quotes = [], philosopherDirectory 
       linkedWorkIds: [],
       linkedWorkCount: 0,
       url: getPhilosopherUrl(definition.slug),
-      portraitUrl: directoryEntry?.portraitUrl || '',
+      portraitUrl: definition.portraitUrl || directoryEntry?.portraitUrl || '',
       wikiTitle: directoryEntry?.wikiTitle || '',
       needsReferenceMetadata: false,
       isCommunitySubmitted: false,
