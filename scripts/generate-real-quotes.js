@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { customQuotes } from './custom-quotes.js';
+import { customQuotes } from '../public/scripts/custom-quotes.js';
 import { THEME_BUCKETS } from './theme-buckets.js';
 
 const ROOT = process.cwd();

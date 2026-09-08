@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as dotenv from 'dotenv';
-import { translateQuotesBatch } from '../../src/services/QuoteTranslationService.js';
+import { translateQuotesBatch } from '../src/services/QuoteTranslationService.js';
 
 dotenv.config();
 

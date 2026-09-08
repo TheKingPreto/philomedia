@@ -3,7 +3,7 @@
  * @description Migrates all quotes from scripts/custom-quotes.js into MongoDB.
  *
  * Run once (or whenever custom-quotes.js is updated):
- *   node public/scripts/seed-quotes.js
+ *   node scripts/seed-quotes.js
  *
  * Safe to re-run — uses upsert on legacyId so existing docs are updated,
  * not duplicated. New quotes are inserted automatically.
@@ -11,8 +11,8 @@
 
 import mongoose from 'mongoose';
 import * as dotenv from 'dotenv';
-import { customQuotes } from './custom-quotes.js';
-import Quote from '../../src/models/Quote.js';
+import { customQuotes } from '../public/scripts/custom-quotes.js';
+import Quote from '../src/models/Quote.js';
 
 dotenv.config();
 

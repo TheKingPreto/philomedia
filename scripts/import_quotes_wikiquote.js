@@ -3,7 +3,7 @@
  * @description Imports quotes from quotes_wikiquote.json into MongoDB.
  *
  * Usage:
- *   node public/scripts/import_quotes_wikiquote.js
+ *   node scripts/import_quotes_wikiquote.js
  *
  * Features:
  *  - Uses MONGODB_URI from .env (never hardcoded)
@@ -20,7 +20,7 @@ import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
 import * as dotenv from 'dotenv';
-import Quote from '../../src/models/Quote.js';
+import Quote from '../src/models/Quote.js';
 
 dotenv.config();
 

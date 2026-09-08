@@ -5,8 +5,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as dotenv from 'dotenv';
-import { customQuotes } from './custom-quotes.js';
-import { translateQuotesBatch } from '../../src/services/QuoteTranslationService.js';
+import { customQuotes } from '../public/scripts/custom-quotes.js';
+import { translateQuotesBatch } from '../src/services/QuoteTranslationService.js';
 
 dotenv.config();
 
