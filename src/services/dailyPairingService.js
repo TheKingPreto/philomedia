@@ -8,6 +8,8 @@ const MAX_LIMIT = 10;
 const SUPPLEMENT_MINIMUM = 10;
 const SUPPLEMENT_EXTRA_MARGIN = 4;
 const mediaCache = new Map();
+const MEDIA_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const MEDIA_CACHE_MAX = 200;
 /** @type {Map<string, Array<{ tmdbId: string, mediaType: string, _supplemental?: boolean }>>} */
 const supplementalWorksByDayKey = new Map();
 
@@ -99,13 +101,23 @@ function mapDetailsToSummary(details, mediaType) {
 
 async function getMediaSummary(work) {
   const cacheKey = normalizeWorkKey(work);
-  if (!mediaCache.has(cacheKey)) {
-    mediaCache.set(cacheKey, tmdbClient.getDetails(work.tmdbId, work.mediaType)
-      .then(details => mapDetailsToSummary(details, work.mediaType))
-      .catch(() => null));
+  const now = Date.now();
+  const cached = mediaCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return cached.promise;
   }
 
-  return mediaCache.get(cacheKey);
+  if (mediaCache.size >= MEDIA_CACHE_MAX && !mediaCache.has(cacheKey)) {
+    const oldestKey = mediaCache.keys().next().value;
+    if (oldestKey !== undefined) mediaCache.delete(oldestKey);
+  }
+
+  const promise = tmdbClient.getDetails(work.tmdbId, work.mediaType)
+    .then(details => mapDetailsToSummary(details, work.mediaType))
+    .catch(() => null);
+
+  mediaCache.set(cacheKey, { promise, expiresAt: now + MEDIA_CACHE_TTL_MS });
+  return promise;
 }
 
 function getThemeGenresForEntry(entry) {

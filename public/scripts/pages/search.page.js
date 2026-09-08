@@ -15,7 +15,7 @@ import { getLocalizedLensById } from '/scripts/services/searchFilterI18n.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 import { localizeItemOverviews } from '/scripts/services/tmdbOverviewI18n.js';
 import { createMediaCard, hydrateMediaCards, renderMediaCards } from '/scripts/media-card.js';
-import { getLensById, getRatingFilterById } from '/scripts/domain/searchFilters.js';
+import { getLensById, getRatingFilterById, buildLensKeywordDiscoverOptions, buildLensGenreDiscoverOptions } from '/scripts/domain/searchFilters.js';
 import { annotateResults, mergeResultsByIdentity, scoreLensAffinity } from '/scripts/domain/searchLensRanking.js';
 import {
   applySearchToolbarFilters,
@@ -150,20 +150,16 @@ async function extendLensPool(lensId) {
   if (!lens) return;
 
   const page = Math.floor(state.rawResults.length / 20) + 1;
-  const movieGenreFilter = (lens.movieGenres || []).join('|');
-  const tvGenreFilter = (lens.tvGenres || []).join('|');
+  const keywordOptions = buildLensKeywordDiscoverOptions(lens, { page, sortBy: 'vote_average.desc' });
+  const useKeywords = Boolean(keywordOptions.withKeywords);
 
   const [moreMovies, moreSeries] = await Promise.all([
-    discoverTMDBCached('movie', {
-      page,
-      withGenres: movieGenreFilter,
-      sortBy: 'vote_average.desc',
-    }),
-    discoverTMDBCached('tv', {
-      page,
-      withGenres: tvGenreFilter,
-      sortBy: 'vote_average.desc',
-    }),
+    discoverTMDBCached('movie', useKeywords
+      ? keywordOptions
+      : buildLensGenreDiscoverOptions(lens, 'movie', { page, sortBy: 'vote_average.desc' })),
+    discoverTMDBCached('tv', useKeywords
+      ? keywordOptions
+      : buildLensGenreDiscoverOptions(lens, 'tv', { page, sortBy: 'vote_average.desc' })),
   ]);
 
   const existing = new Set(state.rawResults.map(r => `${r.media_type}:${r.id}`));
@@ -333,8 +329,8 @@ async function runThemeDiscovery(lensId) {
 
   setSearchLoading(searchPageEls, `Exploring ${lens.label.toLowerCase()}...`);
 
-  const movieGenreFilter = (lens.movieGenres || []).join('|');
-  const tvGenreFilter = (lens.tvGenres || []).join('|');
+  const keywordOptions = buildLensKeywordDiscoverOptions(lens);
+  const hasKeywords = Boolean(keywordOptions.withKeywords);
 
   const [
     movieRated,
@@ -344,23 +340,23 @@ async function runThemeDiscovery(lensId) {
   ] = await Promise.all([
     discoverTMDBCached('movie', {
       page: 1,
-      withGenres: movieGenreFilter,
       sortBy: 'vote_average.desc',
+      ...(hasKeywords ? keywordOptions : buildLensGenreDiscoverOptions(lens, 'movie')),
     }),
     discoverTMDBCached('movie', {
       page: 1,
-      withGenres: movieGenreFilter,
       sortBy: 'popularity.desc',
+      ...(hasKeywords ? keywordOptions : buildLensGenreDiscoverOptions(lens, 'movie')),
     }),
     discoverTMDBCached('tv', {
       page: 1,
-      withGenres: tvGenreFilter,
       sortBy: 'vote_average.desc',
+      ...(hasKeywords ? keywordOptions : buildLensGenreDiscoverOptions(lens, 'tv')),
     }),
     discoverTMDBCached('tv', {
       page: 1,
-      withGenres: tvGenreFilter,
       sortBy: 'popularity.desc',
+      ...(hasKeywords ? keywordOptions : buildLensGenreDiscoverOptions(lens, 'tv')),
     }),
   ]);
 
@@ -378,13 +374,13 @@ async function runThemeDiscovery(lensId) {
     const [movieRatedPageTwo, seriesRatedPageTwo] = await Promise.all([
       discoverTMDBCached('movie', {
         page: 2,
-        withGenres: movieGenreFilter,
         sortBy: 'vote_average.desc',
+        ...(hasKeywords ? keywordOptions : buildLensGenreDiscoverOptions(lens, 'movie')),
       }),
       discoverTMDBCached('tv', {
         page: 2,
-        withGenres: tvGenreFilter,
         sortBy: 'vote_average.desc',
+        ...(hasKeywords ? keywordOptions : buildLensGenreDiscoverOptions(lens, 'tv')),
       }),
     ]);
 
@@ -399,14 +395,17 @@ async function runThemeDiscovery(lensId) {
   }
 
   if (combined.length < 12 || currentMovieCount < 4 || currentSeriesCount < 4) {
+    const genreFallback = hasKeywords;
     const [fallbackMovies, fallbackSeries] = await Promise.all([
       discoverTMDBCached('movie', {
         page: 1,
         sortBy: 'vote_average.desc',
+        ...(genreFallback ? buildLensGenreDiscoverOptions(lens, 'movie') : {}),
       }),
       discoverTMDBCached('tv', {
         page: 1,
         sortBy: 'vote_average.desc',
+        ...(genreFallback ? buildLensGenreDiscoverOptions(lens, 'tv') : {}),
       }),
     ]);
 

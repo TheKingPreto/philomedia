@@ -10,6 +10,7 @@ import { getDetailsFromTMDB } from '/scripts/seriesapi.js';
 import { discoverTMDBCached, searchTMDBCached } from '/scripts/services/tmdbCachedClient.js';
 import { getReviewContextForItem } from '/scripts/services/searchLensReviewRerankService.js';
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
+import { getLensById } from '/scripts/domain/searchFilters.js';
 import { updatePageSeo } from '/scripts/seo.js';
 import { PHILOSOPHER_CONTEXT_STOPWORDS } from '/scripts/domain/detailsPageConfig.js';
 import {
@@ -158,10 +159,24 @@ async function loadCuratedWorks(profile) {
   return results.filter(Boolean);
 }
 
+function getProfileKeywordQuery(profile) {
+  const ids = [];
+  for (const lens of profile.lenses || []) {
+    const definition = getLensById(lens.id);
+    if (!definition) continue;
+    for (const item of definition.tmdbKeywords || []) {
+      const id = Number(item.id);
+      if (Number.isInteger(id) && id > 0) ids.push(id);
+    }
+  }
+  return [...new Set(ids)].join('|');
+}
+
 async function loadThemeDiscovery(profile) {
   const preferredGenres = getPreferredGenres(profile);
+  const withKeywords = getProfileKeywordQuery(profile);
 
-  const [moviesByRating, moviesByPopularity, seriesByRating, seriesByPopularity] = await Promise.all([
+  const [moviesByRating, moviesByPopularity, seriesByRating, seriesByPopularity, keywordMovies, keywordSeries] = await Promise.all([
     discoverTMDBCached('movie', {
       page: 1,
       withGenres: preferredGenres.movie.join('|'),
@@ -182,6 +197,12 @@ async function loadThemeDiscovery(profile) {
       withGenres: preferredGenres.tv.join('|'),
       sortBy: 'popularity.desc',
     }),
+    withKeywords
+      ? discoverTMDBCached('movie', { page: 1, withKeywords, sortBy: 'vote_average.desc' })
+      : Promise.resolve([]),
+    withKeywords
+      ? discoverTMDBCached('tv', { page: 1, withKeywords, sortBy: 'vote_average.desc' })
+      : Promise.resolve([]),
   ]);
 
   return mergeCandidateBuckets([
@@ -189,6 +210,8 @@ async function loadThemeDiscovery(profile) {
     { source: 'movie-popular', items: moviesByPopularity },
     { source: 'tv-rated', items: seriesByRating },
     { source: 'tv-popular', items: seriesByPopularity },
+    { source: 'movie-keywords', items: keywordMovies },
+    { source: 'tv-keywords', items: keywordSeries },
   ]);
 }
 

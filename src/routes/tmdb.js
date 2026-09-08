@@ -21,6 +21,24 @@ function handleTMDBError(res, error, logLabel, clientMessage) {
     return res.status(502).json({ error: 'TMDB API key not configured' });
   }
 
+  if (error?.code === 'tmdb_rate_limited' || error?.status === 429) {
+    return res.status(429).json({
+      error: 'TMDB rate limit reached. Please try again shortly.',
+      code: 'tmdb_rate_limited',
+    });
+  }
+
+  if (error?.code === 'tmdb_timeout' || error?.status === 504) {
+    return res.status(504).json({
+      error: 'TMDB request timed out.',
+      code: 'tmdb_timeout',
+    });
+  }
+
+  if (error?.status === 404) {
+    return res.status(404).json({ error: 'Not found on TMDB.' });
+  }
+
   return res.status(502).json({ error: clientMessage });
 }
 
@@ -71,6 +89,8 @@ router.get('/discover', async (req, res) => {
     media = 'movie',
     page = 1,
     with_genres,
+    with_keywords,
+    without_keywords,
     with_original_language,
     sort_by = 'vote_average.desc',
   } = req.query;
@@ -78,6 +98,8 @@ router.get('/discover', async (req, res) => {
   try {
     const results = await tmdbClient.getDiscover(String(media), page, {
       withGenres: with_genres ? String(with_genres) : undefined,
+      withKeywords: with_keywords ? String(with_keywords) : undefined,
+      withoutKeywords: without_keywords ? String(without_keywords) : undefined,
       withOriginalLanguage: with_original_language ? String(with_original_language) : undefined,
       sortBy: String(sort_by),
       language: resolveTmdbLanguage(req),

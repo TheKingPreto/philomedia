@@ -7,6 +7,7 @@ import {
   getCuratedPhilosophicalProfile,
   scoreCuratedProfileForLens,
 } from '/scripts/curatedPhilosophicalProfiles.js';
+import { getLensTextKeywords } from '/scripts/domain/searchFilters.js';
 import { normalizeText } from '/scripts/ui/viewHelpers.js';
 
 export const LENS_GENRE_OVERLAP_MIN_HERM = 8;
@@ -111,7 +112,8 @@ export function scoreLensAffinity(item, lens) {
     }
   });
 
-  lens.keywords.forEach((keyword, index) => {
+  const textKeywords = getLensTextKeywords(lens);
+  textKeywords.forEach((keyword, index) => {
     if (normalized.includes(normalizeText(keyword))) {
       hasKeywordHit = true;
       score += Math.max(4, 12 - index * 1.5);

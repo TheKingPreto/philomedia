@@ -259,7 +259,9 @@ app.use((req, res, next) => {
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   }
 
-  if (req.path.startsWith('/api/') || req.path.startsWith('/auth')) {
+  if (req.path.startsWith('/api/tmdb') && req.method === 'GET') {
+    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
+  } else if (req.path.startsWith('/api/') || req.path.startsWith('/auth')) {
     res.setHeader('Cache-Control', 'no-store');
   }
   next();

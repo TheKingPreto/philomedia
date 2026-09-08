@@ -145,11 +145,33 @@ export function scoreQuoteTokenAlignmentGrouped(sourceTokens, quote) {
   return score;
 }
 
+export function extractTmdbKeywordNames(details) {
+  if (Array.isArray(details?.tmdbKeywords) && details.tmdbKeywords.length) {
+    return details.tmdbKeywords
+      .map(item => (typeof item === 'string' ? item : item?.name))
+      .filter(Boolean);
+  }
+
+  const payload = details?.keywords;
+  const list = Array.isArray(payload?.keywords)
+    ? payload.keywords
+    : Array.isArray(payload?.results)
+      ? payload.results
+      : Array.isArray(payload)
+        ? payload
+        : [];
+
+  return list
+    .map(item => (typeof item === 'string' ? item : item?.name))
+    .filter(Boolean);
+}
+
 export function buildSourceContext(details, reviews = []) {
   const parts = [
     getDisplayTitle(details),
     details.overview || '',
     Array.isArray(details.genres) ? details.genres.map(genre => genre?.name).filter(Boolean).join(' ') : '',
+    extractTmdbKeywordNames(details).join(' '),
     Array.isArray(reviews) ? reviews.map(review => review.content || '').join(' ') : '',
   ].filter(Boolean);
 

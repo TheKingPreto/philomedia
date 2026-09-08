@@ -82,10 +82,26 @@ describe('tmdb routes', () => {
     expect(response.body).toEqual([{ id: 42, media_type: 'movie' }]);
     expect(mockGetDiscover).toHaveBeenCalledWith('tv', '2', {
       withGenres: '18|10765',
+      withKeywords: undefined,
+      withoutKeywords: undefined,
       withOriginalLanguage: 'ja',
       sortBy: 'popularity.desc',
       language: 'en-US',
     });
+  });
+
+  test('GET /discover forwards keyword filters', async () => {
+    const app = buildApp();
+    mockGetDiscover.mockResolvedValueOnce([]);
+
+    await request(app).get(
+      '/api/tmdb/discover?media=movie&with_keywords=4565|181324&without_keywords=9715'
+    );
+
+    expect(mockGetDiscover).toHaveBeenCalledWith('movie', 1, expect.objectContaining({
+      withKeywords: '4565|181324',
+      withoutKeywords: '9715',
+    }));
   });
 
   test('GET /recommendations returns 400 for invalid media type', async () => {
@@ -106,6 +122,22 @@ describe('tmdb routes', () => {
 
     expect(response.status).toBe(502);
     expect(response.body).toEqual({ error: 'TMDB API key not configured' });
+  });
+
+  test('GET /similar maps a TMDB 429 to 429', async () => {
+    const app = buildApp();
+    const rateLimit = new Error('TMDB request failed with status 429.');
+    rateLimit.status = 429;
+    rateLimit.code = 'tmdb_rate_limited';
+    mockGetSimilar.mockRejectedValueOnce(rateLimit);
+
+    const response = await request(app).get('/api/tmdb/similar?id=1&type=movie');
+
+    expect(response.status).toBe(429);
+    expect(response.body).toEqual({
+      error: 'TMDB rate limit reached. Please try again shortly.',
+      code: 'tmdb_rate_limited',
+    });
   });
 
   test('POST /rank-candidates returns 400 when profile is missing', async () => {

@@ -4,6 +4,7 @@
 
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { getReviewsFromTMDB } from '/scripts/seriesapi.js';
+import { getLensTextKeywords } from '/scripts/domain/searchFilters.js';
 import { normalizeText } from '/scripts/ui/viewHelpers.js';
 
 export const REVIEW_RERANK_LIMIT = 6;
@@ -34,7 +35,7 @@ export function scoreLensTextAffinity(text, lens) {
     }
   });
 
-  lens.keywords.forEach((keyword, index) => {
+  getLensTextKeywords(lens).forEach((keyword, index) => {
     if (normalized.includes(normalizeText(keyword))) {
       score += Math.max(3, 9 - index * 1.1);
     }

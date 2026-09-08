@@ -84,6 +84,8 @@ export async function discoverTMDB(media, options = {}) {
   }));
 
   if (options.withGenres) params.set('with_genres', options.withGenres);
+  if (options.withKeywords) params.set('with_keywords', options.withKeywords);
+  if (options.withoutKeywords) params.set('without_keywords', options.withoutKeywords);
   if (options.withOriginalLanguage) {
     params.set('with_original_language', options.withOriginalLanguage);
   }

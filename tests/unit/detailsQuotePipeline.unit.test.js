@@ -15,8 +15,10 @@ import {
 import {
   buildGenreThemeWeights,
   buildQuoteThemeWeights,
+  buildSourceContext,
   buildSourceThemeWeights,
   clearQuoteScoringCache,
+  extractTmdbKeywordNames,
   hashString,
   rankQuotesForSource,
   resolveQuoteCandidatePool,
@@ -240,6 +242,30 @@ describe('buildQuoteThemeWeights', () => {
     const after = buildQuoteThemeWeights(quote);
     expect(after).not.toBe(before);
     expect([...after.entries()]).toEqual([...before.entries()]);
+  });
+});
+
+describe('extractTmdbKeywordNames', () => {
+  it('lê o formato de filme e o de série', () => {
+    expect(extractTmdbKeywordNames({
+      keywords: { keywords: [{ id: 4565, name: 'dystopia' }] },
+    })).toEqual(['dystopia']);
+
+    expect(extractTmdbKeywordNames({
+      keywords: { results: [{ id: 181324, name: 'existentialism' }] },
+    })).toEqual(['existentialism']);
+  });
+
+  it('entra no contexto textual da obra', () => {
+    const context = buildSourceContext({
+      title: 'Arrival',
+      overview: 'A linguist meets visitors.',
+      genres: [{ id: 878, name: 'Science Fiction' }],
+      tmdbKeywords: [{ id: 4379, name: 'time travel' }],
+    });
+
+    expect(context).toContain('time travel');
+    expect(context).toContain('Arrival');
   });
 });
 
