@@ -1,5 +1,4 @@
 import { analyzeWorkForThemes } from './hermeneutics.js';
-import { THEME_DATABASE } from './themedatabase.js';
 import { curatedQuoteMatches } from './curatedmatches.js';
 import {
   formatThemeLabel,
@@ -7,74 +6,76 @@ import {
   normalizePhilosopherTheme,
   normalizeQuoteThemes,
 } from './domain/canonicalThemes.js';
+import {
+  PHILOSOPHER_AUTHORS,
+  getDisplayAuthorName,
+  getPhilosopherSlugByAuthor,
+  getPhilosopherUrl,
+  getPhilosopherUrlByAuthor,
+  slugifyName,
+} from './domain/philosopherAuthors.js';
+import { THEME_GENRE_HINTS, flattenThemeGenreHint } from './domain/themeGenreHints.js';
+import { CURATED_TV_IDS } from './domain/curatedTvIds.js';
 
 export { formatThemeLabel, normalizePhilosopherTheme, normalizeQuoteThemes };
 
-export const CURATED_TV_IDS = new Set([
-  '1396', '1399', '1402', '1668', '2316', '4607', '1418', '60735', '1429',
-  '60625', '19885', '63174', '119051', '71446', '57243', '1104', '456',
-  '1438', '70523', '1424', '1408', '62560', '1407', '1991', '9322', '43865',
-  '88751', '128', '46260', '46298', '395',
-]);
+// Reexportados para quem já os importava daqui. A implementação vive nos
+// módulos leves, que a home e a página de detalhes usam sem carregar as
+// biografias — importar daqui traz o ficheiro inteiro.
+export {
+  CURATED_TV_IDS,
+  THEME_GENRE_HINTS,
+  flattenThemeGenreHint,
+  getDisplayAuthorName,
+  getPhilosopherUrl,
+  getPhilosopherUrlByAuthor,
+};
 
-export const PHILOSOPHER_DEFINITIONS = [
-  {
-    slug: 'socrates',
-    name: 'Socrates',
+/**
+ * Biografia e sinais de descoberta por pensador, indexados por slug.
+ * A identidade (slug, nome, apelidos) vive em domain/philosopherAuthors.js —
+ * este objecto acrescenta o que só as páginas de pensadores consomem.
+ */
+const PHILOSOPHER_PROFILE_DETAILS = {
+  socrates: {
     period: 'Classical Greece · 470-399 BCE',
     summary: 'Socratic thought turns philosophy into a lived practice of questioning, humility, and ethical self-examination.',
     focus: 'His presence in PhiloMedia revolves around virtue, ignorance, and the discipline of examining life before acting.',
-    aliases: ['Socrates'],
     featuredQuoteId: 1001,
     priorityThemes: ['epistemology', 'virtue', 'self-knowledge'],
   },
-  {
-    slug: 'plato',
-    name: 'Plato',
+  plato: {
     period: 'Classical Greece · 428-348 BCE',
     summary: 'Plato frames philosophy as a search for truth beyond appearances, pairing political reflection with questions about knowledge and the soul.',
     focus: 'Across the site, Plato tends to surface where stories wrestle with truth, light, leadership, and the cost of remaining in illusion.',
-    aliases: ['Plato'],
     featuredQuoteId: 1008,
     priorityThemes: ['epistemology', 'metaphysics', 'political-philosophy'],
   },
-  {
-    slug: 'aristotle',
-    name: 'Aristotle',
+  aristotle: {
     period: 'Classical Greece · 384-322 BCE',
     summary: 'Aristotle centers habit, practical reason, and the idea that character is built through repeated action rather than sudden revelation.',
     focus: 'His quotes in PhiloMedia often anchor stories about reflection, excellence, flourishing, and the ethics of everyday decisions.',
-    aliases: ['Aristotle'],
     featuredQuoteId: 1015,
     priorityThemes: ['virtue', 'epistemology', 'self-knowledge'],
   },
-  {
-    slug: 'niccolo-machiavelli',
-    name: 'Niccolò Machiavelli',
+  'niccolo-machiavelli': {
     period: 'Renaissance Italy · 1469-1527',
     summary: 'Machiavelli studies power without sentimentality, watching how image, fear, strategy, and necessity shape public life.',
     focus: 'In the site\'s matches, he appears when stories investigate authority, manipulation, survival, and the gap between appearance and reality.',
-    aliases: ['Niccolò Machiavelli', 'Niccolo Machiavelli', 'NiccolÃ² Machiavelli'],
     featuredQuoteId: 1016,
     priorityThemes: ['power-corruption', 'political-philosophy', 'truth-deception'],
   },
-  {
-    slug: 'john-locke',
-    name: 'John Locke',
+  'john-locke': {
     period: 'Early Modern England · 1632-1704',
     summary: 'Locke anchors knowledge in experience and treats understanding as something built through contact with the world.',
     focus: 'His quotes here usually accompany stories of learning, perception, and the slow construction of certainty from lived experience.',
-    aliases: ['John Locke'],
     featuredQuoteId: 1045,
     priorityThemes: ['epistemology', 'political-philosophy', 'social-contract'],
   },
-  {
-    slug: 'charles-darwin',
-    name: 'Charles Darwin',
+  'charles-darwin': {
     period: 'Victorian England · 1809-1882',
     summary: 'Darwin reshapes modern thought through evolution, adaptation, observation of living systems, and the patient work of scientific inference.',
     focus: 'In PhiloMedia, Darwin should connect most strongly with stories about biology, natural selection, scientific discovery, species, survival, and humanity\'s place in nature.',
-    aliases: ['Charles Darwin', 'Darwin'],
     priorityThemes: ['epistemology', 'humanism', 'truth-deception', 'technology-modernity'],
     contextKeywords: [
       'evolution',
@@ -102,7 +103,7 @@ export const PHILOSOPHER_DEFINITIONS = [
       'beagle',
       'observation',
       'science',
-      'investigation'
+      'investigation',
     ],
     contextPenaltyKeywords: [
       'lawyer',
@@ -117,263 +118,193 @@ export const PHILOSOPHER_DEFINITIONS = [
       'doctor',
       'medical',
       'hospital',
-      'prosecutor'
+      'prosecutor',
     ],
     discoveryQueries: ['evolution', 'natural selection', 'biology', 'scientific discovery'],
     relatedWorkThreshold: 30,
     featuredQuoteId: 'wiki-318',
   },
-  {
-    slug: 'karl-marx',
-    name: 'Karl Marx',
+  'karl-marx': {
     period: '19th-century Germany · 1818-1883',
     summary: 'Marx reads society through labor, class struggle, alienation, and the structures that make inequality feel natural.',
     focus: 'PhiloMedia uses Marx most often when films and series expose exploitation, ideology, or the social systems hiding behind everyday life.',
-    aliases: ['Karl Marx'],
     featuredQuoteId: 1021,
     priorityThemes: ['marxism-socialism', 'social-justice', 'alienation'],
   },
-  {
-    slug: 'friedrich-nietzsche',
-    name: 'Friedrich Nietzsche',
+  'friedrich-nietzsche': {
     period: '19th-century Germany · 1844-1900',
     summary: 'Nietzsche pushes thought toward self-overcoming, purpose, and the search for meaning inside suffering rather than outside it.',
     focus: 'His page leans into resilience, existential pressure, and the kind of works that turn crisis into a test of values.',
-    aliases: ['Friedrich Nietzsche', 'Nietzsche'],
     featuredQuoteId: 1066,
     priorityThemes: ['suffering', 'existentialism', 'epistemology'],
   },
-  {
-    slug: 'simone-de-beauvoir',
-    name: 'Simone de Beauvoir',
+  'simone-de-beauvoir': {
     period: '20th-century France · 1908-1986',
     summary: 'De Beauvoir joins freedom to responsibility, insisting that identity is formed historically, socially, and through action.',
     focus: 'Within PhiloMedia, she connects to stories about becoming, equality, gender, and the urgency of choosing a life in the present.',
-    aliases: ['Simone de Beauvoir'],
     featuredQuoteId: 1043,
     priorityThemes: ['existentialism', 'feminism-equality', 'self-knowledge'],
   },
-  {
-    slug: 'clovis-de-barros-filho',
-    name: 'Clóvis de Barros Filho',
+  'clovis-de-barros-filho': {
     period: 'Contemporary Brazil',
     summary: 'Clóvis de Barros Filho translates ethics, coexistence, and happiness into vivid reflections on daily life and shared worlds.',
     focus: 'His matches tend to favor works about freedom, affection, common life, and the fragile moments where happiness becomes visible.',
-    aliases: ['Clóvis de Barros Filho', 'Clovis de Barros Filho', 'ClÃ³vis de Barros Filho'],
     featuredQuoteId: 1034,
     priorityThemes: ['humanism', 'virtue', 'self-knowledge'],
   },
-  {
-    slug: 'leandro-karnal',
-    name: 'Leandro Karnal',
+  'leandro-karnal': {
     period: 'Contemporary Brazil',
     summary: 'Karnal often turns philosophy toward interior life, confronting loneliness, vitality, prudence, and the courage to build hope.',
     focus: 'On the site, he resonates most with works about endurance, self-knowledge, and the active work of remaining alive to experience.',
-    aliases: ['Leandro Karnal'],
     featuredQuoteId: 1039,
     priorityThemes: ['existentialism', 'self-knowledge', 'suffering'],
   },
-  {
-    slug: 'mario-sergio-cortella',
-    name: 'Mário Sergio Cortella',
+  'mario-sergio-cortella': {
     period: 'Contemporary Brazil',
     summary: 'Cortella\'s voice joins ethics, leadership, spirituality, and practical wisdom without losing sight of ordinary human limits.',
     focus: 'He tends to connect with stories about purpose, excellence, coexistence, and the attempt to align what one wants, should do, and can do.',
-    aliases: ['Mário Sergio Cortella', 'Mario Sergio Cortella', 'MÃ¡rio Sergio Cortella'],
     featuredQuoteId: 1047,
     priorityThemes: ['humanism', 'virtue', 'metaphysics'],
   },
-  {
-    slug: 'lucas-costa-roxo',
-    name: 'Lucas Costa Roxo',
+  'lucas-costa-roxo': {
     period: 'Contemporary thinker in the archive',
     summary: 'Within PhiloMedia\'s own quote collection, Lucas Costa Roxo sharpens questions about simulation, language, and political domination.',
     focus: 'His page is built for works that interrogate hyperreality, discourse, power, and the instability of truth in mediated worlds.',
-    aliases: ['Lucas Costa Roxo', 'Lucas C. Roxo'],
     featuredQuoteId: 1042,
     priorityThemes: ['postmodernism', 'truth-deception', 'political-philosophy'],
   },
-  {
-    slug: 'immanuel-kant',
-    name: 'Immanuel Kant',
+  'immanuel-kant': {
     period: 'Enlightenment Prussia · 1724-1804',
     summary: 'Kant ties together critique of knowledge, the moral law, and the conditions that make experience possible as parts of one rigorous project.',
     focus: 'On PhiloMedia he reads best next to works about duty, evidence, limits of reason, and the tension between scientific law and human dignity.',
-    aliases: ['Immanuel Kant'],
     featuredQuoteId: 'wiki-11',
     priorityThemes: ['epistemology', 'virtue', 'metaphysics', 'political-philosophy'],
   },
-  {
-    slug: 'baruch-spinoza',
-    name: 'Baruch Spinoza',
+  'baruch-spinoza': {
     period: 'Dutch Golden Age · 1632-1677',
     summary: 'Spinoza thinks God, nature, and reason as one substance, linking knowledge of causes with human freedom and the love of what is necessary.',
     focus: 'He matches narratives where clarity, affect, and metaphysical stakes reshape ethics rather than quick confessional drama.',
-    aliases: ['Baruch Spinoza'],
     featuredQuoteId: 'wiki-35',
     priorityThemes: ['metaphysics', 'virtue', 'epistemology'],
   },
-  {
-    slug: 'david-hume',
-    name: 'David Hume',
+  'david-hume': {
     period: 'Scottish Enlightenment · 1711-1776',
     summary: 'Hume grounds beliefs in habit, feeling, and social life, showing how experience supports—and limits—the claims we treat as obvious.',
     focus: 'He fits works about custom, skepticism, the science of mind, and stories where secure truth keeps melting under scrutiny.',
-    aliases: ['David Hume'],
     featuredQuoteId: 1052,
     priorityThemes: ['epistemology', 'truth-deception', 'aesthetics'],
   },
-  {
-    slug: 'ludwig-wittgenstein',
-    name: 'Ludwig Wittgenstein',
+  'ludwig-wittgenstein': {
     period: '20th-century Austria and Britain · 1889-1951',
     summary: 'Wittgenstein treats philosophical trouble as often rooted in language, urging attention to how forms of life hold meanings together.',
     focus: 'His archive voice pairs with films and series about rules, silence, ordinary life, and the limits of saying versus showing.',
-    aliases: ['Ludwig Wittgenstein'],
     featuredQuoteId: 1053,
     priorityThemes: ['language-semiotics', 'epistemology', 'metaphysics'],
   },
-  {
-    slug: 'arthur-schopenhauer',
-    name: 'Arthur Schopenhauer',
+  'arthur-schopenhauer': {
     period: '19th-century Germany · 1788-1860',
     summary: 'Schopenhauer describes the world as driven by blind will, linking pessimism, compassion, and aesthetic quiet as fragile exits from relentless desire.',
     focus: 'Use him where stories stress suffering, renunciation, illusion, and the gravity of bodily life.',
-    aliases: ['Arthur Schopenhauer'],
     featuredQuoteId: 1054,
     priorityThemes: ['suffering', 'metaphysics', 'truth-deception'],
   },
-  {
-    slug: 'heraclitus',
-    name: 'Heraclitus',
+  heraclitus: {
     period: 'Archaic Greece · c. 535-c. 475 BCE',
     summary: 'Heraclitus makes change and strife metaphysical principles, teaching that a common logos orders the fire-transformed world we half see.',
     focus: 'He lines up with plots about flux, opposition, and hidden unity beneath surface chaos.',
-    aliases: ['Heráclito', 'Heraclitus'],
     featuredQuoteId: 1055,
     priorityThemes: ['metaphysics', 'truth-deception', 'epistemology'],
   },
-  {
-    slug: 'epicurus',
-    name: 'Epicurus',
+  epicurus: {
     period: 'Ancient Greece · 341-270 BCE',
     summary: 'Epicurus seeks measured pleasure and ataraxia through sober judgment, friendship, and removing empty fears rather than crude excess.',
     focus: 'He belongs beside stories about limits, simple goods, death-anxiety, and calm in a turbulent world.',
-    aliases: ['Epicuro', 'Epicurus'],
     featuredQuoteId: 1056,
     priorityThemes: ['hedonism', 'virtue', 'metaphysics'],
   },
-  {
-    slug: 'blaise-pascal',
-    name: 'Blaise Pascal',
+  'blaise-pascal': {
     period: 'Early modern France · 1623-1662',
     summary: 'Pascal contrasts the misery and dignity of the human subject before infinity, weaving mathematics, apologetics, and existential wager.',
     focus: 'Pair him with narratives of faith, finitude, diversion, and the heart\'s hidden reasons.',
-    aliases: ['Blaise Pascal'],
     featuredQuoteId: 1057,
     priorityThemes: ['sacred-profane', 'suffering', 'epistemology'],
   },
-  {
-    slug: 'francis-bacon',
-    name: 'Francis Bacon',
+  'francis-bacon': {
     period: 'Early modern England · 1561-1626',
     summary: 'Bacon champions empirical method, critique of idols, and the patient revision of knowledge against scholastic habit.',
     focus: 'He suits works about investigation, institutional truth, and the slow correction of collective error.',
-    aliases: ['Francis Bacon'],
     featuredQuoteId: 1058,
     priorityThemes: ['epistemology', 'truth-deception', 'memory-time'],
   },
-  {
-    slug: 'voltaire',
-    name: 'Voltaire',
+  voltaire: {
     period: 'Enlightenment France · 1694-1778',
     summary: 'Voltaire weaponizes wit against dogma and fanaticism, defending toleration, criticism, and lucid irony as civic virtues.',
     focus: 'His lines resonate where satire, free inquiry, and fragile pluralism face absolutism.',
-    aliases: ['Voltaire'],
     featuredQuoteId: 1059,
     priorityThemes: ['humanism', 'political-philosophy', 'sacred-profane'],
   },
-  {
-    slug: 'john-stuart-mill',
-    name: 'John Stuart Mill',
+  'john-stuart-mill': {
     period: 'Victorian Britain · 1806-1873',
     summary: 'Mill connects liberty, utility, and experiment, arguing that individual character and social progress advance through protected dissent.',
     focus: 'Think of him when plots weigh consequences, rights, happiness, and the moral weight of staying neutral.',
-    aliases: ['John Stuart Mill'],
     featuredQuoteId: 1060,
     priorityThemes: ['utilitarianism', 'political-philosophy', 'humanism'],
   },
-  {
-    slug: 'saint-augustine',
-    name: 'Saint Augustine',
+  'saint-augustine': {
     period: 'Late antiquity · 354-430',
     summary: 'Augustine narrates inner life before God, binding memory, desire, time, and fallen love into a theology of restless hearts.',
     focus: 'Use him for stories about confession, grace, temptation, and cities torn between two loves.',
-    aliases: ['Santo Agostinho', 'Saint Augustine', 'Augustine of Hippo', 'Agostinho'],
     featuredQuoteId: 1061,
     priorityThemes: ['sacred-profane', 'virtue', 'memory-time'],
   },
-  {
-    slug: 'soren-kierkegaard',
-    name: 'Søren Kierkegaard',
+  'soren-kierkegaard': {
     period: '19th-century Denmark · 1813-1855',
     summary: 'Kierkegaard makes existence a task of subjective commitment, sketching stages of life shot through with anxiety, irony, and faith.',
     focus: 'He matches works about choice, despair, inwardness, and the leap beyond tidy systems.',
-    aliases: ['Søren Kierkegaard', 'Soren Kierkegaard'],
     featuredQuoteId: 1062,
     priorityThemes: ['existentialism', 'sacred-profane', 'suffering'],
   },
-  {
-    slug: 'hannah-arendt',
-    name: 'Hannah Arendt',
+  'hannah-arendt': {
     period: '20th-century Germany and United States · 1906-1975',
     summary: 'Arendt studies plurality, power, and political action, tracing how total domination and thoughtlessness hollow out common worlds.',
     focus: 'She aligns with fiction about public life, responsibility, revolution, and evil as banal routine.',
-    aliases: ['Hannah Arendt'],
     featuredQuoteId: 'wiki-267',
     priorityThemes: ['political-philosophy', 'power-corruption', 'truth-deception'],
   },
-  {
-    slug: 'augusto-cury',
-    name: 'Augusto Cury',
+  'augusto-cury': {
     period: 'Contemporary Brazil',
     summary: 'Cury writes at the crossroads of clinical insight and popular ethics, stressing anxiety management, creativity, and emotional education.',
     focus: 'His quotes pair with accessible dramas about burnout, resilience, and everyday mental hygiene.',
-    aliases: ['Augusto Cury'],
     featuredQuoteId: 'wiki-279',
     priorityThemes: ['self-knowledge', 'humanism', 'virtue'],
   },
-  {
-    slug: 'sigmund-freud',
-    name: 'Sigmund Freud',
+  'sigmund-freud': {
     period: 'Modern Austria · 1856-1939',
     summary: 'Freud maps unconscious conflict, dream-work, and the talking cure as routes into motives we disown.',
     focus: 'Invoke him where desire, repression, and interpretation unsettle neat self-portraits.',
-    aliases: ['Sigmund Freud'],
     featuredQuoteId: 1064,
     priorityThemes: ['self-knowledge', 'truth-deception', 'taboo-transgression'],
   },
-  {
-    slug: 'plotinus',
-    name: 'Plotinus',
+  plotinus: {
     period: 'Late antiquity · 204-270',
     summary: 'Plotinus renews Platonism through contemplative ascent, describing soul, intellect, and the One as layered emanations of the good.',
     focus: 'He fits mystical arcs, beauty as revelation, and narratives longing to reunite with source.',
-    aliases: ['Plotino', 'Plotinus'],
     featuredQuoteId: 'wiki-97',
     priorityThemes: ['metaphysics', 'sacred-profane', 'aesthetics'],
   },
-  {
-    slug: 'isaac-newton',
-    name: 'Isaac Newton',
+  'isaac-newton': {
     period: 'Early modern England · 1643-1727',
     summary: 'Newton fuses bold mathematics with experiment, modeling force, motion, and celestial order while insisting humility before what remains unknown.',
     focus: 'Use him where rigor, mystery, and the scale of the cosmos frame human inquiry.',
-    aliases: ['Isaac Newton'],
     featuredQuoteId: 'wiki-335',
     priorityThemes: ['epistemology', 'metaphysics', 'truth-deception'],
   },
-];
+};
+
+export const PHILOSOPHER_DEFINITIONS = PHILOSOPHER_AUTHORS.map((author) => ({
+  ...author,
+  ...PHILOSOPHER_PROFILE_DETAILS[author.slug],
+}));
 
 export const LENS_DEFINITIONS = [
   { id: 'epistemology', label: 'Truth & Knowledge', themes: ['epistemology', 'truth-deception', 'self-knowledge'] },
@@ -389,53 +320,6 @@ export const LENS_DEFINITIONS = [
   { id: 'faith-spirituality', label: 'Faith & Spirituality', themes: ['sacred-profane', 'metaphysics', 'humanism', 'spirituality'] },
   { id: 'humanism', label: 'Humanism', themes: ['humanism', 'virtue', 'the-other-alterity', 'ethics', 'community', 'happiness'] },
 ];
-
-export const THEME_GENRE_HINTS = {
-  suffering: { movie: [18, 9648, 10749], tv: [18, 9648, 10765] },
-  tragedy: { movie: [18, 9648], tv: [18, 9648] },
-  virtue: { movie: [12, 18, 10759], tv: [18, 10759, 16] },
-  existentialism: { movie: [18, 878, 9648], tv: [18, 9648, 10765] },
-  'self-knowledge': { movie: [18, 9648], tv: [18, 9648, 16] },
-  alienation: { movie: [18, 878, 9648], tv: [18, 878, 9648, 10765] },
-  stoicism: { movie: [18, 12, 28, 10752], tv: [18, 10759, 10768, 16] },
-  'power-corruption': { movie: [18, 80, 53, 10752], tv: [18, 80, 10768, 10759] },
-  'social-justice': { movie: [18, 80, 99, 10752], tv: [18, 80, 10768, 99] },
-  'political-philosophy': { movie: [18, 80, 99, 10752], tv: [18, 80, 10768, 99] },
-  'truth-deception': { movie: [9648, 53, 80], tv: [9648, 80, 10765] },
-  epistemology: { movie: [9648, 53, 878], tv: [9648, 80, 10765] },
-  metaphysics: { movie: [878, 9648, 14], tv: [10765, 9648, 18] },
-  'memory-time': { movie: [9648, 18], tv: [9648, 18, 10765, 16] },
-  humanism: { movie: [18, 12, 16], tv: [18, 16, 10759] },
-  'feminism-equality': { movie: [18, 10749], tv: [18, 10766] },
-  postmodernism: { movie: [9648, 878, 53], tv: [9648, 10765, 18] },
-  'consciousness-ai': { movie: [878, 9648], tv: [10765, 9648] },
-  aesthetics: { movie: [18, 16, 10402], tv: [18, 16, 10402] },
-  romanticism: { movie: [10749, 18], tv: [18, 10766] },
-  'sacred-profane': { movie: [18, 14, 9648, 36], tv: [18, 10765, 9648] },
-  'social-contract': { movie: [18, 80, 10752], tv: [18, 10768, 80] },
-  'technology-modernity': { movie: [878, 9648, 18], tv: [10765, 18, 9648] },
-  'language-semiotics': { movie: [9648, 18, 99], tv: [9648, 18, 99] },
-  hedonism: { movie: [35, 18, 10749], tv: [35, 18, 10766] },
-  'war-and-conflict': { movie: [10752, 28, 18], tv: [10768, 10759, 18] },
-  'the-other-alterity': { movie: [18, 10749, 12], tv: [18, 16, 10766] },
-  utilitarianism: { movie: [18, 53, 80], tv: [18, 80, 9648] },
-};
-
-/**
- * Une hints movie+tv num único array (p.ex. home page que descobre por género TMDB).
- * @param {string} theme
- * @returns {number[]}
- */
-export function flattenThemeGenreHint(theme) {
-  const hint = THEME_GENRE_HINTS[theme];
-  if (!hint) return [];
-  if (Array.isArray(hint)) return hint;
-  return [...new Set([...(hint.movie || []), ...(hint.tv || [])])];
-}
-
-function slugifyName(value) {
-  return normalizeKey(value).replace(/\s+/g, '-');
-}
 
 function truncate(text, maxLength = 160) {
   const value = String(text || '').trim();
@@ -463,22 +347,6 @@ function uniqStrings(values = []) {
   )];
 }
 
-function createAuthorIndex() {
-  const index = new Map();
-
-  PHILOSOPHER_DEFINITIONS.forEach(definition => {
-    [definition.name, ...(definition.aliases || [])].forEach(alias => {
-      const key = normalizeKey(alias);
-      if (key) {
-        index.set(key, definition.slug);
-      }
-    });
-  });
-
-  return index;
-}
-
-const AUTHOR_INDEX = createAuthorIndex();
 const PHILOSOPHER_INDEX = new Map(
   PHILOSOPHER_DEFINITIONS.map(definition => [definition.slug, definition])
 );
@@ -771,25 +639,8 @@ export function getPhilosopherDefinitionBySlug(slug) {
 }
 
 export function getPhilosopherDefinitionByAuthor(author) {
-  const slug = AUTHOR_INDEX.get(normalizeKey(author));
+  const slug = getPhilosopherSlugByAuthor(author);
   return slug ? getPhilosopherDefinitionBySlug(slug) : null;
-}
-
-export function getDisplayAuthorName(author) {
-  return getPhilosopherDefinitionByAuthor(author)?.name || String(author || 'Unknown');
-}
-
-export function getPhilosopherUrl(slug) {
-  if (!slug) return null;
-  return `/html/philosopher.html?slug=${encodeURIComponent(slug)}`;
-}
-
-export function getPhilosopherUrlByAuthor(author) {
-  const definition = getPhilosopherDefinitionByAuthor(author);
-  if (definition) return getPhilosopherUrl(definition.slug);
-
-  const slug = slugifyName(author);
-  return slug ? getPhilosopherUrl(slug) : null;
 }
 
 export function getLensSearchUrl(lensId) {

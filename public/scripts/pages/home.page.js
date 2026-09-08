@@ -8,7 +8,8 @@
  */
 
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
-import { CURATED_TV_IDS, getDisplayAuthorName, getPhilosopherUrlByAuthor } from '/scripts/philosopher-data.js';
+import { getDisplayAuthorName, getPhilosopherUrlByAuthor } from '/scripts/domain/philosopherAuthors.js';
+import { CURATED_TV_IDS } from '/scripts/domain/curatedTvIds.js';
 import { THEME_DATABASE } from '/scripts/themedatabase.js';
 import { discoverTMDB, getDetailsFromTMDB } from '/scripts/seriesapi.js';
 import {

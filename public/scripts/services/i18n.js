@@ -1,5 +1,43 @@
 import { getUiLocale, normalizeUiLocale } from './uiLocale.js';
-import { TRANSLATIONS } from './translations.js';
+
+/**
+ * Tabelas de tradução carregadas nesta sessão, por locale.
+ *
+ * Só o locale ativo é buscado: as duas tabelas somam ~45 KB e trocar de idioma
+ * recarrega a página (ui/languageChrome.js), então nunca precisamos das duas ao
+ * mesmo tempo no browser. Os testes registram a segunda tabela explicitamente.
+ */
+const tables = new Map();
+
+export function registerTranslations(locale, table) {
+  if (table && typeof table === 'object') {
+    tables.set(normalizeUiLocale(locale), table);
+  }
+}
+
+/**
+ * Carrega a tabela de um locale, se ainda não estiver em memória.
+ * `normalizeUiLocale` reduz qualquer entrada a 'en' ou 'pt', então o
+ * especificador dinâmico nunca é arbitrário.
+ */
+export async function ensureTranslations(locale) {
+  const loc = normalizeUiLocale(locale);
+  if (tables.has(loc)) return;
+
+  try {
+    const mod = await import(`./translations.${loc}.js`);
+    registerTranslations(loc, mod.default);
+  } catch (error) {
+    // Sem a tabela, t() devolve a própria chave. Preferimos texto cru a uma
+    // página em branco por falha de rede num único asset.
+    console.error(`[PhiloMedia] Failed to load "${loc}" translations:`, error);
+    registerTranslations(loc, {});
+  }
+}
+
+// Await de topo de módulo: bloqueia os importadores até a tabela estar pronta,
+// o que mantém t() e resolveTranslation síncronos para todos os consumidores.
+await ensureTranslations(getUiLocale());
 
 /**
  * @param {string} key
@@ -11,7 +49,7 @@ export function resolveTranslation(key, locale, vars = {}) {
   const k = String(key || '').trim();
   if (!k) return '';
 
-  let text = TRANSLATIONS[loc]?.[k] ?? TRANSLATIONS.en[k] ?? k;
+  let text = tables.get(loc)?.[k] ?? k;
 
   Object.entries(vars).forEach(([name, value]) => {
     text = text.replace(new RegExp(`\\{\\{${name}\\}\\}`, 'g'), String(value ?? ''));

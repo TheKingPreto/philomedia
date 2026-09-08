@@ -22,6 +22,7 @@ import dailyPairingRoutes from './src/routes/dailyPairing.js';
 import { specs } from './config/swagger.js';
 import { connectMongo, registerMongoConnectionLogging } from './config/database.js';
 import { buildPublicUrl, getPublicBaseUrl } from './src/utils/publicUrl.js';
+import { preferredLocaleFromHeader } from './src/utils/preferredLocale.js';
 
 if (process.env.NODE_ENV !== 'test') {
   dotenv.config();
@@ -317,6 +318,15 @@ app.get('/api/assets/portrait', async (req, res) => {
 
 app.use(express.static('public', {
   maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
+  setHeaders: (res, filePath) => {
+    if (!filePath.endsWith('.html')) return;
+
+    // i18n.js importa a tabela do locale ativo dinamicamente, o que só o
+    // browser sabe resolver — e tarde, quando o grafo de módulos já executou.
+    // Este hint antecipa o download para o momento da resposta do HTML.
+    const locale = preferredLocaleFromHeader(res.req?.headers['accept-language']);
+    res.setHeader('Link', `</scripts/services/translations.${locale}.js>; rel=modulepreload`);
+  },
 }));
 
 app.get('/api-docs/swagger.json', (req, res) => {
