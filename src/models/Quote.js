@@ -27,6 +27,16 @@ const quoteSchema = new mongoose.Schema({
     ref: 'User',
     default: null,
   },
+  /**
+   * user-submitted começa em pending e só entra no catálogo público depois
+   * de um admin aprovar. Legado sem campo conta como approved.
+   */
+  moderationStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: undefined,
+    index: true,
+  },
   quoteLanguage: {
     type: String,
     default: 'en',

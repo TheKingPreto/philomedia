@@ -4,7 +4,7 @@
 
 ![PhiloMedia Screenshot](./docs/screenshot.png)
 
-🔗 **[Live Demo](https://philomedia.onrender.com/)** &nbsp;|&nbsp; 📖 **[API Docs (Swagger)](https://philomedia.onrender.com/api-docs)**
+🔗 **[Live Demo](https://philomedia.onrender.com/)**
 
 ---
 
@@ -19,14 +19,14 @@
 
 ## About
 
-PhiloMedia connects films and TV series to philosophical quotes, offering users a unique lens to reflect on the media they consume. Browse featured works, search the TMDB catalog, and receive a curated philosophical quote paired with an AI-generated interpretation — available in **English** and **Brazilian Portuguese**.
+PhiloMedia connects films and TV series to philosophical quotes. Browse featured pairings, search the TMDB catalog through 12 philosophical lenses, open a thinker's page, and read a curated quote plus an optional AI interpretation — in **English** and **Brazilian Portuguese**.
 
 ## User Flow
 
-1. Search for a movie or series
+1. Search for a movie or series, or pick a lens
 2. Open its details page
 3. Read a resonant philosophical quote
-4. Receive an AI-generated interpretation tailored to that title
+4. Optionally sign in for an AI-generated interpretation and a personal library
 
 ## Tech Stack
 
@@ -38,16 +38,18 @@ PhiloMedia connects films and TV series to philosophical quotes, offering users 
 | **AI** | Google Gemini API |
 | **Auth** | Passport.js + Google OAuth |
 | **External API** | TMDB |
-| **Docs** | Swagger UI |
+| **Docs** | Swagger UI (non-production only) |
 | **Deployment** | Render |
 
 ## Key Features
 
-- **Internationalization (i18n):** Language selection (EN/PT) persists via `localStorage`. Translations cover UI strings, TMDB metadata, quote catalogs, and philosopher biographies.
-- **AI Interpretation:** Google Gemini generates contextual readings for each title. Includes automatic model fallback (`gemini-2.5-flash` → `gemini-2.0-flash-lite` → `gemini-1.5-flash`) to handle rate limits gracefully.
-- **User Library:** Google OAuth authentication with personal media collection support.
-- **API Documentation:** Swagger UI at `/api-docs` in non-production environments.
-- **Data Utilities:** Scripts for seeding quotes, importing Wikiquote datasets, and machine-translating content.
+- **Lenses:** Twelve philosophical discovery filters on search (themes, TMDB keywords, genres, crew).
+- **Thinkers:** Curated philosopher pages with quotes and related works. Community submissions stay pending until an admin approves their quotes.
+- **Internationalization (i18n):** EN/PT via `localStorage` and `Accept-Language`. TMDB metadata, catalogs, and biographies follow the locale.
+- **AI Interpretation:** Gemini readings for a title. Requires a session. Automatic model fallback handles rate limits.
+- **User Library:** Google OAuth with watchlist, favorites, watched, and quote/media ratings that bias the details ranking.
+- **API Documentation:** Swagger UI at `/api-docs` in development and test — not mounted in production.
+- **Data Utilities:** npm scripts for seeding quotes, importing Wikiquote, downloading fonts, and benchmarking lenses.
 
 ## Local Setup
 
@@ -63,10 +65,20 @@ npm install
 cp .env.example .env
 # Fill in: MONGODB_URI, SESSION_SECRET, TMDB_API_KEY, GOOGLE_AI_API_KEY
 # Optional: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, CORS_ORIGIN, PUBLIC_SITE_URL
+# Behind a reverse proxy set TRUST_PROXY=1 (on automatically when NODE_ENV=production)
 
 # 4. Start development server
 npm run dev
 # App running at http://localhost:3000
+```
+
+Useful data scripts (see `package.json`):
+
+```bash
+npm run seed:quotes
+npm run import:wikiquote
+npm run fonts:download
+npm run benchmark:lenses
 ```
 
 ## API Endpoints
@@ -74,13 +86,14 @@ npm run dev
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/health` | Process and database health check |
-| GET | `/api/quotes` | Paginated quote retrieval |
-| POST | `/api/ai/quotes/generate/media-context` | AI interpretation by `tmdbId` + `mediaType` |
-| GET | `/api-docs` | Swagger documentation |
+| GET | `/api/quotes/catalog` | Public quote catalog (approved + curated) |
+| POST | `/api/ai/quotes/generate/media-context` | AI interpretation by `tmdbId` + `mediaType` (authenticated) |
+| GET | `/api-docs` | Swagger UI (non-production only) |
 
 ## Roadmap
 
-- [ ] Discovery filters and genre-based browsing
+- [x] Discovery filters and lens-based browsing
+- [x] Thinker pages and community submissions
 - [ ] Improved metadata layout and editorial tooling
 - [ ] Social sharing and community feedback
 - [ ] Browser extension

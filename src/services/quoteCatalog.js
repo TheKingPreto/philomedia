@@ -129,6 +129,7 @@ export function mapDatabaseQuoteEntry(entry) {
     source: entry.isGenerated
       ? 'generated'
       : source,
+    moderationStatus: String(entry.moderationStatus || '').trim().toLowerCase() || '',
     originalLanguage: orig,
     quote_original: canonical,
     quote_en,
@@ -316,16 +317,36 @@ export async function readTranslatedWikiQuoteEntries() {
   return records.map(mapTranslatedWikiQuoteEntry).filter(entry => entry.quote && entry.author);
 }
 
+export function isApprovedForCatalog(entry) {
+  const status = String(entry?.moderationStatus || '').trim().toLowerCase();
+  return !status || status === 'approved';
+}
+
+export function catalogVisibilityFilter() {
+  return {
+    $or: [
+      { moderationStatus: 'approved' },
+      { moderationStatus: { $exists: false } },
+      { moderationStatus: null },
+      { moderationStatus: '' },
+    ],
+  };
+}
+
 /**
  * Catálogo único: custom + Mongo + Wikiquote pareado (PT/EN); `quote` resolve para ?lang=.
+ * Quotes de utilizador só entram depois de `moderationStatus=approved`.
  */
 export async function buildQuoteCatalog(locale = 'en') {
   const normalizedLocale = String(locale || 'en').trim().toLowerCase();
 
   const [databaseEntries, localWikiEntries, translatedWikiEntries] = await Promise.all([
-    Quote.find({ isGenerated: { $ne: true } })
+    Quote.find({
+      isGenerated: { $ne: true },
+      ...catalogVisibilityFilter(),
+    })
       .lean()
-      .then(entries => entries.map(mapDatabaseQuoteEntry))
+      .then(entries => entries.map(mapDatabaseQuoteEntry).filter(isApprovedForCatalog))
       .catch(() => []),
     readLocalWikiQuoteEntries(),
     readTranslatedWikiQuoteEntries(),

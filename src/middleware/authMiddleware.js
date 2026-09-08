@@ -6,6 +6,7 @@
  * NODE_ENV=test alone on an exposed host is not enough.
  */
 import { isTestAuthAllowed } from '../config/httpSecurity.js';
+import { FORBIDDEN_MESSAGE, isAdmin } from '../utils/resourceAccess.js';
 
 function tryAttachTestAuthUser(req) {
   if (!isTestAuthAllowed()) {
@@ -61,4 +62,11 @@ export const isRequestAuthenticated = (req) => {
   }
 
   return Boolean(req.isAuthenticated && req.isAuthenticated());
+};
+
+export const requireAdmin = (req, res, next) => {
+  if (!isAdmin(req.user)) {
+    return res.status(403).json({ message: FORBIDDEN_MESSAGE });
+  }
+  return next();
 };

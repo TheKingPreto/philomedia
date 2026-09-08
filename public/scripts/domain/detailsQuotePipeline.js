@@ -183,17 +183,24 @@ export function preferReviewsByLanguage(reviews = [], preferred = PREFERRED_REVI
   return preferredOnes.length ? preferredOnes : list;
 }
 
-export function buildSourceContext(details, reviews = []) {
-  const preferredReviews = preferReviewsByLanguage(reviews);
+/**
+ * Contexto estável da obra para hash/selecção de citação e related.
+ * Reviews anónimas da TMDB são voláteis e não entram aqui — só no Gemini,
+ * como bloco UNTRUSTED.
+ */
+export function buildStableSourceContext(details) {
   const parts = [
     getDisplayTitle(details),
-    details.overview || '',
+    details.overview || details._overviewEn || '',
     Array.isArray(details.genres) ? details.genres.map(genre => genre?.name).filter(Boolean).join(' ') : '',
     extractTmdbKeywordNames(details).join(' '),
-    preferredReviews.map(review => review.content || '').join(' '),
   ].filter(Boolean);
 
   return parts.join(' ').trim();
+}
+
+export function buildSourceContext(details, _reviews = []) {
+  return buildStableSourceContext(details);
 }
 
 export function buildSearchQuery(details, reviews) {
@@ -279,12 +286,12 @@ export function buildGenreThemeWeights(details, mediaType) {
 }
 
 /**
- * Combina o sinal textual (sinopse + reviews) com o sinal de género, para que
- * obras sem review ainda tenham um perfil temático utilizável.
+ * Combina o sinal textual estável (sinopse + keywords + título) com o sinal
+ * de género. Reviews não entram — mudam a citação da mesma obra.
  */
-export function buildSourceThemeWeights(details, reviews, mediaType, limit = 8) {
+export function buildSourceThemeWeights(details, _reviews, mediaType, limit = 8) {
   const textWeights = createThemeWeightMap(
-    analyzeWorkForThemes(buildSourceContext(details, reviews)),
+    analyzeWorkForThemes(buildStableSourceContext(details)),
     limit
   );
   const genreWeights = buildGenreThemeWeights(details, mediaType);
@@ -632,8 +639,33 @@ export function mergeCandidateBuckets(buckets, currentId, type) {
   return [...merged.values()];
 }
 
-export function rankRelatedCandidates(details, reviews, candidates, currentMediaId) {
-  const sourceContext = buildSourceContext(details, reviews);
+export function scorePhilosophicalOverlap({
+  keywordOverlapScore = 0,
+  hasPhilosophicalKeyword = false,
+  lensThemeHits = 0,
+  curatedAffinity = 0,
+} = {}) {
+  let score = 0;
+  if (keywordOverlapScore > 0) score += keywordOverlapScore * 1.35;
+  if (hasPhilosophicalKeyword) score += 14;
+  if (lensThemeHits > 0) score += lensThemeHits * 10;
+  if (curatedAffinity > 0) score += curatedAffinity * 0.45;
+  return score;
+}
+
+export function computeWeakMatchPenalty({
+  themeScore = 0,
+  tokenScore = 0,
+  hasPositiveSignal = false,
+} = {}) {
+  if (hasPositiveSignal) return 0;
+  if (themeScore >= 14 || tokenScore >= 10) return 0;
+  const gap = Math.max(0, 14 - themeScore) + Math.max(0, 10 - tokenScore);
+  return Math.min(8, 3 + gap * 0.18);
+}
+
+export function rankRelatedCandidates(details, _reviews, candidates, currentMediaId) {
+  const sourceContext = buildStableSourceContext(details);
   const sourceThemeWeights = createThemeWeightMap(analyzeWorkForThemes(sourceContext), 6);
   const sourceTokens = extractSalientTokens(sourceContext, 10);
   const sourceGenreIds = Array.isArray(details.genres)
@@ -663,21 +695,34 @@ export function rankRelatedCandidates(details, reviews, candidates, currentMedia
       const sourceBoost = scoreSourceBoost(candidate);
       const ratingScore = Math.max(0, Number(candidate.vote_average || 0) - 6) * 1.4;
       const popularityScore = Math.min(8, (Number(candidate.popularity) || 0) / 35);
+      const lensThemeHits = keywordNames.filter(name => sourceThemes.has(normalizeText(name))).length;
       const hasPhilosophicalKeyword = keywordOverlapScore >= 8 || keywordNames.some(name => (
         sourceThemes.has(normalizeText(name)) || sourceKeywordSet.has(normalizeText(name))
       ));
-      const weakMatchPenalty = themeScore < 14 && tokenScore < 10 && !hasPhilosophicalKeyword ? 18 : 0;
-      const noOverviewPenalty = candidate.overview ? 0 : 10;
       const curatedAffinity = scoreCuratedRelatedAffinity(
         sourceProfile,
         getCuratedPhilosophicalProfile(String(candidate.id)),
         sourceThemeWeights,
       );
+      const philosophicalOverlap = scorePhilosophicalOverlap({
+        keywordOverlapScore,
+        hasPhilosophicalKeyword,
+        lensThemeHits,
+        curatedAffinity,
+      });
+      const hasPositiveSignal = philosophicalOverlap > 0;
+      const weakMatchPenalty = computeWeakMatchPenalty({
+        themeScore,
+        tokenScore,
+        hasPositiveSignal,
+      });
+      const noOverviewPenalty = candidate.overview || candidate._overviewEn ? 0 : 10;
 
       const score =
         themeScore * 1.3
         + tokenScore
         + keywordOverlapScore
+        + philosophicalOverlap
         + genreScore
         + localeScore
         + yearScore

@@ -198,6 +198,7 @@ export const createPhilosopherSubmission = asyncHandler(async (req, res) => {
       submissionSource: 'user-submitted',
       quoteLanguage: quote.quoteLanguage,
       submittedBy: req.user._id || null,
+      moderationStatus: 'pending',
     }));
 
   if (quotesToCreate.length > 0) {

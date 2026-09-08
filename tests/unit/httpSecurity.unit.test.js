@@ -5,6 +5,7 @@ import {
   buildSessionCookieOptions,
   isTestAuthAllowed,
   resolveCorsOrigin,
+  resolveTrustProxy,
   shouldExposeApiDocs,
 } from '../../src/config/httpSecurity.js';
 import { isAuthenticated, isRequestAuthenticated } from '../../src/middleware/authMiddleware.js';
@@ -54,6 +55,14 @@ describe('http security helpers', () => {
       secure: true,
       sameSite: 'lax',
     });
+  });
+
+  test('trust proxy is off in local dev and on in production unless overridden', () => {
+    expect(resolveTrustProxy({ NODE_ENV: 'development' })).toBe(false);
+    expect(resolveTrustProxy({ NODE_ENV: 'test' })).toBe(false);
+    expect(resolveTrustProxy({ NODE_ENV: 'production' })).toBe(1);
+    expect(resolveTrustProxy({ NODE_ENV: 'development', TRUST_PROXY: '1' })).toBe(1);
+    expect(resolveTrustProxy({ NODE_ENV: 'production', TRUST_PROXY: '0' })).toBe(false);
   });
 
   test('API docs are off in production', () => {

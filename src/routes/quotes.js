@@ -1,6 +1,6 @@
 import express from 'express';
 import { body, param } from 'express-validator';
-import { isAuthenticated } from '../middleware/authMiddleware.js';
+import { isAuthenticated, requireAdmin } from '../middleware/authMiddleware.js';
 import { validateRequest } from '../middleware/requestValidator.js';
 import {
   getAllQuotes,
@@ -9,6 +9,7 @@ import {
   createQuote,
   updateQuote,
   deleteQuote,
+  moderateQuote,
 } from '../controllers/QuoteController.js';
 
 const router = express.Router();
@@ -147,6 +148,15 @@ const updateQuoteRules = [
 router.get('/', getAllQuotes);
 
 router.get('/catalog', getQuoteCatalog);
+
+router.patch(
+  '/:id/moderation',
+  isAuthenticated,
+  requireAdmin,
+  quoteIdParam,
+  validateRequest,
+  moderateQuote
+);
 
 /**
  * @swagger

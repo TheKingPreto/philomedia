@@ -1,5 +1,7 @@
+import { jest } from '@jest/globals';
 import request from 'supertest';
 import app from '../server.js';
+import { MAX_PORTRAIT_BYTES } from '../src/services/remoteAssetProxy.js';
 
 describe('Basic API endpoints', () => {
   test('GET / should redirect to index page', async () => {
@@ -79,6 +81,44 @@ describe('Basic API endpoints', () => {
       error: 'Authentication is not configured on this server.',
       oauthEnabled: false,
     });
+  });
+
+  test('GET /html/details.html is served as HTML with absolute canonical', async () => {
+    const res = await request(app).get('/html/details.html?id=550&type=movie');
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toMatch(/html/);
+    expect(res.text).toContain('rel="canonical"');
+    expect(res.text).toContain('og:title');
+  });
+
+  test('GET /api/assets/portrait returns 413 when the upstream body is too large', async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: {
+        get: (name) => (String(name).toLowerCase() === 'content-length'
+          ? String(MAX_PORTRAIT_BYTES + 10)
+          : 'image/jpeg'),
+      },
+      body: { getReader: () => ({ read: async () => ({ done: true }), cancel: async () => {} }) },
+      arrayBuffer: async () => Buffer.alloc(0),
+    });
+
+    const res = await request(app).get(
+      '/api/assets/portrait?src=https://upload.wikimedia.org/wikipedia/commons/a.jpg'
+    );
+
+    fetchSpy.mockRestore();
+    expect(res.statusCode).toBe(413);
+  });
+
+  test('CSP no longer opens philosophersapi or Wikipedia to the browser', async () => {
+    const res = await request(app).get('/health');
+    const csp = res.headers['content-security-policy'] || '';
+    expect(csp).toContain("img-src 'self' data: https://image.tmdb.org");
+    expect(csp).not.toContain('philosophersapi.com');
+    expect(csp).not.toContain('wikipedia.org');
+    expect(csp).not.toContain('upload.wikimedia.org');
   });
 
   test('GET /auth/session should expose unauthenticated session state', async () => {

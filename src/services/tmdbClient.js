@@ -10,6 +10,7 @@ const RESPONSE_CACHE_TTL_MS = 15 * 60 * 1000;
 const RESPONSE_CACHE_MAX = 400;
 
 const responseCache = new Map();
+const englishOverviewById = new Map();
 
 export class TmdbHttpError extends Error {
   constructor(status, message, { timeout = false } = {}) {
@@ -90,6 +91,48 @@ function setCachedResponse(key, value) {
 
 export function clearTmdbResponseCache() {
   responseCache.clear();
+  englishOverviewById.clear();
+}
+
+function overviewCacheKey(mediaType, id) {
+  return `${mediaType}:${id}`;
+}
+
+function rememberEnglishOverview(item, mediaType) {
+  const type = item?.media_type || mediaType;
+  const overview = item?._overviewEn || (item?._overviewLocale === 'en' ? item.overview : '') || '';
+  if (item?.id != null && overview) {
+    englishOverviewById.set(overviewCacheKey(type, item.id), overview);
+  }
+}
+
+function attachCachedEnglishOverview(item, mediaType) {
+  if (item?._overviewEn) {
+    rememberEnglishOverview(item, mediaType);
+    return item;
+  }
+  const type = item?.media_type || mediaType;
+  const cached = englishOverviewById.get(overviewCacheKey(type, item?.id));
+  return cached ? { ...item, _overviewEn: cached } : item;
+}
+
+async function withEnglishOverviews(displayItems, mediaType, {
+  includeEnglishOverview = true,
+  fetchEnglish,
+} = {}) {
+  const attached = (displayItems || []).map(item => attachCachedEnglishOverview(item, mediaType));
+  if (!includeEnglishOverview) return attached;
+
+  const missing = attached.filter(item => !item._overviewEn);
+  if (!missing.length) return attached;
+
+  const englishItems = await fetchEnglish();
+  (englishItems || []).forEach(item => {
+    const overviewEn = item._overviewEn || item.overview || '';
+    rememberEnglishOverview({ ...item, _overviewEn: overviewEn, _overviewLocale: 'en' }, mediaType);
+  });
+
+  return attached.map(item => attachCachedEnglishOverview(item, mediaType));
 }
 
 export function getTmdbResponseCacheSize() {
@@ -252,15 +295,6 @@ function isPortugueseLanguage(language) {
   return String(language || '').toLowerCase().startsWith('pt');
 }
 
-function mergeEnglishOverviews(displayItems, englishItems) {
-  const byId = new Map((englishItems || []).map(item => [String(item.id), item]));
-  return (displayItems || []).map(item => {
-    const english = byId.get(String(item.id));
-    const overviewEn = english?.overview || item._overviewEn || '';
-    return overviewEn ? { ...item, _overviewEn: overviewEn } : item;
-  });
-}
-
 export function mapTmdbReviews(results = []) {
   return (Array.isArray(results) ? results : []).map(review => ({
     content: review?.content || '',
@@ -276,7 +310,7 @@ function mapAppendedSummaries(payload, mediaType, language, limit) {
 
 /**
  * Lista de IDs TMDB para with_keywords / without_keywords / with_genres.
- * SÃ³ dÃ­gitos; `|` = OR, `,` = AND. Qualquer outro caractere cai fora.
+ * S dgitos; `|` = OR, `,` = AND. Qualquer outro caractere cai fora.
  */
 export function sanitizeTmdbIdList(raw, { maxIds = 20 } = {}) {
   if (raw == null) return undefined;
@@ -302,7 +336,11 @@ function assertValidMediaType(type) {
   }
 }
 
-export async function searchMulti(query, { language = DEFAULT_LANGUAGE, page = 1 } = {}) {
+export async function searchMulti(query, {
+  language = DEFAULT_LANGUAGE,
+  page = 1,
+  includeEnglishOverview = true,
+} = {}) {
   if (!query) return [];
 
   const data = await fetchTMDBJson('/search/multi', {
@@ -325,22 +363,29 @@ export async function searchMulti(query, { language = DEFAULT_LANGUAGE, page = 1
       }))
     : [];
 
-  if (overviewLocale === 'pt' && results.length) {
-    const englishData = await fetchTMDBJson('/search/multi', {
-      query,
-      page: String(page || 1),
-      include_adult: 'false',
-    }, { language: DEFAULT_LANGUAGE });
-    const englishResults = Array.isArray(englishData.results) ? englishData.results : [];
+  if (overviewLocale === 'en') {
+    results.forEach(item => rememberEnglishOverview(item, item.media_type));
     return {
-      results: mergeEnglishOverviews(results, englishResults),
+      results,
       page: Number(data.page) || Number(page) || 1,
       totalPages: Number(data.total_pages) || 1,
     };
   }
 
+  const merged = await withEnglishOverviews(results, null, {
+    includeEnglishOverview,
+    fetchEnglish: async () => {
+      const englishData = await fetchTMDBJson('/search/multi', {
+        query,
+        page: String(page || 1),
+        include_adult: 'false',
+      }, { language: DEFAULT_LANGUAGE });
+      return Array.isArray(englishData.results) ? englishData.results : [];
+    },
+  });
+
   return {
-    results,
+    results: merged,
     page: Number(data.page) || Number(page) || 1,
     totalPages: Number(data.total_pages) || 1,
   };
@@ -360,12 +405,17 @@ export async function getDetails(id, type, { language = DEFAULT_LANGUAGE } = {})
     fetchOptionalTMDBJson(`/${type}/${id}/watch/providers`, {}, { includeLanguage: false, language }),
   ]);
 
+  const similar = mapAppendedSummaries(details?.similar, type, language, 8)
+    .map(item => attachCachedEnglishOverview(item, type));
+  const recommendations = mapAppendedSummaries(details?.recommendations, type, language, 12)
+    .map(item => attachCachedEnglishOverview(item, type));
+
   return {
     ...details,
     tmdbKeywords: extractTmdbKeywords(details),
     tmdbReviews: mapTmdbReviews(details?.reviews?.results),
-    similar: mapAppendedSummaries(details?.similar, type, language, 8),
-    recommendations: mapAppendedSummaries(details?.recommendations, type, language, 12),
+    similar,
+    recommendations,
     watchProviders: watchProvidersPayload
       ? extractWatchProviders(watchProvidersPayload)
       : null,
@@ -412,6 +462,7 @@ export async function getRecommendations(id, type, { language = DEFAULT_LANGUAGE
 
 export async function getDiscover(media = 'movie', page = 1, options = {}) {
   const language = options.language || DEFAULT_LANGUAGE;
+  const includeEnglishOverview = options.includeEnglishOverview !== false;
   const withGenres = sanitizeTmdbIdList(options.withGenres);
   const withKeywords = sanitizeTmdbIdList(options.withKeywords);
   const withoutKeywords = sanitizeTmdbIdList(options.withoutKeywords);
@@ -441,18 +492,28 @@ export async function getDiscover(media = 'movie', page = 1, options = {}) {
     ? data.results.map(item => mapMediaSummary(item, media, { language }))
     : [];
 
-  if (!isPortugueseLanguage(language) || !items.length) return items;
+  if (!isPortugueseLanguage(language) || !items.length) {
+    items.forEach(item => rememberEnglishOverview(item, media));
+    return items;
+  }
 
-  const englishData = await fetchOptionalTMDBJson(`/discover/${media}`, discoverParams, {
-    language: DEFAULT_LANGUAGE,
+  return withEnglishOverviews(items, media, {
+    includeEnglishOverview,
+    fetchEnglish: async () => {
+      const englishData = await fetchOptionalTMDBJson(`/discover/${media}`, discoverParams, {
+        language: DEFAULT_LANGUAGE,
+      });
+      return Array.isArray(englishData?.results)
+        ? englishData.results.map(item => mapMediaSummary(item, media, { language: DEFAULT_LANGUAGE }))
+        : [];
+    },
   });
-  const englishItems = Array.isArray(englishData?.results)
-    ? englishData.results.map(item => mapMediaSummary(item, media, { language: DEFAULT_LANGUAGE }))
-    : [];
-  return mergeEnglishOverviews(items, englishItems);
 }
 
-export async function getTrending(media = 'movie', window = 'week', { language = DEFAULT_LANGUAGE } = {}) {
+export async function getTrending(media = 'movie', window = 'week', {
+  language = DEFAULT_LANGUAGE,
+  includeEnglishOverview = true,
+} = {}) {
   assertValidMediaType(media);
   const timeWindow = window === 'day' ? 'day' : 'week';
   const data = await fetchOptionalTMDBJson(`/trending/${media}/${timeWindow}`, {}, { language });
@@ -460,13 +521,20 @@ export async function getTrending(media = 'movie', window = 'week', { language =
     ? data.results.map(item => mapMediaSummary(item, media, { language }))
     : [];
 
-  if (!isPortugueseLanguage(language) || !items.length) return items;
+  if (!isPortugueseLanguage(language) || !items.length) {
+    items.forEach(item => rememberEnglishOverview(item, media));
+    return items;
+  }
 
-  const englishData = await fetchOptionalTMDBJson(`/trending/${media}/${timeWindow}`, {}, {
-    language: DEFAULT_LANGUAGE,
+  return withEnglishOverviews(items, media, {
+    includeEnglishOverview,
+    fetchEnglish: async () => {
+      const englishData = await fetchOptionalTMDBJson(`/trending/${media}/${timeWindow}`, {}, {
+        language: DEFAULT_LANGUAGE,
+      });
+      return Array.isArray(englishData?.results)
+        ? englishData.results.map(item => mapMediaSummary(item, media, { language: DEFAULT_LANGUAGE }))
+        : [];
+    },
   });
-  const englishItems = Array.isArray(englishData?.results)
-    ? englishData.results.map(item => mapMediaSummary(item, media, { language: DEFAULT_LANGUAGE }))
-    : [];
-  return mergeEnglishOverviews(items, englishItems);
 }

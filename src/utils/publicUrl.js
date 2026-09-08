@@ -42,7 +42,7 @@ export function getRequestBaseUrl(req) {
 }
 
 export function getPublicBaseUrl(req, { allowLocalOverride = true } = {}) {
-  const publicSiteUrl = cleanUrl(process.env.PUBLIC_SITE_URL);
+  const publicSiteUrl = cleanUrl(process.env.PUBLIC_BASE_URL || process.env.PUBLIC_SITE_URL);
   const requestBaseUrl = getRequestBaseUrl(req);
 
   if (
@@ -70,7 +70,7 @@ export function getDefaultOAuthCallbackUrl() {
     return configuredCallbackUrl;
   }
 
-  const publicSiteUrl = cleanUrl(process.env.PUBLIC_SITE_URL);
+  const publicSiteUrl = cleanUrl(process.env.PUBLIC_BASE_URL || process.env.PUBLIC_SITE_URL);
   if (publicSiteUrl) {
     return new URL(OAUTH_CALLBACK_PATH, `${publicSiteUrl}/`).toString();
   }

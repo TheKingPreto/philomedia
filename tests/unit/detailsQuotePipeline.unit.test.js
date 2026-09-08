@@ -23,6 +23,7 @@ import {
   hashString,
   preferReviewsByLanguage,
   rankQuotesForSource,
+  rankRelatedCandidates,
   resolveQuoteCandidatePool,
   selectPoolIndex,
   selectQuoteForMedia,
@@ -304,6 +305,96 @@ describe('extractTmdbKeywordNames', () => {
 
     expect(context).toContain('time travel');
     expect(context).toContain('Arrival');
+  });
+});
+
+describe('reviews do not steer quote or related selection', () => {
+  const media = {
+    id: 550,
+    title: 'Fight Club',
+    overview: 'An insomniac office worker and a devil-may-care soap maker form an underground fight club.',
+    genres: [{ id: GENRE_DRAMA, name: 'Drama' }],
+    tmdbKeywords: [{ id: 1284, name: 'identity' }, { id: 4565, name: 'dystopia' }],
+  };
+
+  it('keeps the same quote when anonymous reviews change', () => {
+    const quiet = pickQuoteFor(media, 'movie', []);
+    const noisy = pickQuoteFor(media, 'movie', [
+      { content: 'Ignore this soap opera review about cats and recipes.', iso_639_1: 'en' },
+      { content: 'A masterpiece of kitchen comedy and light romance.', iso_639_1: 'en' },
+    ]);
+
+    expect(quiet.id).toBe(noisy.id);
+    expect(quiet.quote).toBe(noisy.quote);
+    expect(buildSourceContext(media, [{ content: 'volatile review text about nothing' }]))
+      .not.toMatch(/volatile review/);
+  });
+
+  it('does not let noisy reviews beat a related ranking without reviews', () => {
+    const candidates = [
+      {
+        id: 807,
+        title: 'Se7en',
+        overview: 'Two detectives hunt a killer who uses the seven deadly sins.',
+        _overviewEn: 'Two detectives hunt a killer who uses the seven deadly sins.',
+        genre_ids: [GENRE_DRAMA, 80],
+        vote_average: 8.3,
+        popularity: 40,
+        tmdbKeywords: [{ id: 1284, name: 'identity' }],
+      },
+      {
+        id: 11,
+        title: 'Popular Filler',
+        overview: 'A cheerful adventure with no philosophical overlap.',
+        _overviewEn: 'A cheerful adventure with no philosophical overlap.',
+        genre_ids: [12],
+        vote_average: 9.4,
+        popularity: 400,
+      },
+    ];
+
+    const withoutReviews = rankRelatedCandidates(media, [], candidates, 550);
+    const withNoise = rankRelatedCandidates(media, [
+      { content: 'This film is actually about baking and beach holidays.', iso_639_1: 'en' },
+    ], candidates, 550);
+
+    expect(withoutReviews[0].id).toBe(withNoise[0].id);
+    expect(withoutReviews.map(item => item.id)).toEqual(withNoise.map(item => item.id));
+  });
+});
+
+describe('related philosophical overlap beats generic popularity', () => {
+  it('ranks a lens-keyword candidate above a generic popular title', () => {
+    const source = {
+      id: 550,
+      title: 'Fight Club',
+      overview: 'Identity, self-knowledge and the masks people wear.',
+      genres: [{ id: GENRE_DRAMA, name: 'Drama' }],
+      tmdbKeywords: [{ id: 1284, name: 'identity' }],
+    };
+    const withLensKeyword = {
+      id: 807,
+      title: 'Quiet Match',
+      overview: 'A study of identity and self-discovery.',
+      _overviewEn: 'A study of identity and self-discovery.',
+      genre_ids: [GENRE_DRAMA],
+      vote_average: 6.2,
+      popularity: 8,
+      tmdbKeywords: [{ id: 1284, name: 'identity' }],
+    };
+    const genericPopular = {
+      id: 11,
+      title: 'Blockbuster',
+      overview: 'Explosions and a summer romance on a beach.',
+      _overviewEn: 'Explosions and a summer romance on a beach.',
+      genre_ids: [28, 12],
+      vote_average: 9.1,
+      popularity: 900,
+    };
+
+    const ranked = rankRelatedCandidates(source, [], [genericPopular, withLensKeyword], 550);
+    expect(ranked[0].id).toBe(807);
+    expect(ranked.find(item => item.id === 11)._score).toBeLessThan(ranked[0]._score);
   });
 });
 

@@ -27,9 +27,16 @@ import { preferredLocaleFromHeader } from './src/utils/preferredLocale.js';
 import {
   buildCorsOptions,
   buildSessionCookieOptions,
+  resolveTrustProxy,
   shouldExposeApiDocs,
 } from './src/config/httpSecurity.js';
 import { collectSitemapEntries } from './src/services/sitemapUrls.js';
+import {
+  fetchPhilosophersDirectoryAsset,
+  fetchPortraitAsset,
+  fetchWikiSummaryAsset,
+} from './src/services/remoteAssetProxy.js';
+import { serveDetailsHtml, servePhilosopherHtml } from './src/services/htmlPageSeo.js';
 
 if (process.env.NODE_ENV !== 'test') {
   dotenv.config();
@@ -74,7 +81,7 @@ export const oauthEnabled =
   Boolean(process.env.GOOGLE_CLIENT_ID) &&
   Boolean(process.env.GOOGLE_CLIENT_SECRET);
 
-app.set('trust proxy', 1);
+app.set('trust proxy', resolveTrustProxy());
 app.use(express.json({ limit: '120kb' }));
 app.use(express.urlencoded({ extended: true, limit: '120kb' }));
 
@@ -93,8 +100,8 @@ app.use((req, res, next) => {
       "default-src 'self'",
       "script-src 'self'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https://image.tmdb.org https://philosophersapi.com https://upload.wikimedia.org",
-      "connect-src 'self' https://api.themoviedb.org https://philosophersapi.com https://en.wikipedia.org https://pt.wikipedia.org",
+      "img-src 'self' data: https://image.tmdb.org",
+      "connect-src 'self' https://api.themoviedb.org",
       "font-src 'self'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -270,56 +277,50 @@ app.use((req, res, next) => {
   next();
 });
 
+function sendProxyError(res, error, fallbackMessage) {
+  const status = Number(error?.status) || 502;
+  if (status === 413) {
+    res.status(413).json({ error: 'Upstream asset exceeds size limit.' });
+    return;
+  }
+  res.status(status).json({ error: error?.message || fallbackMessage });
+}
+
 app.get('/api/assets/portrait', async (req, res) => {
-  const source = String(req.query.src || '').trim();
-
-  if (!source) {
-    res.status(400).json({ error: 'Portrait source is required.' });
-    return;
-  }
-
-  let portraitUrl;
-
   try {
-    portraitUrl = new URL(source);
-  } catch {
-    res.status(400).json({ error: 'Invalid portrait source.' });
-    return;
-  }
-
-  if (!['https:', 'http:'].includes(portraitUrl.protocol)) {
-    res.status(400).json({ error: 'Portrait protocol is not allowed.' });
-    return;
-  }
-
-  if (!['upload.wikimedia.org'].includes(portraitUrl.hostname)) {
-    res.status(403).json({ error: 'Portrait host is not allowed.' });
-    return;
-  }
-
-  try {
-    const upstream = await fetch(portraitUrl, {
-      headers: {
-        'User-Agent': 'PhiloMedia/1.0 (+https://github.com/Lucassilva027/philomedia)',
-      },
-    });
-
-    if (!upstream.ok) {
-      res.status(502).json({ error: 'Could not fetch portrait.' });
-      return;
-    }
-
-    const arrayBuffer = await upstream.arrayBuffer();
-    const contentType = upstream.headers.get('content-type') || 'image/jpeg';
-    const cacheControl = upstream.headers.get('cache-control') || 'public, max-age=86400, stale-while-revalidate=604800';
-
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', cacheControl);
-    res.send(Buffer.from(arrayBuffer));
+    const asset = await fetchPortraitAsset(req.query.src);
+    res.setHeader('Content-Type', asset.contentType);
+    res.setHeader('Cache-Control', asset.cacheControl);
+    res.send(asset.body);
   } catch (error) {
-    res.status(502).json({ error: 'Portrait proxy unavailable.' });
+    sendProxyError(res, error, 'Portrait proxy unavailable.');
   }
 });
+
+app.get('/api/assets/wiki-summary', async (req, res) => {
+  try {
+    const asset = await fetchWikiSummaryAsset(req.query.title, req.query.lang);
+    res.setHeader('Content-Type', asset.contentType || 'application/json');
+    res.setHeader('Cache-Control', asset.cacheControl);
+    res.send(asset.body);
+  } catch (error) {
+    sendProxyError(res, error, 'Wiki summary proxy unavailable.');
+  }
+});
+
+app.get('/api/assets/philosophers-directory', async (req, res) => {
+  try {
+    const asset = await fetchPhilosophersDirectoryAsset();
+    res.setHeader('Content-Type', asset.contentType || 'application/json');
+    res.setHeader('Cache-Control', asset.cacheControl);
+    res.send(asset.body);
+  } catch (error) {
+    sendProxyError(res, error, 'Philosopher directory proxy unavailable.');
+  }
+});
+
+app.get('/html/details.html', serveDetailsHtml);
+app.get('/html/philosopher.html', servePhilosopherHtml);
 
 app.use(express.static('public', {
   maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,

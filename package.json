@@ -11,6 +11,12 @@
     "translate:quotes:pt": "node scripts/translate_custom_quotes_pt.js",
     "generate:real-quotes": "node scripts/generate-real-quotes.js",
     "generate:real-candidates": "node scripts/real-quote-candidates.js",
+    "seed:quotes": "node scripts/seed-quotes.js",
+    "import:wikiquote": "node scripts/import_quotes_wikiquote.js",
+    "fonts:download": "node scripts/download-fonts.mjs",
+    "benchmark:lenses": "node scripts/benchmark-lenses.mjs",
+    "pairings:dedupe": "node scripts/dedupe-daily-pairings.mjs",
+    "theme:buckets": "node scripts/theme-buckets.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/unit tests/integration tests/app.test.js",
     "test:e2e": "playwright test",
     "test:detect": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --detectOpenHandles",
@@ -71,5 +77,8 @@
     "moduleNameMapper": {
       "^/scripts/(.*)$": "<rootDir>/tests/__mocks__/browserModule.js"
     }
+  },
+  "overrides": {
+    "fast-xml-parser": "5.11.1"
   }
 }

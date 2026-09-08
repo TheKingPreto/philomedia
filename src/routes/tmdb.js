@@ -10,6 +10,11 @@ function resolveTmdbLanguage(req) {
   return raw.toLowerCase().startsWith('pt') ? 'pt-BR' : 'en-US';
 }
 
+function resolveIncludeEnglishOverview(req) {
+  const raw = String(req.query.includeEnglishOverview ?? req.query.include_english_overview ?? '1').trim().toLowerCase();
+  return raw !== '0' && raw !== 'false' && raw !== 'no';
+}
+
 function isConfiguredError(error) {
   return error?.message?.includes('TMDB_API_KEY');
 }
@@ -50,6 +55,7 @@ router.get('/search', async (req, res) => {
     const payload = await tmdbClient.searchMulti(String(query), {
       language: resolveTmdbLanguage(req),
       page: req.query.page || 1,
+      includeEnglishOverview: resolveIncludeEnglishOverview(req),
     });
     if (Array.isArray(payload)) {
       res.json(payload);
@@ -122,6 +128,7 @@ router.get('/discover', async (req, res) => {
       withCrew: with_crew ? String(with_crew) : undefined,
       sortBy: String(sort_by),
       language: resolveTmdbLanguage(req),
+      includeEnglishOverview: resolveIncludeEnglishOverview(req),
     });
     res.json(results);
   } catch (error) {
@@ -170,6 +177,7 @@ router.get('/trending', async (req, res) => {
   try {
     const results = await tmdbClient.getTrending(String(media), String(window), {
       language: resolveTmdbLanguage(req),
+      includeEnglishOverview: resolveIncludeEnglishOverview(req),
     });
     res.json(results);
   } catch (error) {

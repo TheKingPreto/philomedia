@@ -9,11 +9,8 @@
 export { getQuoteCatalog, getQuotes } from '/scripts/services/quoteCatalogClient.js';
 
 const API_PHILOSOPHERS_ENDPOINT = '/api/philosophers';
-const PHILOSOPHERS_URL = 'https://philosophersapi.com/api/philosophers';
-const WIKIPEDIA_SUMMARY_ENDPOINTS = [
-  'https://en.wikipedia.org/api/rest_v1/page/summary/',
-  'https://pt.wikipedia.org/api/rest_v1/page/summary/',
-];
+const PHILOSOPHERS_DIRECTORY_URL = '/api/assets/philosophers-directory';
+const WIKI_SUMMARY_URL = '/api/assets/wiki-summary';
 const THINKER_REFERENCE_ALIASES = {
   'buddha': ['Gautama Buddha', 'Buddha'],
   'confucius': ['Confucius'],
@@ -104,7 +101,12 @@ function toPortraitProxyUrl(rawUrl) {
 
   try {
     const url = new URL(rawUrl, window.location.origin);
-    if (url.hostname === 'upload.wikimedia.org') {
+    const host = url.hostname.toLowerCase();
+    if (
+      host === 'upload.wikimedia.org'
+      || host === 'philosophersapi.com'
+      || host === 'www.philosophersapi.com'
+    ) {
       return `/api/assets/portrait?src=${encodeURIComponent(url.toString())}`;
     }
     return url.toString();
@@ -135,7 +137,7 @@ function normalizePhilosopherEntry(entry) {
 
 export async function getPhilosopherDirectory() {
   if (!philosopherDirectoryPromise) {
-    philosopherDirectoryPromise = fetchWithTimeout(PHILOSOPHERS_URL)
+    philosopherDirectoryPromise = fetchWithTimeout(PHILOSOPHERS_DIRECTORY_URL)
       .then(async response => {
         if (!response.ok) throw new Error(`Philosophers API responded ${response.status}`);
         const data = await response.json();
@@ -299,10 +301,11 @@ function normalizeReferencePayload(name, payload) {
 async function fetchReferenceFromSummaryEndpoint(name, title) {
   const candidates = buildSummaryCandidates(title);
 
-  for (const baseUrl of WIKIPEDIA_SUMMARY_ENDPOINTS) {
+  for (const lang of ['en', 'pt']) {
     for (const candidate of candidates) {
       try {
-        const response = await fetchWithTimeout(`${baseUrl}${encodeURIComponent(candidate)}`);
+        const params = new URLSearchParams({ title: candidate, lang });
+        const response = await fetchWithTimeout(`${WIKI_SUMMARY_URL}?${params.toString()}`);
         if (!response.ok) continue;
 
         const data = await response.json();

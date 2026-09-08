@@ -47,6 +47,19 @@ export function shouldExposeApiDocs(env = process.env) {
 }
 
 /**
+ * `trust proxy` só quando há reverse proxy de verdade. Em dev local,
+ * X-Forwarded-For não pode spoofar o rate limit.
+ *
+ * TRUST_PROXY=1|true|0|false tem prioridade. Sem a env: ligado só em production.
+ */
+export function resolveTrustProxy(env = process.env) {
+  const raw = String(env.TRUST_PROXY ?? '').trim().toLowerCase();
+  if (raw === '1' || raw === 'true' || raw === 'yes') return 1;
+  if (raw === '0' || raw === 'false' || raw === 'no') return false;
+  return env.NODE_ENV === 'production' ? 1 : false;
+}
+
+/**
  * Impersonation via x-test-auth-user só com NODE_ENV=test E ALLOW_TEST_AUTH=1.
  * NODE_ENV=test sozinho num host exposto não basta.
  */

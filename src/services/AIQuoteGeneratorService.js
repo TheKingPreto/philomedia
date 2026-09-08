@@ -9,14 +9,26 @@ const MAX_OUTPUT_TOKENS = 2048;
 const VALID_THEMES = Object.keys(THEME_DATABASE);
 
 const INJECTION_PATTERNS = [
-  /ignore\s+(all\s+)?(previous|prior|above)\s+instructions?/i,
-  /forget\s+(everything|all|your|the)/i,
+  /ignore\s+(all\s+)?(previous|prior|above|the)\s+(instructions?|prompts?)/i,
+  /disregard\s+(all\s+)?(the\s+)?(system|developer|previous|prior|above)?\s*(prompt|instructions?)?/i,
+  /forget\s+(everything|all|your|the)\s+(previous|prior|above|system|instructions?|prompts?)?/i,
   /you\s+are\s+now\s+a/i,
   /act\s+as\s+(a\s+)?different/i,
   /system\s*:/i,
+  /developer\s+(mode|prompt|instructions?)/i,
+  /output\s+(the\s+)?(hidden|system|secret|developer)\s*(prompt)?/i,
+  /reveal\s+(the\s+)?(system|hidden|developer)\s*(prompt|instructions?)?/i,
   /\[INST\]/i,
   /<\|.*?\|>/i,
+  /jailbreak/i,
+  /do\s+not\s+follow\s+(your|the)\s+(previous|system)/i,
 ];
+
+export function textLooksLikeInstruction(input) {
+  const text = String(input || '').trim();
+  if (!text) return false;
+  return INJECTION_PATTERNS.some(pattern => pattern.test(text));
+}
 
 const VALID_TMDB_MEDIA_TYPES = new Set(['movie', 'tv']);
 
@@ -53,6 +65,7 @@ export function sanitizeUntrustedText(input, { maxLen = 400 } = {}) {
 
 export function formatReviewsForPrompt(reviews, { maxReviews = 5, maxChars = 1200 } = {}) {
   const snippets = (Array.isArray(reviews) ? reviews : [])
+    .filter(review => !textLooksLikeInstruction(review?.content))
     .map(review => sanitizeUntrustedText(review?.content, { maxLen: 280 }))
     .filter(Boolean)
     .slice(0, maxReviews);

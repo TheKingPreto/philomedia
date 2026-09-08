@@ -1,9 +1,10 @@
 import Quote from '../models/Quote.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { buildQuoteCatalog } from '../services/quoteCatalog.js';
+import { buildQuoteCatalog, catalogVisibilityFilter } from '../services/quoteCatalog.js';
 import {
   FORBIDDEN_MESSAGE,
   canManageResource,
+  isAdmin,
   pickAllowedFields,
 } from '../utils/resourceAccess.js';
 
@@ -45,6 +46,9 @@ export const getAllQuotes = asyncHandler(async (req, res, _next) => {
   if (lang) {
     filter.quoteLanguage = lang;
   }
+  if (!isAdmin(req.user)) {
+    Object.assign(filter, catalogVisibilityFilter());
+  }
 
   const skip = (page - 1) * limit;
 
@@ -82,6 +86,7 @@ export const createQuote = asyncHandler(async (req, res, _next) => {
     ...sanitizeQuoteBody(req.body),
     submissionSource: 'user-submitted',
     submittedBy: req.user?._id ?? null,
+    moderationStatus: 'pending',
   });
   const savedQuote = await newQuote.save();
   res.status(201).json(savedQuote);
@@ -114,4 +119,24 @@ export const deleteQuote = asyncHandler(async (req, res, _next) => {
 
   await quote.deleteOne();
   res.status(200).json({ message: 'Quote successfully deleted.' });
+});
+
+export const moderateQuote = asyncHandler(async (req, res, _next) => {
+  if (!isAdmin(req.user)) {
+    return res.status(403).json({ message: FORBIDDEN_MESSAGE });
+  }
+
+  const status = String(req.body?.status || req.body?.moderationStatus || '').trim().toLowerCase();
+  if (!['pending', 'approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ message: 'moderationStatus must be pending, approved, or rejected.' });
+  }
+
+  const quote = await Quote.findById(req.params.id);
+  if (!quote) {
+    return res.status(404).json({ message: 'Quote not found.' });
+  }
+
+  quote.moderationStatus = status;
+  const saved = await quote.save();
+  res.status(200).json(saved);
 });

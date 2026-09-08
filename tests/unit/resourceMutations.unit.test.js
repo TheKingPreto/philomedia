@@ -168,6 +168,7 @@ describe('Quote mutations ignore server-owned fields', () => {
 
     expect(constructed.legacyId).toBeNull();
     expect(constructed.submissionSource).toBe('user-submitted');
+    expect(constructed.moderationStatus).toBe('pending');
     expect(String(constructed.submittedBy)).toBe(OWNER_ID);
   });
 });

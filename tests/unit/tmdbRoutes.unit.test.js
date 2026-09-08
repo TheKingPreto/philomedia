@@ -64,7 +64,11 @@ describe('tmdb routes', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.results).toEqual([{ id: 1, media_type: 'movie', title: 'Dune' }]);
-    expect(mockSearchMulti).toHaveBeenCalledWith('dune', { language: 'en-US', page: 1 });
+    expect(mockSearchMulti).toHaveBeenCalledWith('dune', {
+      language: 'en-US',
+      page: 1,
+      includeEnglishOverview: true,
+    });
   });
 
   test('GET /details validates required params before calling the client', async () => {
@@ -98,6 +102,7 @@ describe('tmdb routes', () => {
       withCrew: undefined,
       sortBy: 'popularity.desc',
       language: 'en-US',
+      includeEnglishOverview: true,
     });
   });
 
@@ -190,7 +195,11 @@ describe('tmdb routes', () => {
 
     await request(app).get('/api/tmdb/search?query=dune&page=3');
 
-    expect(mockSearchMulti).toHaveBeenCalledWith('dune', { language: 'en-US', page: '3' });
+    expect(mockSearchMulti).toHaveBeenCalledWith('dune', {
+      language: 'en-US',
+      page: '3',
+      includeEnglishOverview: true,
+    });
   });
 
   test('GET /discover forwards watch providers and crew', async () => {
@@ -224,7 +233,10 @@ describe('tmdb routes', () => {
 
     const ok = await request(app).get('/api/tmdb/trending?media=movie&window=week');
     expect(ok.status).toBe(200);
-    expect(mockGetTrending).toHaveBeenCalledWith('movie', 'week', { language: 'en-US' });
+    expect(mockGetTrending).toHaveBeenCalledWith('movie', 'week', {
+      language: 'en-US',
+      includeEnglishOverview: true,
+    });
 
     const bad = await request(app).get('/api/tmdb/trending?media=person');
     expect(bad.status).toBe(400);

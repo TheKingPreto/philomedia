@@ -22,8 +22,22 @@ describe('QuoteController unit tests (mocked model)', () => {
 
     await QuoteController.getAllQuotes(req, res, next);
 
-    expect(findSpy).toHaveBeenCalledWith({});
-    expect(countSpy).toHaveBeenCalledWith({});
+    expect(findSpy).toHaveBeenCalledWith({
+      $or: [
+        { moderationStatus: 'approved' },
+        { moderationStatus: { $exists: false } },
+        { moderationStatus: null },
+        { moderationStatus: '' },
+      ],
+    });
+    expect(countSpy).toHaveBeenCalledWith({
+      $or: [
+        { moderationStatus: 'approved' },
+        { moderationStatus: { $exists: false } },
+        { moderationStatus: null },
+        { moderationStatus: '' },
+      ],
+    });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       data: fakeQuotes,

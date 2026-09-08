@@ -328,4 +328,39 @@ describe('tmdbClient', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(mockFetch.mock.calls[0][0]).toContain('language=pt-BR');
   });
+
+  test('searchMulti in pt-BR can skip the English list when the caller is UI-only', async () => {
+    mockFetch.mockResolvedValueOnce(mockJsonResponse({
+      results: [{ id: 1, media_type: 'movie', title: 'Duna', overview: 'PT' }],
+    }));
+
+    const results = await tmdbClient.searchMulti('dune', {
+      language: 'pt-BR',
+      includeEnglishOverview: false,
+    });
+
+    expect(results.results[0].overview).toBe('PT');
+    expect(results.results[0]._overviewEn).toBeUndefined();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('searchMulti in pt-BR reuses cached English overviews by id', async () => {
+    mockFetch
+      .mockResolvedValueOnce(mockJsonResponse({
+        results: [{ id: 1, media_type: 'movie', title: 'Duna', overview: 'PT um' }],
+      }))
+      .mockResolvedValueOnce(mockJsonResponse({
+        results: [{ id: 1, media_type: 'movie', title: 'Dune', overview: 'EN one' }],
+      }))
+      .mockResolvedValueOnce(mockJsonResponse({
+        results: [{ id: 1, media_type: 'movie', title: 'Duna 2', overview: 'PT dois' }],
+      }));
+
+    await tmdbClient.searchMulti('dune', { language: 'pt-BR' });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    const second = await tmdbClient.searchMulti('duna', { language: 'pt-BR' });
+    expect(second.results[0]._overviewEn).toBe('EN one');
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  });
 });

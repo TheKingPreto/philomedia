@@ -1,4 +1,8 @@
-import { collectDailyPairingWorkEntries, collectSitemapEntries } from '../../src/services/sitemapUrls.js';
+import {
+  collectCuratedCatalogWorkEntries,
+  collectDailyPairingWorkEntries,
+  collectSitemapEntries,
+} from '../../src/services/sitemapUrls.js';
 
 describe('sitemap curated URLs', () => {
   test('includes thinkers and unique daily-pairing works, not a TMDB dump', () => {
@@ -13,6 +17,10 @@ describe('sitemap curated URLs', () => {
     const workCount = collectDailyPairingWorkEntries().length;
     expect(workCount).toBeGreaterThan(0);
     expect(workCount).toBeLessThan(5000);
+    expect(collectCuratedCatalogWorkEntries().length).toBeGreaterThan(0);
+    expect(collectSitemapEntries().length).toBeGreaterThan(
+      3 + workCount
+    );
   });
 
   test('deduplicates pairing works by media type and id', () => {
