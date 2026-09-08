@@ -18,9 +18,13 @@ import { createMediaCard, hydrateMediaCards, renderMediaCards } from '/scripts/m
 import {
   getLensById,
   getRatingFilterById,
+  getWatchProviderFilterById,
   buildLensKeywordDiscoverOptions,
   buildLensGenreDiscoverOptions,
+  buildLensCrewDiscoverOptions,
+  buildWatchProviderDiscoverExtras,
   withLensQueryParam,
+  withProviderQueryParam,
 } from '/scripts/domain/searchFilters.js';
 import { annotateResults, mergeResultsByIdentity, scoreLensAffinity } from '/scripts/domain/searchLensRanking.js';
 import {
@@ -43,6 +47,7 @@ const lensSuggestionsContainer = document.getElementById('lens-suggestions');
 const lensSummaryEl = document.getElementById('lens-active-summary');
 const mediaFiltersContainer = document.getElementById('media-filters');
 const ratingFiltersContainer = document.getElementById('rating-filters');
+const providerFiltersContainer = document.getElementById('provider-filters');
 const clearFiltersButton = document.getElementById('clear-search-filters');
 const searchToolbar = document.getElementById('search-toolbar');
 const resultsMeta = document.getElementById('search-results-meta');
@@ -65,11 +70,14 @@ const state = {
     lens: 'all',
     media: 'all',
     rating: 'any',
+    provider: 'any',
     sort: 'recommended',
   },
   lensPage: 0,
   lensAllResults: [],
   lensesExpanded: false,
+  searchPage: 1,
+  searchHasMore: false,
 };
 
 const LENS_DISPLAY_LIMIT = 10;
@@ -81,18 +89,28 @@ function renderFilters() {
     lensSummaryEl,
     mediaFiltersContainer,
     ratingFiltersContainer,
+    providerFiltersContainer,
     sortSelect,
     filters: state.filters,
     lensesExpanded: state.lensesExpanded,
   });
 }
 
-function syncLensQueryParam(lensId) {
-  const nextSearch = withLensQueryParam(window.location.search, lensId);
+function syncSearchQueryParams({ lensId = state.filters.lens, providerId = state.filters.provider } = {}) {
+  const withLens = withLensQueryParam(window.location.search, lensId);
+  const nextSearch = withProviderQueryParam(withLens, providerId);
   const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`;
   const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   if (nextUrl === currentUrl) return;
   window.history.replaceState(null, '', nextUrl);
+}
+
+function getDiscoverExtras(extra = {}) {
+  return buildWatchProviderDiscoverExtras(state.filters.provider, extra);
+}
+
+function discoveryCacheKey(lensId) {
+  return `${lensId}::${state.filters.provider || 'any'}`;
 }
 
 function buildResultsSummary(totalResults, visibleResults) {
@@ -178,16 +196,17 @@ async function extendLensPool(lensId) {
   if (!lens) return;
 
   const page = Math.floor(state.rawResults.length / 20) + 1;
-  const keywordOptions = buildLensKeywordDiscoverOptions(lens, { page, sortBy: 'vote_average.desc' });
+  const watchExtras = getDiscoverExtras({ page, sortBy: 'vote_average.desc' });
+  const keywordOptions = buildLensKeywordDiscoverOptions(lens, watchExtras);
   const useKeywords = Boolean(keywordOptions.withKeywords);
 
   const [moreMovies, moreSeries] = await Promise.all([
     discoverTMDBCached('movie', useKeywords
       ? keywordOptions
-      : buildLensGenreDiscoverOptions(lens, 'movie', { page, sortBy: 'vote_average.desc' })),
+      : buildLensGenreDiscoverOptions(lens, 'movie', watchExtras)),
     discoverTMDBCached('tv', useKeywords
       ? keywordOptions
-      : buildLensGenreDiscoverOptions(lens, 'tv', { page, sortBy: 'vote_average.desc' })),
+      : buildLensGenreDiscoverOptions(lens, 'tv', watchExtras)),
   ]);
 
   const existing = new Set(state.rawResults.map(r => `${r.media_type}:${r.id}`));
@@ -197,7 +216,7 @@ async function extendLensPool(lensId) {
   if (!newItems.length) return;
 
   state.rawResults = mergeResultsByIdentity([...state.rawResults, ...newItems]);
-  refreshLensDiscoveryPoolIfCached(lensId, state.rawResults);
+  refreshLensDiscoveryPoolIfCached(discoveryCacheKey(lensId), state.rawResults);
 }
 
 function ensureLensPaginationMount() {
@@ -214,6 +233,17 @@ function ensureLensPaginationMount() {
 function renderLensPagination(visible = 0) {
   const paginationEl = ensureLensPaginationMount();
   if (!paginationEl) return;
+
+  if (state.currentQuery && state.searchHasMore) {
+    paginationEl.hidden = false;
+    paginationEl.innerHTML = `
+      <p class="lens-pagination-count">${t('search.works_shown', { visible, total: state.rawResults.length })}</p>
+      <button type="button" id="load-more-search" class="ghost-button">
+        ${t('search.see_more_titles')}
+      </button>
+    `;
+    return;
+  }
 
   if (state.filters.lens === 'all' || !state.lensAllResults.length) {
     paginationEl.hidden = true;
@@ -316,6 +346,35 @@ async function renderFilteredState({ append = false } = {}) {
   renderLensPagination(pageResults.length);
 }
 
+async function handleSearchLoadMoreClick(event) {
+  const button = event.target.closest('#load-more-search');
+  if (!button || button.disabled || !state.currentQuery) return;
+
+  button.disabled = true;
+  button.textContent = t('search.loading');
+
+  try {
+    await runSearch(state.currentQuery, { page: state.searchPage + 1, append: true });
+    await renderFilteredState({ append: true });
+  } catch {
+    /* keep current page */
+  } finally {
+    const nextBtn = document.getElementById('load-more-search');
+    if (nextBtn) {
+      nextBtn.disabled = false;
+      nextBtn.textContent = t('search.see_more_titles');
+    }
+  }
+}
+
+async function handleResultsLoadMoreClick(event) {
+  if (event.target.closest('#load-more-search')) {
+    await handleSearchLoadMoreClick(event);
+    return;
+  }
+  await handleLensLoadMoreClick(event);
+}
+
 async function handleLensLoadMoreClick(event) {
   const button = event.target.closest('#load-more-lens');
   if (!button || button.disabled) return;
@@ -347,8 +406,10 @@ async function runThemeDiscovery(lensId) {
   const lens = getLensById(lensId);
   if (!lens) return;
 
-  if (hasLensDiscoveryPool(lensId)) {
-    state.rawResults = getLensDiscoveryPool(lensId);
+  const cacheKey = discoveryCacheKey(lensId);
+
+  if (hasLensDiscoveryPool(cacheKey)) {
+    state.rawResults = getLensDiscoveryPool(cacheKey);
     state.currentQuery = '';
     state.discoveryLensId = lensId;
     await renderFilteredState();
@@ -357,8 +418,11 @@ async function runThemeDiscovery(lensId) {
 
   setSearchLoading(searchPageEls, `Exploring ${lens.label.toLowerCase()}...`);
 
-  const keywordOptions = buildLensKeywordDiscoverOptions(lens);
+  const watchExtras = getDiscoverExtras();
+  const keywordOptions = buildLensKeywordDiscoverOptions(lens, watchExtras);
   const hasKeywords = Boolean(keywordOptions.withKeywords);
+  const genreMovie = buildLensGenreDiscoverOptions(lens, 'movie', watchExtras);
+  const genreTv = buildLensGenreDiscoverOptions(lens, 'tv', watchExtras);
 
   const [
     movieRated,
@@ -369,22 +433,22 @@ async function runThemeDiscovery(lensId) {
     discoverTMDBCached('movie', {
       page: 1,
       sortBy: 'vote_average.desc',
-      ...(hasKeywords ? keywordOptions : buildLensGenreDiscoverOptions(lens, 'movie')),
+      ...(hasKeywords ? keywordOptions : genreMovie),
     }),
     discoverTMDBCached('movie', {
       page: 1,
       sortBy: 'popularity.desc',
-      ...(hasKeywords ? keywordOptions : buildLensGenreDiscoverOptions(lens, 'movie')),
+      ...(hasKeywords ? keywordOptions : genreMovie),
     }),
     discoverTMDBCached('tv', {
       page: 1,
       sortBy: 'vote_average.desc',
-      ...(hasKeywords ? keywordOptions : buildLensGenreDiscoverOptions(lens, 'tv')),
+      ...(hasKeywords ? keywordOptions : genreTv),
     }),
     discoverTMDBCached('tv', {
       page: 1,
       sortBy: 'popularity.desc',
-      ...(hasKeywords ? keywordOptions : buildLensGenreDiscoverOptions(lens, 'tv')),
+      ...(hasKeywords ? keywordOptions : genreTv),
     }),
   ]);
 
@@ -398,17 +462,40 @@ async function runThemeDiscovery(lensId) {
   let currentMovieCount = combined.filter(item => item.media_type === 'movie').length;
   let currentSeriesCount = combined.filter(item => item.media_type === 'tv').length;
 
+  const crewOptions = buildLensCrewDiscoverOptions(lens, watchExtras);
+  if (crewOptions.withCrew) {
+    const [crewMovies, crewSeries] = await Promise.all([
+      discoverTMDBCached('movie', {
+        page: 1,
+        sortBy: 'vote_average.desc',
+        ...crewOptions,
+      }),
+      discoverTMDBCached('tv', {
+        page: 1,
+        sortBy: 'vote_average.desc',
+        ...crewOptions,
+      }),
+    ]);
+    combined = mergeResultsByIdentity([
+      ...combined,
+      ...(crewMovies || []),
+      ...(crewSeries || []),
+    ]);
+    currentMovieCount = combined.filter(item => item.media_type === 'movie').length;
+    currentSeriesCount = combined.filter(item => item.media_type === 'tv').length;
+  }
+
   if (combined.length < 16 || currentMovieCount < 5 || currentSeriesCount < 5) {
     const [movieRatedPageTwo, seriesRatedPageTwo] = await Promise.all([
       discoverTMDBCached('movie', {
         page: 2,
         sortBy: 'vote_average.desc',
-        ...(hasKeywords ? keywordOptions : buildLensGenreDiscoverOptions(lens, 'movie')),
+        ...(hasKeywords ? keywordOptions : genreMovie),
       }),
       discoverTMDBCached('tv', {
         page: 2,
         sortBy: 'vote_average.desc',
-        ...(hasKeywords ? keywordOptions : buildLensGenreDiscoverOptions(lens, 'tv')),
+        ...(hasKeywords ? keywordOptions : genreTv),
       }),
     ]);
 
@@ -428,12 +515,12 @@ async function runThemeDiscovery(lensId) {
       discoverTMDBCached('movie', {
         page: 1,
         sortBy: 'vote_average.desc',
-        ...(genreFallback ? buildLensGenreDiscoverOptions(lens, 'movie') : {}),
+        ...(genreFallback ? genreMovie : watchExtras),
       }),
       discoverTMDBCached('tv', {
         page: 1,
         sortBy: 'vote_average.desc',
-        ...(genreFallback ? buildLensGenreDiscoverOptions(lens, 'tv') : {}),
+        ...(genreFallback ? genreTv : watchExtras),
       }),
     ]);
 
@@ -456,7 +543,7 @@ async function runThemeDiscovery(lensId) {
 
   const discoveredPool = balanceResultsByMedia(ranked, LENS_POOL_LIMIT);
   if (discoveredPool.length) {
-    setLensDiscoveryPool(lensId, discoveredPool);
+    setLensDiscoveryPool(cacheKey, discoveredPool);
   }
   state.rawResults = discoveredPool.map(item => ({ ...item }));
   state.currentQuery = '';
@@ -464,14 +551,26 @@ async function runThemeDiscovery(lensId) {
   await renderFilteredState();
 }
 
-async function runSearch(query) {
-  state.lensPage = 0;
-  setSearchLoading(searchPageEls, t('search.searching'));
+async function runSearch(query, { page = 1, append = false } = {}) {
+  if (!append) {
+    state.lensPage = 0;
+    state.searchPage = 1;
+    setSearchLoading(searchPageEls, t('search.searching'));
+  }
 
-  const results = await searchTMDBCached(query);
-  state.rawResults = annotateResults(results);
+  const results = await searchTMDBCached(query, { page });
+  const annotated = annotateResults(results);
+  const totalPages = Number(results.totalPages) || 0;
+  const currentPage = Number(results.page) || Number(page) || 1;
+  state.searchHasMore = totalPages > 0
+    ? currentPage < totalPages
+    : annotated.length >= 20;
+  state.searchPage = Number(page) || 1;
   state.currentQuery = query;
   state.discoveryLensId = '';
+  state.rawResults = append
+    ? mergeResultsByIdentity([...state.rawResults, ...annotated])
+    : annotated;
 }
 
 async function handleSubmit(event) {
@@ -480,7 +579,7 @@ async function handleSubmit(event) {
   const query = input.value.trim();
   if (!query) {
     if (state.filters.lens !== 'all') {
-      syncLensQueryParam(state.filters.lens);
+      syncSearchQueryParams();
       try {
         await runThemeDiscovery(state.filters.lens);
       } catch (error) {
@@ -496,8 +595,9 @@ async function handleSubmit(event) {
   }
 
   try {
+    state.filters.lens = 'all';
     await runSearch(query);
-    syncLensQueryParam('all');
+    syncSearchQueryParams({ lensId: 'all' });
     renderFilters();
 
     if (!state.rawResults.length) {
@@ -539,7 +639,7 @@ async function handleLensClick(event) {
   if (nextLens === 'all') {
     state.discoveryLensId = '';
   }
-  syncLensQueryParam(nextLens);
+  syncSearchQueryParams({ lensId: nextLens });
   renderFilters();
 
   if (shouldRefreshDiscovery) {
@@ -571,6 +671,21 @@ async function handleToolbarClick(event) {
     state.filters.rating = value;
   }
 
+  if (group === 'provider') {
+    state.filters.provider = value;
+    syncSearchQueryParams();
+    renderFilters();
+    if (!state.currentQuery && state.discoveryLensId) {
+      try {
+        await runThemeDiscovery(state.discoveryLensId);
+      } catch (error) {
+        const is502 = error.message && (error.message.includes('TMDB') || error.message.includes('unavailable'));
+        setSearchError(searchPageEls, error.message || t('search.fetch_error'), is502);
+      }
+      return;
+    }
+  }
+
   renderFilters();
 
   if (state.rawResults.length) {
@@ -592,9 +707,10 @@ async function clearFilters() {
   state.filters.media = 'all';
   state.filters.rating = 'any';
   state.filters.lens = 'all';
+  state.filters.provider = 'any';
   state.filters.sort = 'recommended';
   state.discoveryLensId = '';
-  syncLensQueryParam('all');
+  syncSearchQueryParams({ lensId: 'all', providerId: 'any' });
   renderFilters();
 
   if (state.rawResults.length) {
@@ -607,8 +723,13 @@ async function hydrateFromQueryParams() {
   const query = params.get('q')?.trim() || '';
   const requestedLens = params.get('lens')?.trim() || '';
   const lens = getLensById(requestedLens)?.id || '';
+  const requestedProvider = params.get('provider')?.trim() || '';
+  const provider = getWatchProviderFilterById(requestedProvider).id;
+
+  state.filters.provider = provider;
 
   if (!query && !lens) {
+    renderFilters();
     return;
   }
 
@@ -656,9 +777,10 @@ function init() {
   renderFilters();
   form.addEventListener('submit', handleSubmit);
   lensSuggestionsContainer.addEventListener('click', handleLensSuggestionsClick);
-  searchResultsSection?.addEventListener('click', handleLensLoadMoreClick);
+  searchResultsSection?.addEventListener('click', handleResultsLoadMoreClick);
   mediaFiltersContainer.addEventListener('click', handleToolbarClick);
   ratingFiltersContainer.addEventListener('click', handleToolbarClick);
+  providerFiltersContainer?.addEventListener('click', handleToolbarClick);
   sortSelect.addEventListener('change', handleSortChange);
   clearFiltersButton.addEventListener('click', clearFilters);
   hydrateFromQueryParams().catch(() => {});

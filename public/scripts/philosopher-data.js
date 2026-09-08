@@ -16,6 +16,7 @@ import {
 } from './domain/philosopherAuthors.js';
 import { THEME_GENRE_HINTS, flattenThemeGenreHint } from './domain/themeGenreHints.js';
 import { CURATED_TV_IDS } from './domain/curatedTvIds.js';
+import { LENS_DEFINITIONS as SHARED_LENS_DEFINITIONS } from './domain/lensCatalog.js';
 
 export { formatThemeLabel, normalizePhilosopherTheme, normalizeQuoteThemes };
 
@@ -306,20 +307,8 @@ export const PHILOSOPHER_DEFINITIONS = PHILOSOPHER_AUTHORS.map((author) => ({
   ...PHILOSOPHER_PROFILE_DETAILS[author.slug],
 }));
 
-export const LENS_DEFINITIONS = [
-  { id: 'epistemology', label: 'Truth & Knowledge', themes: ['epistemology', 'truth-deception', 'self-knowledge'] },
-  { id: 'self-knowledge', label: 'Identity', themes: ['self-knowledge', 'existentialism', 'identity'] },
-  { id: 'power-corruption', label: 'Power', themes: ['power-corruption', 'political-philosophy', 'social-justice'] },
-  { id: 'stoicism', label: 'Resilience', themes: ['stoicism', 'suffering', 'virtue'] },
-  { id: 'memory-time', label: 'Memory & Time', themes: ['memory-time', 'metaphysics'] },
-  { id: 'alienation', label: 'Alienation', themes: ['alienation', 'conformity-individuality', 'technology-modernity'] },
-  { id: 'social-justice', label: 'Justice & Society', themes: ['social-justice', 'political-philosophy', 'feminism-equality', 'social-contract', 'community'] },
-  { id: 'consciousness-ai', label: 'Consciousness & AI', themes: ['consciousness-ai', 'metaphysics', 'postmodernism'] },
-  { id: 'utopia-dystopia', label: 'Utopia & Dystopia', themes: ['utopia-dystopia', 'marxism-socialism', 'power-corruption'] },
-  { id: 'freedom-choice', label: 'Freedom & Choice', themes: ['existentialism', 'stoicism', 'political-philosophy'] },
-  { id: 'faith-spirituality', label: 'Faith & Spirituality', themes: ['sacred-profane', 'metaphysics', 'humanism', 'spirituality'] },
-  { id: 'humanism', label: 'Humanism', themes: ['humanism', 'virtue', 'the-other-alterity', 'ethics', 'community', 'happiness'] },
-];
+/** Deriva do catálogo único em domain/lensCatalog.js — ids/labels/temas não se duplicam. */
+export const LENS_DEFINITIONS = SHARED_LENS_DEFINITIONS;
 
 function truncate(text, maxLength = 160) {
   const value = String(text || '').trim();

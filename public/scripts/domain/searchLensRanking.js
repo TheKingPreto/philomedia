@@ -7,7 +7,12 @@ import {
   getCuratedPhilosophicalProfile,
   scoreCuratedProfileForLens,
 } from '/scripts/curatedPhilosophicalProfiles.js';
-import { getLensTextKeywords } from '/scripts/domain/searchFilters.js';
+import {
+  extractItemTmdbKeywords,
+  getLensTextKeywords,
+  itemHasLensKeywordHit,
+  LENS_FILTERS,
+} from '/scripts/domain/searchFilters.js';
 import { normalizeText } from '/scripts/ui/viewHelpers.js';
 
 export const LENS_GENRE_OVERLAP_MIN_HERM = 8;
@@ -24,12 +29,15 @@ export function annotateResult(item, index) {
   const mediaType = getMediaType(item);
   const title = item.title || item.name || 'Untitled';
   const overview = item.overview || '';
-  const textContext = `${title} ${overview}`.trim();
+  const tmdbKeywords = extractItemTmdbKeywords(item);
+  const keywordText = tmdbKeywords.map(entry => entry.name).filter(Boolean).join(' ');
+  const textContext = `${title} ${overview} ${keywordText}`.trim();
   const themeMatches = analyzeWorkForThemes(textContext);
 
   return {
     ...item,
     media_type: mediaType,
+    tmdbKeywords,
     _searchIndex: index,
     _themeMatches: themeMatches,
     _themeIds: themeMatches.map(match => match.theme),
@@ -65,6 +73,18 @@ export function mergeResultsByIdentity(items) {
       return;
     }
 
+    const mergedKeywords = [
+      ...extractItemTmdbKeywords(existing),
+      ...extractItemTmdbKeywords(item),
+    ];
+    const seenKeyword = new Set();
+    const tmdbKeywords = mergedKeywords.filter((entry) => {
+      const keyId = entry.id || normalizeText(entry.name);
+      if (!keyId || seenKeyword.has(keyId)) return false;
+      seenKeyword.add(keyId);
+      return true;
+    });
+
     merged.set(key, {
       ...existing,
       ...item,
@@ -76,6 +96,7 @@ export function mergeResultsByIdentity(items) {
       genre_ids: Array.isArray(existing.genre_ids) && existing.genre_ids.length > 0
         ? existing.genre_ids
         : (item.genre_ids || []),
+      tmdbKeywords,
       _searchIndex: Math.min(existing._searchIndex ?? index, index),
     });
   });
@@ -120,6 +141,11 @@ export function scoreLensAffinity(item, lens) {
     }
   });
 
+  if (itemHasLensKeywordHit(item, lens)) {
+    hasKeywordHit = true;
+    score += 10;
+  }
+
   const profileHasLensTag = prof?.philosophicalTags?.some(t => lensThemeSet.has(t)) ?? false;
   const allowGenreOverlap =
     hermLensScore >= LENS_GENRE_OVERLAP_MIN_HERM ||
@@ -155,3 +181,33 @@ export function scoreLensAffinity(item, lens) {
 
   return score;
 }
+
+/**
+ * Cruza trending comercial com overlap de lentes — não é dump cru nem o pareamento diário.
+ */
+export function rankTrendingByLensOverlap(items, lenses = LENS_FILTERS, { minScore = 8, limit = 10 } = {}) {
+  return annotateResults(items)
+    .map((item) => {
+      let bestScore = 0;
+      let bestLensId = '';
+      lenses.forEach((lens) => {
+        const score = scoreLensAffinity(item, lens);
+        if (score > bestScore) {
+          bestScore = score;
+          bestLensId = lens.id;
+        }
+      });
+      return {
+        ...item,
+        _lensOverlapScore: bestScore,
+        _bestLensId: bestLensId,
+      };
+    })
+    .filter(item => item._lensOverlapScore >= minScore)
+    .sort((a, b) =>
+      b._lensOverlapScore - a._lensOverlapScore
+      || (Number(b.vote_average) || 0) - (Number(a.vote_average) || 0)
+    )
+    .slice(0, limit);
+}
+

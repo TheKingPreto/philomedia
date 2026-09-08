@@ -2,6 +2,10 @@
  * IDs oficiais do vocabulário de keywords do TMDB, conferidos via
  * GET /search/keyword. `with_keywords` no discover usa `|` (OR).
  */
+import { LENS_CATALOG, LENS_CREW_DIRECTORS } from './lensCatalog.js';
+
+export { LENS_CREW_DIRECTORS } from './lensCatalog.js';
+
 export function getLensKeywordQuery(lens) {
   const ids = (lens?.tmdbKeywords || [])
     .map(item => Number(item?.id))
@@ -22,6 +26,71 @@ export function getLensTextKeywords(lens) {
   return [...new Set([...(lens?.keywords || []), ...named])];
 }
 
+export function getLensCrewQuery(lens) {
+  const lensId = lens?.id;
+  if (!lensId) return '';
+  const ids = LENS_CREW_DIRECTORS
+    .filter(director => Array.isArray(director.lenses) && director.lenses.includes(lensId))
+    .map(director => Number(director.id))
+    .filter(id => Number.isInteger(id) && id > 0);
+  return [...new Set(ids)].join('|');
+}
+
+function normalizeKeywordToken(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+/**
+ * Keywords TMDB já appendadas no details (`tmdbKeywords`) ou no payload cru.
+ * Discover da 1ª leva em geral não traz isso; o ranking só usa o campo quando existe.
+ */
+export function extractItemTmdbKeywords(item) {
+  if (!item || typeof item !== 'object') return [];
+
+  if (Array.isArray(item.tmdbKeywords) && item.tmdbKeywords.length) {
+    return item.tmdbKeywords
+      .map(entry => ({
+        id: Number(entry?.id) || 0,
+        name: String(entry?.name || '').trim(),
+      }))
+      .filter(entry => entry.id > 0 || entry.name);
+  }
+
+  const payload = item.keywords;
+  const list = Array.isArray(payload?.keywords)
+    ? payload.keywords
+    : Array.isArray(payload?.results)
+      ? payload.results
+      : Array.isArray(payload)
+        ? payload
+        : [];
+
+  return list
+    .map(entry => ({
+      id: Number(typeof entry === 'object' ? entry?.id : 0) || 0,
+      name: String(typeof entry === 'string' ? entry : (entry?.name || '')).trim(),
+    }))
+    .filter(entry => entry.id > 0 || entry.name);
+}
+
+export function itemHasLensKeywordHit(item, lens) {
+  const itemKeywords = extractItemTmdbKeywords(item);
+  if (!itemKeywords.length || !lens) return false;
+
+  const lensIds = new Set(
+    (lens.tmdbKeywords || [])
+      .map(entry => Number(entry?.id))
+      .filter(id => Number.isInteger(id) && id > 0)
+  );
+  const lensNames = new Set(getLensTextKeywords(lens).map(normalizeKeywordToken).filter(Boolean));
+
+  return itemKeywords.some((entry) => {
+    if (entry.id && lensIds.has(entry.id)) return true;
+    const name = normalizeKeywordToken(entry.name);
+    return Boolean(name) && lensNames.has(name);
+  });
+}
+
 /**
  * Opções de /discover para uma lente. Sem gêneros: o pool já vem
  * tematicamente pré-filtrado pela curadoria do TMDB.
@@ -30,6 +99,19 @@ export function buildLensKeywordDiscoverOptions(lens, extras = {}) {
   const options = { ...extras };
   const withKeywords = getLensKeywordQuery(lens);
   if (withKeywords) options.withKeywords = withKeywords;
+  const withoutKeywords = getLensExcludeKeywordQuery(lens);
+  if (withoutKeywords) options.withoutKeywords = withoutKeywords;
+  return options;
+}
+
+/**
+ * 2ª leva de discover: `with_crew` reforça a lente, não substitui keywords.
+ * TMDB ANDa parâmetros no mesmo request — por isso crew vai numa leva à parte.
+ */
+export function buildLensCrewDiscoverOptions(lens, extras = {}) {
+  const options = { ...extras };
+  const withCrew = getLensCrewQuery(lens);
+  if (withCrew) options.withCrew = withCrew;
   const withoutKeywords = getLensExcludeKeywordQuery(lens);
   if (withoutKeywords) options.withoutKeywords = withoutKeywords;
   return options;
@@ -47,198 +129,7 @@ export function buildLensGenreDiscoverOptions(lens, mediaType, extras = {}) {
 }
 
 /** Philosophical lens presets for the search page (themes, keywords, TMDB genre hints). */
-export const LENS_FILTERS = [
-  {
-    id: 'epistemology',
-    label: 'Truth & Knowledge',
-    summary: 'Works shaped by doubt, evidence, hidden truths, and uncertainty.',
-    themes: ['epistemology', 'truth-deception'],
-    keywords: ['truth', 'knowledge', 'doubt', 'deception', 'evidence'],
-    tmdbKeywords: [
-      { id: 490, name: 'philosophy' },
-      { id: 10410, name: 'conspiracy' },
-      { id: 9758, name: 'deception' },
-      { id: 5340, name: 'investigation' },
-    ],
-    movieGenres: [9648, 878, 53],
-    tvGenres: [9648, 80, 18, 10765],
-  },
-  {
-    id: 'self-knowledge',
-    label: 'Identity',
-    summary: 'Stories about self-discovery, fractured selves, and inner reflection.',
-    themes: ['self-knowledge', 'existentialism'],
-    keywords: [
-      'identity', 'self', 'reflection', 'persona', 'introspection', 'authenticity',
-      'belonging', 'mask', 'transformation', 'self-discovery', 'who am i',
-    ],
-    tmdbKeywords: [
-      { id: 3394, name: 'identity crisis' },
-      { id: 9181, name: 'alter ego' },
-      { id: 10683, name: 'coming of age' },
-    ],
-    movieGenres: [18, 9648, 878],
-    tvGenres: [18, 9648, 10765, 16],
-  },
-  {
-    id: 'power-corruption',
-    label: 'Power',
-    summary: 'Power struggles, political decay, and the cost of control.',
-    themes: ['power-corruption', 'political-philosophy'],
-    keywords: ['power', 'corruption', 'control', 'authority', 'ambition'],
-    tmdbKeywords: [
-      { id: 417, name: 'corruption' },
-      { id: 7606, name: 'dictatorship' },
-      { id: 178712, name: 'totalitarianism' },
-    ],
-    movieGenres: [18, 80, 53, 10752],
-    tvGenres: [18, 80, 10768, 10759],
-  },
-  {
-    id: 'stoicism',
-    label: 'Resilience',
-    summary: 'Works about endurance, discipline, adversity, and inner strength.',
-    themes: ['stoicism', 'suffering', 'heros-journey', 'virtue'],
-    keywords: ['resilience', 'endure', 'adversity', 'discipline', 'strength', 'survival', 'courage'],
-    tmdbKeywords: [
-      { id: 10349, name: 'survival' },
-      { id: 216923, name: 'perseverance' },
-    ],
-    movieGenres: [18, 12, 28, 10752],
-    tvGenres: [18, 10759, 10768, 16],
-  },
-  {
-    id: 'memory-time',
-    label: 'Memory & Time',
-    summary: 'Narratives that orbit memory, regret, time, and perception.',
-    themes: ['memory-time', 'metaphysics'],
-    keywords: [
-      'memory', 'memories', 'time', 'past', 'future', 'regret', 'nostalgia', 'forgotten',
-      'remember', 'loop', 'timeline', 'flashback', 'amnesia', 'time travel',
-    ],
-    tmdbKeywords: [
-      { id: 10937, name: 'memory' },
-      { id: 1453, name: 'amnesia' },
-      { id: 4379, name: 'time travel' },
-      { id: 10854, name: 'time loop' },
-    ],
-    movieGenres: [9648, 18],
-    tvGenres: [9648, 18, 10765, 16],
-  },
-  {
-    id: 'alienation',
-    label: 'Alienation',
-    summary: 'Works about isolation, disconnection, outsiders, and belonging.',
-    themes: ['alienation', 'conformity-individuality'],
-    keywords: ['alienation', 'isolation', 'outsider', 'belonging', 'society'],
-    tmdbKeywords: [
-      { id: 7368, name: 'alienation' },
-      { id: 9957, name: 'loneliness' },
-      { id: 1533, name: 'isolation' },
-    ],
-    movieGenres: [18, 878, 9648],
-    tvGenres: [18, 9648, 10765],
-  },
-  {
-    id: 'social-justice',
-    label: 'Justice & Society',
-    summary: 'Stories about inequality, rights, oppression, and social order.',
-    themes: ['social-justice', 'political-philosophy'],
-    keywords: ['justice', 'inequality', 'rights', 'society', 'oppression'],
-    tmdbKeywords: [
-      { id: 14514, name: 'class differences' },
-      { id: 11479, name: 'social commentary' },
-      { id: 12987, name: 'poverty' },
-      { id: 163119, name: 'injustice' },
-      { id: 154954, name: 'social injustice' },
-    ],
-    movieGenres: [18, 80, 99, 10752],
-    tvGenres: [18, 80, 10768, 99],
-  },
-  {
-    id: 'consciousness-ai',
-    label: 'Consciousness & AI',
-    summary: 'Works that question mind, humanity, technology, and sentience.',
-    themes: ['consciousness-ai', 'technology-modernity'],
-    keywords: [
-      'consciousness', 'sentience', 'mind', 'ai', 'android', 'robot', 'machine',
-      'humanity', 'synthetic', 'simulation', 'virtual', 'digital',
-    ],
-    tmdbKeywords: [
-      { id: 310, name: 'artificial intelligence (a.i.)' },
-      { id: 378084, name: 'artificial intelligence' },
-      { id: 803, name: 'android' },
-      { id: 14544, name: 'robot' },
-      { id: 161219, name: 'consciousness' },
-      { id: 8469, name: 'computer simulation' },
-    ],
-    tmdbExcludeKeywords: [
-      { id: 9715, name: 'superhero' },
-      { id: 180547, name: 'marvel cinematic universe (mcu)' },
-    ],
-    movieGenres: [878, 9648],
-    tvGenres: [10765, 9648],
-  },
-  {
-    id: 'utopia-dystopia',
-    label: 'Utopia & Dystopia',
-    summary: 'Worlds shaped by control, rebellion, ideal societies, and collapse.',
-    themes: ['utopia-dystopia', 'power-corruption'],
-    keywords: ['utopia', 'dystopia', 'control', 'rebellion', 'society'],
-    tmdbKeywords: [
-      { id: 4565, name: 'dystopia' },
-      { id: 3469, name: 'utopia' },
-      { id: 178712, name: 'totalitarianism' },
-      { id: 18420, name: 'surveillance' },
-      { id: 11196, name: 'rebellion' },
-    ],
-    movieGenres: [878, 9648, 28],
-    tvGenres: [10765, 10768, 10759],
-  },
-  {
-    id: 'freedom-choice',
-    label: 'Freedom & Choice',
-    summary: 'Stories about free will, consequence, destiny, and moral responsibility.',
-    themes: ['existentialism', 'stoicism', 'political-philosophy'],
-    keywords: ['freedom', 'choice', 'responsibility', 'destiny', 'liberty', 'fate'],
-    tmdbKeywords: [
-      { id: 18091, name: 'free will' },
-      { id: 10855, name: 'fate' },
-      { id: 198423, name: 'moral dilemma' },
-      { id: 181324, name: 'existentialism' },
-    ],
-    movieGenres: [18, 878, 53],
-    tvGenres: [18, 10765, 9648],
-  },
-  {
-    id: 'faith-spirituality',
-    label: 'Faith & Spirituality',
-    summary: 'Works that explore belief, transcendence, ritual, and the sacred.',
-    themes: ['sacred-profane', 'metaphysics', 'truth-deception'],
-    keywords: ['faith', 'spiritual', 'divine', 'sacred', 'ritual', 'transcendence'],
-    tmdbKeywords: [
-      { id: 11001, name: 'religion' },
-      { id: 6150, name: 'faith' },
-      { id: 10706, name: 'spirituality' },
-      { id: 6155, name: 'afterlife' },
-    ],
-    movieGenres: [18, 14, 9648],
-    tvGenres: [18, 10765, 9648],
-  },
-  {
-    id: 'humanism',
-    label: 'Humanism',
-    summary: 'Works centered on dignity, empathy, compassion, and human potential.',
-    themes: ['humanism', 'virtue', 'the-other-alterity'],
-    keywords: ['humanity', 'dignity', 'compassion', 'empathy', 'human', 'hope'],
-    tmdbKeywords: [
-      { id: 202647, name: 'humanity' },
-      { id: 18454, name: 'compassion' },
-    ],
-    movieGenres: [18, 12, 16],
-    tvGenres: [18, 16, 10759],
-  },
-];
+export const LENS_FILTERS = LENS_CATALOG;
 
 export const MEDIA_FILTERS = [
   { id: 'all', label: 'All' },
@@ -258,6 +149,36 @@ export const SORT_FILTERS = [
   { id: 'recent', label: 'Newest' },
   { id: 'popularity', label: 'Most popular' },
 ];
+
+/** Região padrão alinhada ao app (`TMDB_WATCH_REGION=BR`). */
+export const DEFAULT_WATCH_REGION = 'BR';
+
+/** Conjunto curto curado para o Brasil. `any` = sem filtro de provedor. */
+export const WATCH_PROVIDER_FILTERS = [
+  { id: 'any', label: 'Any service', providerId: null },
+  { id: 'netflix', label: 'Netflix', providerId: 8 },
+  { id: 'prime', label: 'Prime Video', providerId: 119 },
+  { id: 'disney', label: 'Disney+', providerId: 337 },
+  { id: 'max', label: 'Max', providerId: 1899 },
+  { id: 'globoplay', label: 'Globoplay', providerId: 307 },
+  { id: 'paramount', label: 'Paramount+', providerId: 531 },
+  { id: 'appletv', label: 'Apple TV', providerId: 350 },
+];
+
+export function getWatchProviderFilterById(providerId) {
+  return WATCH_PROVIDER_FILTERS.find(filter => filter.id === providerId) || WATCH_PROVIDER_FILTERS[0];
+}
+
+export function buildWatchProviderDiscoverExtras(providerFilterId, extras = {}) {
+  const provider = getWatchProviderFilterById(providerFilterId);
+  if (!provider?.providerId) return { ...extras };
+  return {
+    ...extras,
+    withWatchProviders: String(provider.providerId),
+    watchRegion: extras.watchRegion || DEFAULT_WATCH_REGION,
+    watchMonetizationTypes: extras.watchMonetizationTypes || 'flatrate',
+  };
+}
 
 export function getLensById(lensId) {
   return LENS_FILTERS.find(lens => lens.id === lensId) || null;
@@ -293,21 +214,29 @@ export function partitionLensFilters(lenses = LENS_FILTERS) {
   return { featured, rest };
 }
 
+function withQueryParam(search, key, value, emptyValues = ['all', '']) {
+  const raw = String(search || '').replace(/^\?/, '');
+  const params = new URLSearchParams(raw);
+
+  if (value && !emptyValues.includes(value)) {
+    params.set(key, value);
+  } else {
+    params.delete(key);
+  }
+
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
+
 /**
  * Write or drop `lens` while preserving every other query param.
  * @param {string} search `location.search` (`?a=1&lens=x` or `a=1`)
  * @param {string} lensId lens id, or `'all'` / `''` to remove
  */
 export function withLensQueryParam(search, lensId) {
-  const raw = String(search || '').replace(/^\?/, '');
-  const params = new URLSearchParams(raw);
+  return withQueryParam(search, 'lens', lensId);
+}
 
-  if (lensId && lensId !== 'all') {
-    params.set('lens', lensId);
-  } else {
-    params.delete('lens');
-  }
-
-  const query = params.toString();
-  return query ? `?${query}` : '';
+export function withProviderQueryParam(search, providerId) {
+  return withQueryParam(search, 'provider', providerId, ['any', 'all', '']);
 }

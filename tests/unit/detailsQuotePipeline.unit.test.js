@@ -21,6 +21,7 @@ import {
   clearQuoteScoringCache,
   extractTmdbKeywordNames,
   hashString,
+  preferReviewsByLanguage,
   rankQuotesForSource,
   resolveQuoteCandidatePool,
   selectPoolIndex,
@@ -276,6 +277,20 @@ describe('extractTmdbKeywordNames', () => {
 
     expect(context).toContain('time travel');
     expect(context).toContain('Arrival');
+  });
+});
+
+describe('preferReviewsByLanguage', () => {
+  it('keeps EN/PT and falls back to the only available language', () => {
+    expect(preferReviewsByLanguage([
+      { content: 'Bonjour', iso_639_1: 'fr' },
+      { content: 'Hello', iso_639_1: 'en' },
+      { content: 'Olá', iso_639_1: 'pt' },
+    ]).map(review => review.iso_639_1)).toEqual(['en', 'pt']);
+
+    expect(preferReviewsByLanguage([
+      { content: 'Nur das', iso_639_1: 'de' },
+    ])).toEqual([{ content: 'Nur das', iso_639_1: 'de' }]);
   });
 });
 

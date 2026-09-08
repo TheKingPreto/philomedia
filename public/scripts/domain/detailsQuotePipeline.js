@@ -166,13 +166,31 @@ export function extractTmdbKeywordNames(details) {
     .filter(Boolean);
 }
 
+export const PREFERRED_REVIEW_LANGUAGES = ['en', 'pt'];
+
+export function getReviewLanguage(review) {
+  return String(review?.iso_639_1 || review?.language || '').trim().toLowerCase().slice(0, 2);
+}
+
+/**
+ * Prefere EN/PT; se não houver nenhum, mantém o fallback (não apaga o único sinal útil).
+ */
+export function preferReviewsByLanguage(reviews = [], preferred = PREFERRED_REVIEW_LANGUAGES) {
+  const list = Array.isArray(reviews) ? reviews.filter(review => review?.content) : [];
+  if (!list.length) return [];
+  const preferredSet = new Set(preferred);
+  const preferredOnes = list.filter(review => preferredSet.has(getReviewLanguage(review)));
+  return preferredOnes.length ? preferredOnes : list;
+}
+
 export function buildSourceContext(details, reviews = []) {
+  const preferredReviews = preferReviewsByLanguage(reviews);
   const parts = [
     getDisplayTitle(details),
     details.overview || '',
     Array.isArray(details.genres) ? details.genres.map(genre => genre?.name).filter(Boolean).join(' ') : '',
     extractTmdbKeywordNames(details).join(' '),
-    Array.isArray(reviews) ? reviews.map(review => review.content || '').join(' ') : '',
+    preferredReviews.map(review => review.content || '').join(' '),
   ].filter(Boolean);
 
   return parts.join(' ').trim();

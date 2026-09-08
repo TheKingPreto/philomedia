@@ -2162,6 +2162,45 @@ footer {
   letter-spacing: 0.06em;
 }
 
+.tmdb-attribution {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem 0.9rem;
+  margin: 0.85rem 0 0;
+  max-width: 42rem;
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.tmdb-attribution-logo {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tmdb-attribution-logo img {
+  display: block;
+  height: 14px;
+  width: auto;
+  opacity: 0.9;
+}
+
+.trending-section {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.trending-section[hidden] {
+  display: none;
+}
+
 /* ─── Highlights Section ────────────────────────────────────────────────────── */
 #highlights-section {
   margin-top: 1rem;

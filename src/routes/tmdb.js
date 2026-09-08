@@ -47,10 +47,19 @@ router.get('/search', async (req, res) => {
   if (!query) return res.json([]);
 
   try {
-    const results = await tmdbClient.searchMulti(String(query), {
+    const payload = await tmdbClient.searchMulti(String(query), {
       language: resolveTmdbLanguage(req),
+      page: req.query.page || 1,
     });
-    res.json(results);
+    if (Array.isArray(payload)) {
+      res.json(payload);
+      return;
+    }
+    res.json({
+      results: payload.results || [],
+      page: payload.page || 1,
+      total_pages: payload.totalPages || 1,
+    });
   } catch (error) {
     handleTMDBError(res, error, 'TMDB proxy search error:', 'Failed to fetch from TMDB');
   }
@@ -77,7 +86,9 @@ router.get('/reviews', async (req, res) => {
   if (!id || !type) return res.json([]);
 
   try {
-    const reviews = await tmdbClient.getReviews(String(id), String(type));
+    const reviews = await tmdbClient.getReviews(String(id), String(type), {
+      language: resolveTmdbLanguage(req),
+    });
     res.json(reviews);
   } catch (error) {
     handleTMDBError(res, error, 'TMDB proxy reviews error:', 'Failed to fetch reviews from TMDB');
@@ -92,6 +103,10 @@ router.get('/discover', async (req, res) => {
     with_keywords,
     without_keywords,
     with_original_language,
+    with_watch_providers,
+    watch_region,
+    watch_monetization_types,
+    with_crew,
     sort_by = 'vote_average.desc',
   } = req.query;
 
@@ -101,6 +116,10 @@ router.get('/discover', async (req, res) => {
       withKeywords: with_keywords ? String(with_keywords) : undefined,
       withoutKeywords: without_keywords ? String(without_keywords) : undefined,
       withOriginalLanguage: with_original_language ? String(with_original_language) : undefined,
+      withWatchProviders: with_watch_providers ? String(with_watch_providers) : undefined,
+      watchRegion: watch_region ? String(watch_region) : undefined,
+      watchMonetizationTypes: watch_monetization_types ? String(watch_monetization_types) : undefined,
+      withCrew: with_crew ? String(with_crew) : undefined,
       sortBy: String(sort_by),
       language: resolveTmdbLanguage(req),
     });
@@ -139,6 +158,22 @@ router.get('/similar', async (req, res) => {
     res.json(results);
   } catch (error) {
     handleTMDBError(res, error, 'TMDB proxy similar error:', 'Failed to fetch similar results from TMDB');
+  }
+});
+
+router.get('/trending', async (req, res) => {
+  const { media = 'movie', window = 'week' } = req.query;
+  if (!VALID_MEDIA_TYPES.has(String(media))) {
+    return res.status(400).json({ message: 'Missing or invalid media type' });
+  }
+
+  try {
+    const results = await tmdbClient.getTrending(String(media), String(window), {
+      language: resolveTmdbLanguage(req),
+    });
+    res.json(results);
+  } catch (error) {
+    handleTMDBError(res, error, 'TMDB proxy trending error:', 'Failed to fetch trending from TMDB');
   }
 });
 

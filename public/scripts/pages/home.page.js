@@ -11,7 +11,7 @@ import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { getDisplayAuthorName, getPhilosopherUrlByAuthor } from '/scripts/domain/philosopherAuthors.js';
 import { CURATED_TV_IDS } from '/scripts/domain/curatedTvIds.js';
 import { THEME_DATABASE } from '/scripts/themedatabase.js';
-import { discoverTMDB, getDetailsFromTMDB } from '/scripts/seriesapi.js';
+import { discoverTMDB, getDetailsFromTMDB, getTrendingFromTMDB } from '/scripts/seriesapi.js';
 import {
   buildCuratedMatchIndex,
   buildQuoteProfile,
@@ -29,6 +29,7 @@ import { localizeItemOverviews } from '/scripts/services/tmdbOverviewI18n.js';
 import { resolveDisplayQuoteText } from '/scripts/services/quoteDisplayResolve.js';
 import { getUiLocale } from '/scripts/services/uiLocale.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
+import { rankTrendingByLensOverlap } from '/scripts/domain/searchLensRanking.js';
 
 const API_BASE = '/api';
 const HOME_RESULT_LIMIT = 10;
@@ -416,9 +417,39 @@ function updatePagination({ button, count, visibleCount, totalWorks, hasMore }) 
   button.hidden = !hasMore;
   button.disabled = false;
   button.textContent = t('home.load_more');
-  count.textContent = totalWorks > 0
+    count.textContent = totalWorks > 0
     ? t('home.works_shown', { visible: visibleCount, total: totalWorks })
     : '';
+}
+
+async function renderPhilosophicalTrending() {
+  const section = document.getElementById('philosophical-trending');
+  const container = document.getElementById('trending-results');
+  if (!section || !container) return;
+
+  try {
+    const [movies, series] = await Promise.all([
+      getTrendingFromTMDB('movie', { window: 'week' }),
+      getTrendingFromTMDB('tv', { window: 'week' }),
+    ]);
+    const ranked = rankTrendingByLensOverlap(
+      [...(movies || []), ...(series || [])],
+      undefined,
+      { minScore: 8, limit: 8 }
+    );
+
+    if (!ranked.length) {
+      section.hidden = true;
+      return;
+    }
+
+    section.hidden = false;
+    const localized = await localizeItemOverviews(ranked);
+    renderMediaCards(container, localized, { overviewLength: 100 });
+  } catch (error) {
+    console.warn('Philosophical trending unavailable:', error.message);
+    section.hidden = true;
+  }
 }
 
 async function init() {
@@ -473,9 +504,7 @@ async function init() {
           <p class="empty-state-text">Make sure <code>TMDB_API_KEY</code> is set on the server, or try the <a href="/html/search.html">search</a>.</p>
         </div>
       `;
-      return;
-    }
-
+    } else {
     visibleResults = content.results;
     pagination = {
       hasMore: Boolean(content.hasMore),
@@ -494,6 +523,7 @@ async function init() {
       totalWorks: pagination.totalWorks,
       hasMore: pagination.hasMore,
     });
+    }
   } catch (err) {
     console.error(err);
     if (quoteTextEl) {
@@ -540,6 +570,8 @@ async function init() {
       });
     }
   });
+
+  renderPhilosophicalTrending().catch(() => {});
 }
 
 init();

@@ -12,9 +12,10 @@ function withCatalogLanguage(params = new URLSearchParams()) {
   return params;
 }
 
-export async function searchTMDB(query) {
+export async function searchTMDB(query, { page = 1, language } = {}) {
   if (!query) return [];
-  const params = withCatalogLanguage(new URLSearchParams({ query }));
+  const params = withCatalogLanguage(new URLSearchParams({ query, page: String(page || 1) }));
+  if (language) params.set('language', language);
   const url = `${API_BASE}/search?${params.toString()}`;
   const response = await fetch(url);
   const data = await response.json().catch(() => ({}));
@@ -22,7 +23,10 @@ export async function searchTMDB(query) {
     const msg = (data && data.error) || (data && data.message) || 'Search unavailable';
     throw new Error(msg);
   }
-  return Array.isArray(data) ? data : (data.results || []);
+  const results = Array.isArray(data) ? data : (data.results || []);
+  results.totalPages = Number(data.total_pages) || Number(data.totalPages) || 0;
+  results.page = Number(data.page) || Number(page) || 1;
+  return results;
 }
 
 export async function getDetailsFromTMDB(id, type) {
@@ -86,10 +90,17 @@ export async function discoverTMDB(media, options = {}) {
   if (options.withGenres) params.set('with_genres', options.withGenres);
   if (options.withKeywords) params.set('with_keywords', options.withKeywords);
   if (options.withoutKeywords) params.set('without_keywords', options.withoutKeywords);
+  if (options.withWatchProviders) params.set('with_watch_providers', options.withWatchProviders);
+  if (options.watchRegion) params.set('watch_region', options.watchRegion);
+  if (options.watchMonetizationTypes) {
+    params.set('watch_monetization_types', options.watchMonetizationTypes);
+  }
+  if (options.withCrew) params.set('with_crew', options.withCrew);
   if (options.withOriginalLanguage) {
     params.set('with_original_language', options.withOriginalLanguage);
   }
   if (options.sortBy) params.set('sort_by', options.sortBy);
+  if (options.language) params.set('language', options.language);
 
   const response = await fetch(`${API_BASE}/discover?${params.toString()}`);
   if (!response.ok) {
@@ -118,4 +129,19 @@ export async function discoverDiverseWorks() {
   } catch (error) {
     return [];
   }
+}
+
+export async function getTrendingFromTMDB(media, { window = 'week', language } = {}) {
+  if (!media || (media !== 'movie' && media !== 'tv')) return [];
+  const params = withCatalogLanguage(new URLSearchParams({
+    media,
+    window,
+  }));
+  if (language) params.set('language', language);
+  const response = await fetch(`${API_BASE}/trending?${params.toString()}`);
+  if (!response.ok) {
+    console.error('Failed to fetch trending for', media);
+    return [];
+  }
+  return response.json();
 }

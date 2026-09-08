@@ -9,6 +9,8 @@ const mockGetDiscover = jest.fn();
 const mockGetRecommendations = jest.fn();
 const mockGetSimilar = jest.fn();
 
+const mockGetTrending = jest.fn();
+
 await jest.unstable_mockModule('../../src/services/tmdbClient.js', () => ({
   searchMulti: mockSearchMulti,
   getDetails: mockGetDetails,
@@ -16,6 +18,7 @@ await jest.unstable_mockModule('../../src/services/tmdbClient.js', () => ({
   getDiscover: mockGetDiscover,
   getRecommendations: mockGetRecommendations,
   getSimilar: mockGetSimilar,
+  getTrending: mockGetTrending,
 }));
 
 const { default: tmdbRoutes } = await import('../../src/routes/tmdb.js');
@@ -51,13 +54,17 @@ describe('tmdb routes', () => {
 
   test('GET /search returns TMDB results from the shared client', async () => {
     const app = buildApp();
-    mockSearchMulti.mockResolvedValueOnce([{ id: 1, media_type: 'movie', title: 'Dune' }]);
+    mockSearchMulti.mockResolvedValueOnce({
+      results: [{ id: 1, media_type: 'movie', title: 'Dune' }],
+      page: 1,
+      totalPages: 1,
+    });
 
     const response = await request(app).get('/api/tmdb/search?query=dune');
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual([{ id: 1, media_type: 'movie', title: 'Dune' }]);
-    expect(mockSearchMulti).toHaveBeenCalledWith('dune', { language: 'en-US' });
+    expect(response.body.results).toEqual([{ id: 1, media_type: 'movie', title: 'Dune' }]);
+    expect(mockSearchMulti).toHaveBeenCalledWith('dune', { language: 'en-US', page: 1 });
   });
 
   test('GET /details validates required params before calling the client', async () => {
@@ -85,6 +92,10 @@ describe('tmdb routes', () => {
       withKeywords: undefined,
       withoutKeywords: undefined,
       withOriginalLanguage: 'ja',
+      withWatchProviders: undefined,
+      watchRegion: undefined,
+      watchMonetizationTypes: undefined,
+      withCrew: undefined,
       sortBy: 'popularity.desc',
       language: 'en-US',
     });
@@ -147,5 +158,51 @@ describe('tmdb routes', () => {
       .send({ candidates: [{ id: 1, title: 'X', overview: 'y', media_type: 'movie', genre_ids: [] }] });
 
     expect(response.status).toBe(400);
+  });
+
+  test('GET /search forwards page', async () => {
+    const app = buildApp();
+    mockSearchMulti.mockResolvedValueOnce([]);
+
+    await request(app).get('/api/tmdb/search?query=dune&page=3');
+
+    expect(mockSearchMulti).toHaveBeenCalledWith('dune', { language: 'en-US', page: '3' });
+  });
+
+  test('GET /discover forwards watch providers and crew', async () => {
+    const app = buildApp();
+    mockGetDiscover.mockResolvedValueOnce([]);
+
+    await request(app).get(
+      '/api/tmdb/discover?media=movie&with_watch_providers=8&watch_region=BR&watch_monetization_types=flatrate&with_crew=525'
+    );
+
+    expect(mockGetDiscover).toHaveBeenCalledWith('movie', 1, expect.objectContaining({
+      withWatchProviders: '8',
+      watchRegion: 'BR',
+      watchMonetizationTypes: 'flatrate',
+      withCrew: '525',
+    }));
+  });
+
+  test('GET /reviews forwards language', async () => {
+    const app = buildApp();
+    mockGetReviews.mockResolvedValueOnce([]);
+
+    await request(app).get('/api/tmdb/reviews?id=1&type=movie&language=pt-BR');
+
+    expect(mockGetReviews).toHaveBeenCalledWith('1', 'movie', { language: 'pt-BR' });
+  });
+
+  test('GET /trending validates media and forwards window', async () => {
+    const app = buildApp();
+    mockGetTrending.mockResolvedValueOnce([{ id: 1, media_type: 'movie' }]);
+
+    const ok = await request(app).get('/api/tmdb/trending?media=movie&window=week');
+    expect(ok.status).toBe(200);
+    expect(mockGetTrending).toHaveBeenCalledWith('movie', 'week', { language: 'en-US' });
+
+    const bad = await request(app).get('/api/tmdb/trending?media=person');
+    expect(bad.status).toBe(400);
   });
 });

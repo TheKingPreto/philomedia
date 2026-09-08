@@ -5,6 +5,7 @@
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { getReviewsFromTMDB } from '/scripts/seriesapi.js';
 import { getLensTextKeywords } from '/scripts/domain/searchFilters.js';
+import { preferReviewsByLanguage } from '/scripts/domain/detailsQuotePipeline.js';
 import { normalizeText } from '/scripts/ui/viewHelpers.js';
 
 export const REVIEW_RERANK_LIMIT = 6;
@@ -13,7 +14,7 @@ export const REVIEW_CONTEXT_LIMIT = 4500;
 const reviewContextCache = new Map();
 
 export function buildReviewContext(reviews = []) {
-  return reviews
+  return preferReviewsByLanguage(reviews)
     .map(review => review?.content || '')
     .filter(Boolean)
     .slice(0, 3)

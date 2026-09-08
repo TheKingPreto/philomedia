@@ -41,6 +41,43 @@ export function scoreCuratedProfileForLens() {
 export function scoreCuratedRelatedAffinity() {
   return 0;
 }
+export function preferReviewsByLanguage(reviews = []) {
+  return Array.isArray(reviews) ? reviews : [];
+}
+
+export function extractItemTmdbKeywords() {
+  return [];
+}
+
+export function itemHasLensKeywordHit() {
+  return false;
+}
+
+export function getLensTextKeywords() {
+  return [];
+}
+
+export function getLensById() {
+  return null;
+}
+
+export const LENS_FILTERS = [];
+
+export function rankTrendingByLensOverlap(items = []) {
+  return items;
+}
+
+export function buildLensKeywordDiscoverOptions() {
+  return {};
+}
+
+export function buildLensCrewDiscoverOptions() {
+  return {};
+}
+
+export function buildWatchProviderDiscoverExtras() {
+  return {};
+}
 
 // philosophersmatch.js (se usado)
 export const matchPhilosopher = () => null;

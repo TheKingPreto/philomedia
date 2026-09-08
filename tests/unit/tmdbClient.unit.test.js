@@ -40,9 +40,9 @@ describe('tmdbClient', () => {
 
     const results = await tmdbClient.searchMulti('interstellar');
 
-    expect(results).toEqual([
-      { id: 1, media_type: 'movie', title: 'Movie' },
-      { id: 2, media_type: 'tv', name: 'Series' },
+    expect(results.results).toEqual([
+      { id: 1, media_type: 'movie', title: 'Movie', _overviewLocale: 'en' },
+      { id: 2, media_type: 'tv', name: 'Series', _overviewLocale: 'en' },
     ]);
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
@@ -190,7 +190,7 @@ describe('tmdbClient', () => {
 
     const results = await tmdbClient.searchMulti('dune');
 
-    expect(results).toEqual([{ id: 1, media_type: 'movie', title: 'Dune' }]);
+    expect(results.results).toEqual([{ id: 1, media_type: 'movie', title: 'Dune', _overviewLocale: 'en' }]);
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
@@ -224,5 +224,87 @@ describe('tmdbClient', () => {
     delete process.env.TMDB_API_KEY;
 
     await expect(tmdbClient.searchMulti('dark')).rejects.toThrow('TMDB_API_KEY is not set.');
+  });
+
+  test('searchMulti forwards page', async () => {
+    mockFetch.mockResolvedValueOnce(mockJsonResponse({ results: [] }));
+
+    await tmdbClient.searchMulti('matrix', { page: 2 });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('page=2'),
+      expect.anything()
+    );
+  });
+
+  test('getDiscover forwards watch providers, region, monetization, and crew', async () => {
+    mockFetch.mockResolvedValueOnce(mockJsonResponse({ results: [] }));
+
+    await tmdbClient.getDiscover('movie', 1, {
+      withWatchProviders: '8',
+      watchRegion: 'BR',
+      watchMonetizationTypes: 'flatrate',
+      withCrew: '525|8452',
+    });
+
+    const url = mockFetch.mock.calls[0][0];
+    expect(url).toContain('with_watch_providers=8');
+    expect(url).toContain('watch_region=BR');
+    expect(url).toContain('watch_monetization_types=flatrate');
+    expect(url).toContain('with_crew=525%7C8452');
+  });
+
+  test('getDetails appends reviews, similar, and recommendations', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        mockJsonResponse({
+          id: 1,
+          title: 'Dune',
+          reviews: { results: [{ content: 'Great.', iso_639_1: 'en' }] },
+          similar: { results: [{ id: 2, title: 'Dune 2' }] },
+          recommendations: { results: [{ id: 3, title: 'Arrival' }] },
+          keywords: { keywords: [{ id: 490, name: 'philosophy' }] },
+        })
+      )
+      .mockResolvedValueOnce(mockJsonResponse({ results: {} }));
+
+    const result = await tmdbClient.getDetails('1', 'movie');
+    const detailsUrl = mockFetch.mock.calls[0][0];
+
+    expect(detailsUrl).toContain('append_to_response=credits%2Ckeywords%2Creviews%2Csimilar%2Crecommendations');
+    expect(result.tmdbReviews).toEqual([
+      { content: 'Great.', iso_639_1: 'en', language: 'en' },
+    ]);
+    expect(result.similar[0]).toMatchObject({ id: 2, title: 'Dune 2', media_type: 'movie' });
+    expect(result.recommendations[0]).toMatchObject({ id: 3, title: 'Arrival' });
+  });
+
+  test('getReviews maps language and falls back when localized list is empty', async () => {
+    mockFetch
+      .mockResolvedValueOnce(mockJsonResponse({ results: [] }))
+      .mockResolvedValueOnce(mockJsonResponse({
+        results: [{ content: 'Only review', iso_639_1: 'fr' }],
+      }));
+
+    const reviews = await tmdbClient.getReviews('1', 'movie', { language: 'pt-BR' });
+
+    expect(reviews).toEqual([
+      { content: 'Only review', iso_639_1: 'fr', language: 'fr' },
+    ]);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  test('getTrending maps weekly movie results', async () => {
+    mockFetch.mockResolvedValueOnce(mockJsonResponse({
+      results: [{ id: 9, title: 'Hot', overview: 'A thoughtful hit.', vote_average: 8.1, genre_ids: [18] }],
+    }));
+
+    const results = await tmdbClient.getTrending('movie', 'week');
+
+    expect(results[0]).toMatchObject({ id: 9, media_type: 'movie', title: 'Hot' });
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/trending/movie/week?'),
+      expect.anything()
+    );
   });
 });

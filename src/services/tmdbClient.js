@@ -224,7 +224,10 @@ export function extractTmdbKeywords(details) {
     .filter(item => item.id && item.name);
 }
 
-function mapMediaSummary(item, mediaType) {
+function mapMediaSummary(item, mediaType, { language = DEFAULT_LANGUAGE } = {}) {
+  const overviewLocale = String(language || DEFAULT_LANGUAGE).toLowerCase().startsWith('pt')
+    ? 'pt'
+    : 'en';
   return {
     id: item.id,
     title: item.title ?? item.name,
@@ -240,7 +243,21 @@ function mapMediaSummary(item, mediaType) {
     genre_ids: Array.isArray(item.genre_ids) ? item.genre_ids : [],
     original_language: item.original_language || '',
     origin_country: Array.isArray(item.origin_country) ? item.origin_country : [],
+    _overviewLocale: overviewLocale,
   };
+}
+
+export function mapTmdbReviews(results = []) {
+  return (Array.isArray(results) ? results : []).map(review => ({
+    content: review?.content || '',
+    iso_639_1: review?.iso_639_1 || '',
+    language: review?.iso_639_1 || review?.language || '',
+  })).filter(review => review.content);
+}
+
+function mapAppendedSummaries(payload, mediaType, language, limit) {
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+  return results.slice(0, limit).map(item => mapMediaSummary(item, mediaType, { language }));
 }
 
 /**
@@ -271,19 +288,31 @@ function assertValidMediaType(type) {
   }
 }
 
-export async function searchMulti(query, { language = DEFAULT_LANGUAGE } = {}) {
+export async function searchMulti(query, { language = DEFAULT_LANGUAGE, page = 1 } = {}) {
   if (!query) return [];
 
   const data = await fetchTMDBJson('/search/multi', {
     query,
-    page: '1',
+    page: String(page || 1),
     include_adult: 'false',
   }, { language });
 
-  return Array.isArray(data.results)
-    ? data.results.filter(item => VALID_MEDIA_TYPES.has(item.media_type))
-    : [];
+  const overviewLocale = String(language || DEFAULT_LANGUAGE).toLowerCase().startsWith('pt')
+    ? 'pt'
+    : 'en';
+
+  return {
+    results: Array.isArray(data.results)
+      ? data.results
+        .filter(item => VALID_MEDIA_TYPES.has(item.media_type))
+        .map(item => ({ ...item, _overviewLocale: overviewLocale }))
+      : [],
+    page: Number(data.page) || Number(page) || 1,
+    totalPages: Number(data.total_pages) || 1,
+  };
 }
+
+const DETAILS_APPEND = 'credits,keywords,reviews,similar,recommendations';
 
 export async function getDetails(id, type, { language = DEFAULT_LANGUAGE } = {}) {
   if (!id) {
@@ -293,30 +322,36 @@ export async function getDetails(id, type, { language = DEFAULT_LANGUAGE } = {})
   assertValidMediaType(type);
 
   const [details, watchProvidersPayload] = await Promise.all([
-    fetchTMDBJson(`/${type}/${id}`, { append_to_response: 'credits,keywords' }, { language }),
+    fetchTMDBJson(`/${type}/${id}`, { append_to_response: DETAILS_APPEND }, { language }),
     fetchOptionalTMDBJson(`/${type}/${id}/watch/providers`, {}, { includeLanguage: false, language }),
   ]);
 
   return {
     ...details,
     tmdbKeywords: extractTmdbKeywords(details),
+    tmdbReviews: mapTmdbReviews(details?.reviews?.results),
+    similar: mapAppendedSummaries(details?.similar, type, language, 8),
+    recommendations: mapAppendedSummaries(details?.recommendations, type, language, 12),
     watchProviders: watchProvidersPayload
       ? extractWatchProviders(watchProvidersPayload)
       : null,
   };
 }
 
-export async function getReviews(id, type) {
+export async function getReviews(id, type, { language } = {}) {
   if (!id || !VALID_MEDIA_TYPES.has(type)) {
     return [];
   }
 
-  const data = await fetchOptionalTMDBJson(`/${type}/${id}/reviews`, { page: '1' });
-  if (!data) return [];
+  if (language) {
+    const localized = await fetchOptionalTMDBJson(`/${type}/${id}/reviews`, { page: '1' }, { language });
+    const localizedReviews = mapTmdbReviews(localized?.results);
+    if (localizedReviews.length) return localizedReviews;
+  }
 
-  return (data.results || []).map(review => ({
-    content: review.content || '',
-  }));
+  const data = await fetchOptionalTMDBJson(`/${type}/${id}/reviews`, { page: '1' }, { includeLanguage: false });
+  if (!data) return [];
+  return mapTmdbReviews(data.results);
 }
 
 export async function getSimilar(id, type, { language = DEFAULT_LANGUAGE } = {}) {
@@ -326,7 +361,7 @@ export async function getSimilar(id, type, { language = DEFAULT_LANGUAGE } = {})
 
   const data = await fetchOptionalTMDBJson(`/${type}/${id}/similar`, { page: '1' }, { language });
   return Array.isArray(data?.results)
-    ? data.results.slice(0, 8).map(item => mapMediaSummary(item, type))
+    ? data.results.slice(0, 8).map(item => mapMediaSummary(item, type, { language }))
     : [];
 }
 
@@ -337,7 +372,7 @@ export async function getRecommendations(id, type, { language = DEFAULT_LANGUAGE
 
   const data = await fetchOptionalTMDBJson(`/${type}/${id}/recommendations`, { page: '1' }, { language });
   return Array.isArray(data?.results)
-    ? data.results.slice(0, 12).map(item => mapMediaSummary(item, type))
+    ? data.results.slice(0, 12).map(item => mapMediaSummary(item, type, { language }))
     : [];
 }
 
@@ -346,6 +381,10 @@ export async function getDiscover(media = 'movie', page = 1, options = {}) {
   const withGenres = sanitizeTmdbIdList(options.withGenres);
   const withKeywords = sanitizeTmdbIdList(options.withKeywords);
   const withoutKeywords = sanitizeTmdbIdList(options.withoutKeywords);
+  const withWatchProviders = sanitizeTmdbIdList(options.withWatchProviders);
+  const withCrew = sanitizeTmdbIdList(options.withCrew);
+  const watchRegion = String(options.watchRegion || (withWatchProviders ? DEFAULT_WATCH_REGION : '')).trim();
+  const watchMonetizationTypes = String(options.watchMonetizationTypes || '').trim();
 
   const data = await fetchOptionalTMDBJson(`/discover/${media}`, {
     sort_by: options.sortBy || 'vote_average.desc',
@@ -354,10 +393,25 @@ export async function getDiscover(media = 'movie', page = 1, options = {}) {
     ...(withGenres ? { with_genres: withGenres } : {}),
     ...(withKeywords ? { with_keywords: withKeywords } : {}),
     ...(withoutKeywords ? { without_keywords: withoutKeywords } : {}),
+    ...(withWatchProviders ? { with_watch_providers: withWatchProviders } : {}),
+    ...(withWatchProviders && watchRegion ? { watch_region: watchRegion } : {}),
+    ...(withWatchProviders && watchMonetizationTypes
+      ? { watch_monetization_types: watchMonetizationTypes }
+      : {}),
+    ...(withCrew ? { with_crew: withCrew } : {}),
     ...(options.withOriginalLanguage ? { with_original_language: options.withOriginalLanguage } : {}),
   }, { language });
 
   return Array.isArray(data?.results)
-    ? data.results.map(item => mapMediaSummary(item, media))
+    ? data.results.map(item => mapMediaSummary(item, media, { language }))
+    : [];
+}
+
+export async function getTrending(media = 'movie', window = 'week', { language = DEFAULT_LANGUAGE } = {}) {
+  assertValidMediaType(media);
+  const timeWindow = window === 'day' ? 'day' : 'week';
+  const data = await fetchOptionalTMDBJson(`/trending/${media}/${timeWindow}`, {}, { language });
+  return Array.isArray(data?.results)
+    ? data.results.map(item => mapMediaSummary(item, media, { language }))
     : [];
 }

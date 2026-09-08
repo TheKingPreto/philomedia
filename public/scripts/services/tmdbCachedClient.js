@@ -31,19 +31,20 @@ export async function discoverTMDBCached(media, options = {}) {
   return Array.isArray(result) ? result : [];
 }
 
-export async function searchTMDBCached(query) {
+export async function searchTMDBCached(query, { page = 1, language } = {}) {
   const trimmedQuery = String(query || '').trim();
   if (!trimmedQuery) return [];
 
   const cacheKey = buildTmdbRequestCacheKey('search', {
     query: trimmedQuery.toLowerCase(),
-    language: getTmdbCatalogLanguage(),
+    page: Number(page) || 1,
+    language: language || getTmdbCatalogLanguage(),
   });
 
   if (!searchRequestCache.has(cacheKey)) {
     searchRequestCache.set(
       cacheKey,
-      searchTMDB(trimmedQuery).catch((error) => {
+      searchTMDB(trimmedQuery, { page, language }).catch((error) => {
         searchRequestCache.delete(cacheKey);
         throw error;
       }),

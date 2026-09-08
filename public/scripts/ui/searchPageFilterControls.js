@@ -7,6 +7,7 @@ import {
   MEDIA_FILTERS,
   RATING_FILTERS,
   SORT_FILTERS,
+  WATCH_PROVIDER_FILTERS,
   isLensChipVisible,
   partitionLensFilters,
 } from '/scripts/domain/searchFilters.js';
@@ -70,13 +71,14 @@ function renderLensToggle(container, expanded) {
 }
 
 /**
- * @param {{ lens: string, media: string, rating: string, sort: string }} filters
+ * @param {{ lens: string, media: string, rating: string, provider?: string, sort: string }} filters
  */
 export function renderSearchFilterControls({
   lensSuggestionsContainer,
   lensSummaryEl,
   mediaFiltersContainer,
   ratingFiltersContainer,
+  providerFiltersContainer,
   sortSelect,
   filters,
   lensesExpanded = false,
@@ -84,6 +86,7 @@ export function renderSearchFilterControls({
   lensSuggestionsContainer.innerHTML = '';
   mediaFiltersContainer.innerHTML = '';
   ratingFiltersContainer.innerHTML = '';
+  if (providerFiltersContainer) providerFiltersContainer.innerHTML = '';
 
   const { featured, rest } = partitionLensFilters(LENS_FILTERS);
   const activeLensId = filters.lens;
@@ -119,6 +122,12 @@ export function renderSearchFilterControls({
   RATING_FILTERS.forEach(filter => {
     renderSearchFilterChip(ratingFiltersContainer, filter, filters.rating, 'rating');
   });
+
+  if (providerFiltersContainer) {
+    WATCH_PROVIDER_FILTERS.forEach(filter => {
+      renderSearchFilterChip(providerFiltersContainer, filter, filters.provider || 'any', 'provider');
+    });
+  }
 
   if (sortSelect) {
     sortSelect.value = filters.sort;

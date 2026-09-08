@@ -32,7 +32,7 @@ import { escapeHtml } from '/scripts/ui/viewHelpers.js';
 import { t } from '/scripts/services/i18n.js';
 import { getDisplayQuoteText } from '/scripts/services/quoteDisplayResolve.js';
 import { localizeItemOverviews } from '/scripts/services/tmdbOverviewI18n.js';
-import { getUiLocale } from '/scripts/services/uiLocale.js';
+import { getUiLocale, getTmdbLanguage } from '/scripts/services/uiLocale.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 import { formatYear, formatRuntime } from '/scripts/ui/detailsFormatters.js';
 import { renderFacts } from '/scripts/ui/detailsFacts.js';
@@ -46,6 +46,7 @@ import {
   hashString,
   mergeCandidateBuckets,
   normalizeQuoteEntry,
+  preferReviewsByLanguage,
   rankQuotesForSource,
   rankRelatedCandidates,
   scoreQuoteQuality,
@@ -365,6 +366,10 @@ async function loadRelatedWorks(id, type, details, reviews) {
     ? details.genres.map(genre => genre?.id).filter(Boolean).join(',')
     : '';
   const searchQuery = buildSearchQuery(details, reviews);
+  const uiLanguage = getTmdbLanguage();
+
+  const appendedSimilar = Array.isArray(details.similar) ? details.similar : null;
+  const appendedRecommended = Array.isArray(details.recommendations) ? details.recommendations : null;
 
   const [
     similarWorks,
@@ -372,15 +377,20 @@ async function loadRelatedWorks(id, type, details, reviews) {
     discoveredWorks,
     searchedWorks,
   ] = await Promise.all([
-    getSimilarFromTMDB(id, type).catch(() => []),
-    getRecommendationsFromTMDB(id, type).catch(() => []),
+    appendedSimilar
+      ? Promise.resolve(appendedSimilar)
+      : getSimilarFromTMDB(id, type).catch(() => []),
+    appendedRecommended
+      ? Promise.resolve(appendedRecommended)
+      : getRecommendationsFromTMDB(id, type).catch(() => []),
     discoverTMDBCached(type, {
       withGenres: genreIds,
       withOriginalLanguage: details.original_language || '',
       sortBy: 'popularity.desc',
+      language: uiLanguage,
     }).catch(() => []),
     searchQuery
-      ? searchTMDBCached(searchQuery)
+      ? searchTMDBCached(searchQuery, { language: uiLanguage })
           .then(items => items.filter(item => item.media_type === type))
           .catch(() => [])
       : Promise.resolve([]),
@@ -604,16 +614,21 @@ async function init() {
   setLoading(true);
 
   try {
-    const [details, allQuotes, reviews] = await Promise.all([
+    const [details, allQuotes] = await Promise.all([
       getDetailsFromTMDB(id, type).catch(() => null),
       getQuoteCatalog('en').catch(() => getQuoteCatalog(getUiLocale())).catch(() => getQuotes()).catch(() => []),
-      getReviewsFromTMDB(id, type).catch(() => []),
     ]);
 
     if (!details) {
       showError(t('details.load_failed'));
       return;
     }
+
+    const reviews = preferReviewsByLanguage(
+      details.tmdbReviews?.length
+        ? details.tmdbReviews
+        : await getReviewsFromTMDB(id, type).catch(() => [])
+    );
 
     populateDetails(details, type);
     initializeLibraryActions(details, type).catch(() => {});
