@@ -43,3 +43,16 @@ export const isAuthenticated = (req, res, next) => {
     message: 'Authentication required. Please log in to perform this action.',
   });
 };
+
+/**
+ * Versão sem efeito de resposta, para rotas públicas que só precisam de saber
+ * se há sessão — caso do `save` nos endpoints de IA, abertos a anônimos mas
+ * que não podem escrever no banco sem login.
+ */
+export const isRequestAuthenticated = (req) => {
+  if (process.env.NODE_ENV === 'test' && tryAttachTestAuthUser(req) === 'ok') {
+    return true;
+  }
+
+  return Boolean(req.isAuthenticated && req.isAuthenticated());
+};

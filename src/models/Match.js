@@ -18,6 +18,13 @@ const matchSchema = new mongoose.Schema({
     enum: ['movie', 'tv', 'anime', 'unknown'],
     default: 'unknown'
   },
+
+  /** Quem submeteu. Nulo em matches editoriais, que só admins podem alterar. */
+  submittedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now

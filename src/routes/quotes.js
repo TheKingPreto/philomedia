@@ -229,6 +229,8 @@ router.post('/', isAuthenticated, createQuoteRules, validateRequest, createQuote
  *         description: Invalid quote data.
  *       401:
  *         description: Authentication required.
+ *       403:
+ *         description: Not the owner of the quote.
  *       404:
  *         description: Quote not found.
  *       500:
@@ -256,6 +258,8 @@ router.put('/:id', isAuthenticated, updateQuoteRules, validateRequest, updateQuo
  *         description: Quote deleted successfully.
  *       401:
  *         description: Authentication required.
+ *       403:
+ *         description: Not the owner of the quote.
  *       404:
  *         description: Quote not found.
  *       500:

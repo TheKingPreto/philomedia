@@ -56,6 +56,16 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+
+  /**
+   * Só um admin pode alterar conteúdo sem dono (o editorial e o importado).
+   * Promoção é manual, direto no banco — não há rota que atribua o papel.
+   */
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user',
+  },
   watchlist: {
     type: [savedMediaSchema],
     default: [],

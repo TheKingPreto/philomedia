@@ -1,6 +1,39 @@
 import Quote from '../models/Quote.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { buildQuoteCatalog } from '../services/quoteCatalog.js';
+import {
+  FORBIDDEN_MESSAGE,
+  canManageResource,
+  pickAllowedFields,
+} from '../utils/resourceAccess.js';
+
+/**
+ * Campos que o cliente pode definir. Tudo o resto — `legacyId`, `isGenerated`,
+ * `generationContext`, `submittedBy`, `submissionSource` — é do servidor.
+ */
+const EDITABLE_QUOTE_FIELDS = [
+  'quoteText',
+  'authorName',
+  'themes',
+  'quoteLanguage',
+  'quoteTranslations',
+  'translationStatus',
+];
+
+const QUOTE_TRANSLATION_FIELDS = ['en', 'pt'];
+
+function sanitizeQuoteBody(body) {
+  const payload = pickAllowedFields(body, EDITABLE_QUOTE_FIELDS);
+
+  if (payload.quoteTranslations !== undefined) {
+    payload.quoteTranslations = pickAllowedFields(
+      payload.quoteTranslations,
+      QUOTE_TRANSLATION_FIELDS
+    );
+  }
+
+  return payload;
+}
 
 export const getAllQuotes = asyncHandler(async (req, res, _next) => {
   const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
@@ -45,27 +78,40 @@ export const getQuoteById = asyncHandler(async (req, res, _next) => {
 });
 
 export const createQuote = asyncHandler(async (req, res, _next) => {
-  const newQuote = new Quote(req.body);
+  const newQuote = new Quote({
+    ...sanitizeQuoteBody(req.body),
+    submissionSource: 'user-submitted',
+    submittedBy: req.user?._id ?? null,
+  });
   const savedQuote = await newQuote.save();
   res.status(201).json(savedQuote);
 });
 
 export const updateQuote = asyncHandler(async (req, res, _next) => {
-  const updatedQuote = await Quote.findByIdAndUpdate(
-    req.params.id,
-    req.body,
-    { new: true, runValidators: true }
-  );
-  if (!updatedQuote) {
+  const quote = await Quote.findById(req.params.id);
+  if (!quote) {
     return res.status(404).json({ message: 'Quote not found for update.' });
   }
+
+  if (!canManageResource(quote, req.user)) {
+    return res.status(403).json({ message: FORBIDDEN_MESSAGE });
+  }
+
+  quote.set(sanitizeQuoteBody(req.body));
+  const updatedQuote = await quote.save();
   res.status(200).json(updatedQuote);
 });
 
 export const deleteQuote = asyncHandler(async (req, res, _next) => {
-  const deletedQuote = await Quote.findByIdAndDelete(req.params.id);
-  if (!deletedQuote) {
+  const quote = await Quote.findById(req.params.id);
+  if (!quote) {
     return res.status(404).json({ message: 'Quote not found for deletion.' });
   }
+
+  if (!canManageResource(quote, req.user)) {
+    return res.status(403).json({ message: FORBIDDEN_MESSAGE });
+  }
+
+  await quote.deleteOne();
   res.status(200).json({ message: 'Quote successfully deleted.' });
 });

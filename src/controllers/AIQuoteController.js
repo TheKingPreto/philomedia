@@ -1,6 +1,15 @@
 import * as AIQuoteGeneratorService from '../services/AIQuoteGeneratorService.js';
 import Quote from '../models/Quote.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { isRequestAuthenticated } from '../middleware/authMiddleware.js';
+import {
+  buildAiQuoteCacheKey,
+  getCachedAiQuote,
+  setCachedAiQuote,
+} from '../services/aiQuoteCache.js';
+
+const UNAUTHENTICATED_SAVE_MESSAGE =
+  'Authentication required to persist a generated quote.';
 
 function buildGeneratedQuotePayload(result) {
   return {
@@ -16,7 +25,7 @@ function buildGeneratedQuotePayload(result) {
   };
 }
 
-async function respondWithGeneratedQuote(res, result, { save = false } = {}) {
+async function respondWithGeneratedQuote(req, res, result, { save = false } = {}) {
   if (!result.quoteText || !result.authorName) {
     return res.status(200).json({
       available: false,
@@ -32,7 +41,14 @@ async function respondWithGeneratedQuote(res, result, { save = false } = {}) {
   }
 
   if (save) {
-    const quote = await Quote.create(payload.quote);
+    if (!isRequestAuthenticated(req)) {
+      return res.status(401).json({ message: UNAUTHENTICATED_SAVE_MESSAGE });
+    }
+
+    const quote = await Quote.create({
+      ...payload.quote,
+      submittedBy: req.user?._id ?? null,
+    });
     payload.quote = quote;
     payload.saved = true;
     return res.status(201).json(payload);
@@ -47,7 +63,7 @@ async function respondWithGeneratedQuote(res, result, { save = false } = {}) {
 export const generateByTheme = asyncHandler(async (req, res) => {
   const { themes, save = false } = req.body;
   const result = await AIQuoteGeneratorService.generateByTheme(themes);
-  return respondWithGeneratedQuote(res, result, { save });
+  return respondWithGeneratedQuote(req, res, result, { save });
 });
 
 /**
@@ -59,7 +75,7 @@ export const generateByPhilosopher = asyncHandler(async (req, res) => {
     philosopher,
     theme
   );
-  return respondWithGeneratedQuote(res, result, { save });
+  return respondWithGeneratedQuote(req, res, result, { save });
 });
 
 /**
@@ -75,13 +91,24 @@ export const generateByMediaContext = asyncHandler(async (req, res) => {
     });
   }
 
+  const cacheKey = buildAiQuoteCacheKey({ tmdbId, mediaType, locale, suggestMatches });
+  const cached = getCachedAiQuote(cacheKey);
+  if (cached) {
+    return respondWithGeneratedQuote(req, res, cached, { save });
+  }
+
   try {
     const result = await AIQuoteGeneratorService.generateByMediaContext(
       String(tmdbId),
       mediaType,
       { suggestMatches, locale }
     );
-    return respondWithGeneratedQuote(res, result, { save });
+
+    if (result?.quoteText && result?.authorName) {
+      setCachedAiQuote(cacheKey, result);
+    }
+
+    return respondWithGeneratedQuote(req, res, result, { save });
   } catch (error) {
     console.error('[PhiloMedia] AI media-context error:', error.message);
     if (error.code === 'ai_quota_exceeded') {

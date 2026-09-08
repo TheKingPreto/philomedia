@@ -146,6 +146,8 @@ router.post('/', isAuthenticated, createMatchRules, validateRequest, createMatch
  *         description: Invalid match data.
  *       401:
  *         description: Authentication required.
+ *       403:
+ *         description: Not the owner of the match.
  *       404:
  *         description: Match not found.
  *       500:
@@ -173,6 +175,8 @@ router.put('/:id', isAuthenticated, updateMatchRules, validateRequest, updateMat
  *         description: Match deleted successfully.
  *       401:
  *         description: Authentication required.
+ *       403:
+ *         description: Not the owner of the match.
  *       404:
  *         description: Match not found.
  *       500:

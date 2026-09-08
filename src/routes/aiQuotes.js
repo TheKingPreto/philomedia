@@ -1,6 +1,7 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { body } from 'express-validator';
+import { isAuthenticated } from '../middleware/authMiddleware.js';
 import { validateRequest } from '../middleware/requestValidator.js';
 import {
   generateByTheme,
@@ -11,9 +12,11 @@ import {
 
 const router = express.Router();
 
-// ─── Rate limiter específico para endpoints de IA ────────────────────────────
-// Muito mais restritivo que o global — chamadas de IA têm custo real.
-const aiLimiter = rateLimit({
+// ─── Rate limiters específicos para endpoints de IA ──────────────────────────
+// Muito mais restritivos que o global — chamadas de IA têm custo real.
+
+/** Geração com prompt livre: exige sessão, logo o limite pode ser apertado. */
+const authoredGenerationLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
   max: 30,                   // 30 gerações por hora por IP
   standardHeaders: true,
@@ -23,7 +26,20 @@ const aiLimiter = rateLimit({
   },
 });
 
-router.use(aiLimiter);
+/**
+ * Leitura por obra: pública, porque é mostrada a visitantes anônimos. O teto
+ * é mais alto por ser navegação legítima, e o cache do controlador garante que
+ * títulos já vistos não voltam a custar uma chamada ao Gemini.
+ */
+const mediaContextLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'Too many AI interpretation requests. Please try again later.',
+  },
+});
 
 // ─── Regras de validação ──────────────────────────────────────────────────────
 
@@ -118,6 +134,8 @@ router.get('/themes', listValidThemes);
  *   post:
  *     summary: Generates an original philosophical quote based on themes.
  *     tags: [AI Quotes]
+ *     security:
+ *       - CookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -139,6 +157,8 @@ router.get('/themes', listValidThemes);
  *               $ref: '#/components/schemas/AIQuoteResponse'
  *       400:
  *         description: Validation error or invalid themes.
+ *       401:
+ *         description: Authentication required.
  *       429:
  *         description: Too many requests.
  *       500:
@@ -146,6 +166,8 @@ router.get('/themes', listValidThemes);
  */
 router.post(
   '/generate/theme',
+  authoredGenerationLimiter,
+  isAuthenticated,
   generateByThemeRules,
   validateRequest,
   generateByTheme
@@ -157,6 +179,8 @@ router.post(
  *   post:
  *     summary: Generates an original philosophical quote in the style of a specific philosopher.
  *     tags: [AI Quotes]
+ *     security:
+ *       - CookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -178,6 +202,8 @@ router.post(
  *               $ref: '#/components/schemas/AIQuoteResponse'
  *       400:
  *         description: Validation error.
+ *       401:
+ *         description: Authentication required.
  *       429:
  *         description: Too many requests.
  *       500:
@@ -185,6 +211,8 @@ router.post(
  */
 router.post(
   '/generate/philosopher',
+  authoredGenerationLimiter,
+  isAuthenticated,
   generateByPhilosopherRules,
   validateRequest,
   generateByPhilosopher
@@ -231,6 +259,7 @@ router.post(
  */
 router.post(
   '/generate/media-context',
+  mediaContextLimiter,
   generateByMediaContextRules,
   validateRequest,
   generateByMediaContext
