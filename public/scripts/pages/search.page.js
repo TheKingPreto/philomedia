@@ -15,7 +15,13 @@ import { getLocalizedLensById } from '/scripts/services/searchFilterI18n.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 import { localizeItemOverviews } from '/scripts/services/tmdbOverviewI18n.js';
 import { createMediaCard, hydrateMediaCards, renderMediaCards } from '/scripts/media-card.js';
-import { getLensById, getRatingFilterById, buildLensKeywordDiscoverOptions, buildLensGenreDiscoverOptions } from '/scripts/domain/searchFilters.js';
+import {
+  getLensById,
+  getRatingFilterById,
+  buildLensKeywordDiscoverOptions,
+  buildLensGenreDiscoverOptions,
+  withLensQueryParam,
+} from '/scripts/domain/searchFilters.js';
 import { annotateResults, mergeResultsByIdentity, scoreLensAffinity } from '/scripts/domain/searchLensRanking.js';
 import {
   applySearchToolbarFilters,
@@ -34,6 +40,7 @@ const form = document.getElementById('search-form');
 const input = document.getElementById('search-input');
 const resultsContainer = document.getElementById('search-results');
 const lensSuggestionsContainer = document.getElementById('lens-suggestions');
+const lensSummaryEl = document.getElementById('lens-active-summary');
 const mediaFiltersContainer = document.getElementById('media-filters');
 const ratingFiltersContainer = document.getElementById('rating-filters');
 const clearFiltersButton = document.getElementById('clear-search-filters');
@@ -62,10 +69,31 @@ const state = {
   },
   lensPage: 0,
   lensAllResults: [],
+  lensesExpanded: false,
 };
 
 const LENS_DISPLAY_LIMIT = 10;
 const LENS_POOL_LIMIT = 40;
+
+function renderFilters() {
+  renderSearchFilterControls({
+    lensSuggestionsContainer,
+    lensSummaryEl,
+    mediaFiltersContainer,
+    ratingFiltersContainer,
+    sortSelect,
+    filters: state.filters,
+    lensesExpanded: state.lensesExpanded,
+  });
+}
+
+function syncLensQueryParam(lensId) {
+  const nextSearch = withLensQueryParam(window.location.search, lensId);
+  const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextUrl === currentUrl) return;
+  window.history.replaceState(null, '', nextUrl);
+}
 
 function buildResultsSummary(totalResults, visibleResults) {
   const activeLens = getLocalizedLensById(state.filters.lens);
@@ -452,6 +480,7 @@ async function handleSubmit(event) {
   const query = input.value.trim();
   if (!query) {
     if (state.filters.lens !== 'all') {
+      syncLensQueryParam(state.filters.lens);
       try {
         await runThemeDiscovery(state.filters.lens);
       } catch (error) {
@@ -468,6 +497,8 @@ async function handleSubmit(event) {
 
   try {
     await runSearch(query);
+    syncLensQueryParam('all');
+    renderFilters();
 
     if (!state.rawResults.length) {
       setSearchEmpty(searchPageEls, t('search.empty_hint_search'));
@@ -481,6 +512,22 @@ async function handleSubmit(event) {
   }
 }
 
+function handleLensToggleClick() {
+  state.lensesExpanded = !state.lensesExpanded;
+  renderFilters();
+  lensSuggestionsContainer.querySelector('[data-action="toggle-lenses"]')?.focus();
+}
+
+async function handleLensSuggestionsClick(event) {
+  const toggle = event.target.closest('[data-action="toggle-lenses"]');
+  if (toggle) {
+    handleLensToggleClick();
+    return;
+  }
+
+  await handleLensClick(event);
+}
+
 async function handleLensClick(event) {
   const button = event.target.closest('button[data-group="lens"]');
   if (!button) return;
@@ -489,13 +536,11 @@ async function handleLensClick(event) {
   const nextLens = state.filters.lens === button.dataset.value ? 'all' : button.dataset.value;
   const shouldRefreshDiscovery = !state.currentQuery && nextLens !== 'all';
   state.filters.lens = nextLens;
-  renderSearchFilterControls({
-    lensSuggestionsContainer,
-    mediaFiltersContainer,
-    ratingFiltersContainer,
-    sortSelect,
-    filters: state.filters,
-  });
+  if (nextLens === 'all') {
+    state.discoveryLensId = '';
+  }
+  syncLensQueryParam(nextLens);
+  renderFilters();
 
   if (shouldRefreshDiscovery) {
     try {
@@ -526,13 +571,7 @@ async function handleToolbarClick(event) {
     state.filters.rating = value;
   }
 
-  renderSearchFilterControls({
-    lensSuggestionsContainer,
-    mediaFiltersContainer,
-    ratingFiltersContainer,
-    sortSelect,
-    filters: state.filters,
-  });
+  renderFilters();
 
   if (state.rawResults.length) {
     await renderFilteredState();
@@ -554,13 +593,9 @@ async function clearFilters() {
   state.filters.rating = 'any';
   state.filters.lens = 'all';
   state.filters.sort = 'recommended';
-  renderSearchFilterControls({
-    lensSuggestionsContainer,
-    mediaFiltersContainer,
-    ratingFiltersContainer,
-    sortSelect,
-    filters: state.filters,
-  });
+  state.discoveryLensId = '';
+  syncLensQueryParam('all');
+  renderFilters();
 
   if (state.rawResults.length) {
     await renderFilteredState();
@@ -583,13 +618,7 @@ async function hydrateFromQueryParams() {
 
   if (lens) {
     state.filters.lens = lens;
-    renderSearchFilterControls({
-      lensSuggestionsContainer,
-      mediaFiltersContainer,
-      ratingFiltersContainer,
-      sortSelect,
-      filters: state.filters,
-    });
+    renderFilters();
   }
 
   if (query) {
@@ -624,15 +653,9 @@ function init() {
   setupAuthUI().catch(() => {});
   resultsMeta.hidden = true;
   renderSearchSortControl(sortSelect, state.filters.sort);
-  renderSearchFilterControls({
-    lensSuggestionsContainer,
-    mediaFiltersContainer,
-    ratingFiltersContainer,
-    sortSelect,
-    filters: state.filters,
-  });
+  renderFilters();
   form.addEventListener('submit', handleSubmit);
-  lensSuggestionsContainer.addEventListener('click', handleLensClick);
+  lensSuggestionsContainer.addEventListener('click', handleLensSuggestionsClick);
   searchResultsSection?.addEventListener('click', handleLensLoadMoreClick);
   mediaFiltersContainer.addEventListener('click', handleToolbarClick);
   ratingFiltersContainer.addEventListener('click', handleToolbarClick);

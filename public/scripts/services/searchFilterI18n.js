@@ -32,3 +32,7 @@ export function getLocalizedLensById(lensId) {
   const copy = getLocalizedFilterCopy(lens, 'lens');
   return { ...lens, label: copy.label, summary: copy.summary };
 }
+
+export function getLensToggleCopy(expanded) {
+  return expanded ? t('search.lenses_show_fewer') : t('search.lenses_show_all');
+}

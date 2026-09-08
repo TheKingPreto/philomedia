@@ -2,6 +2,7 @@ import {
   buildPhilosopherProfiles,
   filterPhilosopherCatalogQuotes,
   getDisplayAuthorName,
+  getLensSearchUrl,
   getPhilosopherDefinitionByAuthor,
   getPhilosopherProfileBySlug,
   getPhilosopherUrlByAuthor,
@@ -21,6 +22,11 @@ describe('philosopher data helpers', () => {
   test('returns a philosopher URL when the author belongs to the curated collection', () => {
     expect(getPhilosopherUrlByAuthor('Lucas C. Roxo')).toBe('/html/philosopher.html?slug=lucas-costa-roxo');
     expect(getPhilosopherUrlByAuthor('Unknown Thinker')).toBe('/html/philosopher.html?slug=unknown-thinker');
+  });
+
+  test('builds thinker lens links with the same search query key', () => {
+    expect(getLensSearchUrl('alienation')).toBe('/html/search.html?lens=alienation');
+    expect(getLensSearchUrl('')).toBe('/html/search.html');
   });
 
   test('builds philosopher profiles by grouping aliases, themes, and linked works', () => {

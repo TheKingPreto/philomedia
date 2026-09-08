@@ -7,10 +7,12 @@ import {
   MEDIA_FILTERS,
   RATING_FILTERS,
   SORT_FILTERS,
+  isLensChipVisible,
+  partitionLensFilters,
 } from '/scripts/domain/searchFilters.js';
-import { getLocalizedFilterCopy } from '/scripts/services/searchFilterI18n.js';
+import { getLensToggleCopy, getLocalizedFilterCopy } from '/scripts/services/searchFilterI18n.js';
 
-export function renderSearchFilterChip(container, filter, activeId, groupName) {
+export function renderSearchFilterChip(container, filter, activeId, groupName, options = {}) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'filter-chip';
@@ -28,8 +30,43 @@ export function renderSearchFilterChip(container, filter, activeId, groupName) {
   if (copy.summary) {
     button.title = copy.summary;
   }
+  if (options.describedBy) {
+    button.setAttribute('aria-describedby', options.describedBy);
+  }
+  if (options.hidden) {
+    button.hidden = true;
+  }
 
   container.appendChild(button);
+  return button;
+}
+
+function renderActiveLensSummary(lensSummaryEl, activeLensId) {
+  if (!lensSummaryEl) return;
+
+  const lens = LENS_FILTERS.find(filter => filter.id === activeLensId);
+  const summary = lens ? getLocalizedFilterCopy(lens, 'lens').summary : '';
+
+  if (!summary) {
+    lensSummaryEl.hidden = true;
+    lensSummaryEl.textContent = '';
+    return;
+  }
+
+  lensSummaryEl.hidden = false;
+  lensSummaryEl.textContent = summary;
+}
+
+function renderLensToggle(container, expanded) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'filter-chip lens-expand-chip';
+  button.dataset.action = 'toggle-lenses';
+  button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  button.setAttribute('aria-controls', 'lens-suggestions-more');
+  button.textContent = getLensToggleCopy(expanded);
+  container.appendChild(button);
+  return button;
 }
 
 /**
@@ -37,18 +74,43 @@ export function renderSearchFilterChip(container, filter, activeId, groupName) {
  */
 export function renderSearchFilterControls({
   lensSuggestionsContainer,
+  lensSummaryEl,
   mediaFiltersContainer,
   ratingFiltersContainer,
   sortSelect,
   filters,
+  lensesExpanded = false,
 }) {
   lensSuggestionsContainer.innerHTML = '';
   mediaFiltersContainer.innerHTML = '';
   ratingFiltersContainer.innerHTML = '';
 
-  LENS_FILTERS.forEach(filter => {
-    renderSearchFilterChip(lensSuggestionsContainer, filter, filters.lens, 'lens');
+  const { featured, rest } = partitionLensFilters(LENS_FILTERS);
+  const activeLensId = filters.lens;
+  const summaryId = lensSummaryEl?.id || '';
+  const activeSummary = activeLensId !== 'all' && summaryId ? summaryId : '';
+
+  featured.forEach(filter => {
+    renderSearchFilterChip(lensSuggestionsContainer, filter, activeLensId, 'lens', {
+      describedBy: filter.id === activeLensId ? activeSummary : '',
+    });
   });
+
+  const extras = document.createElement('span');
+  extras.id = 'lens-suggestions-more';
+  extras.className = 'lens-chip-extras';
+  rest.forEach(filter => {
+    renderSearchFilterChip(extras, filter, activeLensId, 'lens', {
+      describedBy: filter.id === activeLensId ? activeSummary : '',
+      hidden: !isLensChipVisible(filter.id, {
+        expanded: lensesExpanded,
+        activeLensId,
+      }),
+    });
+  });
+  lensSuggestionsContainer.appendChild(extras);
+  renderLensToggle(lensSuggestionsContainer, lensesExpanded);
+  renderActiveLensSummary(lensSummaryEl, activeLensId);
 
   MEDIA_FILTERS.forEach(filter => {
     renderSearchFilterChip(mediaFiltersContainer, filter, filters.media, 'media');

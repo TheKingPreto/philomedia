@@ -84,6 +84,8 @@ export const EN_TRANSLATIONS = {
   'search.placeholder': 'e.g. Interstellar, Breaking Bad...',
   'search.submit': 'Search',
   'search.lenses_label': 'Suggested lenses',
+  'search.lenses_show_all': 'See all',
+  'search.lenses_show_fewer': 'See less',
   'search.media_label': 'Media',
   'search.rating_label': 'Rating',
   'search.clear_filters': 'Clear filters',

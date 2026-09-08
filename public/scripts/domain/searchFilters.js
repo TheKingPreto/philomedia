@@ -266,3 +266,48 @@ export function getLensById(lensId) {
 export function getRatingFilterById(ratingId) {
   return RATING_FILTERS.find(filter => filter.id === ratingId) || RATING_FILTERS[0];
 }
+
+/** Short set shown by default on the search page; the rest sit behind “see all”. */
+export const FEATURED_LENS_IDS = Object.freeze([
+  'epistemology',
+  'power-corruption',
+  'alienation',
+  'consciousness-ai',
+  'freedom-choice',
+]);
+
+export function isFeaturedLensId(lensId) {
+  return FEATURED_LENS_IDS.includes(lensId);
+}
+
+export function isLensChipVisible(lensId, { expanded = false, activeLensId = 'all' } = {}) {
+  if (expanded || isFeaturedLensId(lensId)) return true;
+  return Boolean(lensId) && lensId !== 'all' && lensId === activeLensId;
+}
+
+export function partitionLensFilters(lenses = LENS_FILTERS) {
+  const featured = FEATURED_LENS_IDS
+    .map(id => lenses.find(lens => lens.id === id))
+    .filter(Boolean);
+  const rest = lenses.filter(lens => !FEATURED_LENS_IDS.includes(lens.id));
+  return { featured, rest };
+}
+
+/**
+ * Write or drop `lens` while preserving every other query param.
+ * @param {string} search `location.search` (`?a=1&lens=x` or `a=1`)
+ * @param {string} lensId lens id, or `'all'` / `''` to remove
+ */
+export function withLensQueryParam(search, lensId) {
+  const raw = String(search || '').replace(/^\?/, '');
+  const params = new URLSearchParams(raw);
+
+  if (lensId && lensId !== 'all') {
+    params.set('lens', lensId);
+  } else {
+    params.delete('lens');
+  }
+
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}

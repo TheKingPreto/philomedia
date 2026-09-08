@@ -84,6 +84,8 @@ export const PT_TRANSLATIONS = {
   'search.placeholder': 'ex.: Interestelar, Breaking Bad...',
   'search.submit': 'Buscar',
   'search.lenses_label': 'Lentes sugeridas',
+  'search.lenses_show_all': 'Ver todas',
+  'search.lenses_show_fewer': 'Ver menos',
   'search.media_label': 'Mídia',
   'search.rating_label': 'Nota',
   'search.clear_filters': 'Limpar filtros',
