@@ -478,12 +478,33 @@ export function selectPoolIndex(hash, poolSize) {
 }
 
 /**
- * Extension point for quote thumbs (user ratings). Ranking does not use
- * ratings yet — fold `ratingsByQuoteId` (quoteId → 1 | -1) into pool order
- * here when that weight is calibrated. Until then this is a documented no-op.
+ * User thumbs (quoteId → 1 | -1). Downvotes leave the pool when anything else
+ * remains; upvotes are sorted to the front so they win ties inside the batch.
  */
-export function applyQuoteRatingBias(rankedQuotes, _ratingsByQuoteId) {
-  return rankedQuotes;
+export function applyQuoteRatingBias(rankedQuotes, ratingsByQuoteId) {
+  if (!Array.isArray(rankedQuotes) || rankedQuotes.length === 0) {
+    return rankedQuotes;
+  }
+  if (!ratingsByQuoteId || typeof ratingsByQuoteId.get !== 'function') {
+    return rankedQuotes;
+  }
+
+  const ratingOf = quote => {
+    if (quote?.id == null) return 0;
+    const value = Number(ratingsByQuoteId.get(String(quote.id)));
+    if (value === 1 || value === -1) return value;
+    return 0;
+  };
+
+  const withoutDown = rankedQuotes.filter(quote => ratingOf(quote) !== -1);
+  const working = withoutDown.length > 0 ? withoutDown : rankedQuotes;
+
+  return [...working].sort((a, b) => {
+    const aUp = ratingOf(a) === 1 ? 1 : 0;
+    const bUp = ratingOf(b) === 1 ? 1 : 0;
+    if (bUp !== aUp) return bUp - aUp;
+    return (b._score || 0) - (a._score || 0);
+  });
 }
 
 export function selectQuoteForMedia(rankedQuotes, mediaKey, ratingsByQuoteId) {

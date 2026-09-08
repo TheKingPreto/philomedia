@@ -17,6 +17,7 @@ import { t } from '/scripts/services/i18n.js';
 import { localizeThinkerCard } from '/scripts/services/philosopherDisplayI18n.js';
 import { getUiLocale } from '/scripts/services/uiLocale.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
+import { fillPortraitHost } from '/scripts/domain/safePortraitUrl.js';
 
 const quoteList = document.getElementById('quote-list');
 const contributionForm = document.getElementById('contribution-form');
@@ -216,20 +217,8 @@ function formatCountLabel(count, singularKey, pluralKey) {
   return n === 1 ? t(singularKey, { count: n }) : t(pluralKey, { count: n });
 }
 
-function renderExistingPortrait(profile) {
-  if (profile?.portraitUrl) {
-    return `
-      <div class="philosopher-sigil philosopher-sigil-small philosopher-sigil-photo contribution-profile-sigil" aria-hidden="true">
-        <img src="${profile.portraitUrl}" alt="${escapeHtml(t('contribute.portrait_alt', { name: profile.name }))}" loading="lazy">
-      </div>
-    `;
-  }
-
-  return `
-    <div class="philosopher-sigil philosopher-sigil-small contribution-profile-sigil" aria-hidden="true">
-      ${escapeHtml(profile?.initials || 'PM')}
-    </div>
-  `;
+function renderExistingPortraitPlaceholder() {
+  return '<div class="philosopher-sigil philosopher-sigil-small contribution-profile-sigil" data-portrait-host aria-hidden="true"></div>';
 }
 
 function renderExistingPreview(profile) {
@@ -242,7 +231,7 @@ function renderExistingPreview(profile) {
   existingThinkerPreview.innerHTML = `
     <div class="contribution-profile-preview-top">
       <div class="contribution-profile-preview-identity">
-        ${renderExistingPortrait(profile)}
+        ${renderExistingPortraitPlaceholder()}
         <div>
           <p class="profile-eyebrow contribution-profile-preview-eyebrow">${escapeHtml(t('contribute.existing_eyebrow'))}</p>
           <h3>${escapeHtml(profile.name)}</h3>
@@ -260,6 +249,13 @@ function renderExistingPreview(profile) {
       <span>${escapeHtml(formatCountLabel(profile.linkedWorkCount, 'contribute.existing_works_stat', 'contribute.existing_works_stat_plural'))}</span>
     </div>
   `;
+
+  fillPortraitHost(existingThinkerPreview.querySelector('[data-portrait-host]'), {
+    url: profile.portraitUrl,
+    alt: t('contribute.portrait_alt', { name: profile.name }),
+    initials: profile.initials || 'PM',
+    loading: 'lazy',
+  });
 }
 
 function clearExistingPreview() {

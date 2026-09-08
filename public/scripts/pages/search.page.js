@@ -5,10 +5,6 @@ import {
   refreshLensDiscoveryPoolIfCached,
   setLensDiscoveryPool,
 } from '/scripts/services/searchLensDiscoveryCache.js';
-import {
-  REVIEW_RERANK_LIMIT,
-  rerankLensSelectionWithReviews,
-} from '/scripts/services/searchLensReviewRerankService.js';
 import { setupAuthUI } from '/scripts/auth-ui.js';
 import { t } from '/scripts/services/i18n.js';
 import { getLocalizedLensById } from '/scripts/services/searchFilterI18n.js';
@@ -21,16 +17,23 @@ import {
   getWatchProviderFilterById,
   buildLensKeywordDiscoverOptions,
   buildLensGenreDiscoverOptions,
-  buildLensCrewDiscoverOptions,
   buildWatchProviderDiscoverExtras,
   withLensQueryParam,
   withProviderQueryParam,
 } from '/scripts/domain/searchFilters.js';
+import {
+  buildLensCrewDiscoverJobs,
+  buildLensGenreFallbackJobs,
+  buildLensPrimaryDiscoverJobs,
+  buildLensShortPoolFallbackJobs,
+  isLensDiscoverPoolShort,
+  LENS_DISCOVER_MIN_PER_MEDIA,
+  LENS_DISCOVER_MIN_POOL,
+} from '/scripts/domain/searchLensDiscover.js';
 import { annotateResults, mergeResultsByIdentity, scoreLensAffinity } from '/scripts/domain/searchLensRanking.js';
 import {
   applySearchToolbarFilters,
   balanceResultsByMedia,
-  getResultPriorityScore,
   getSyncFilteredSearchResults,
   sortVisibleSearchResults,
 } from '/scripts/domain/searchResultTransforms.js';
@@ -185,17 +188,12 @@ async function getLensFilteredResults(items, lens, { poolLimit = LENS_DISPLAY_LI
     );
 
   const strongMatches = ranked.filter(item => item._activeLensScore >= 9);
-  const selectionCap = Math.max(poolLimit, REVIEW_RERANK_LIMIT);
   const selected = (strongMatches.length >= 8 ? strongMatches : ranked)
-    .slice(0, selectionCap);
-
-  const reranked = await rerankLensSelectionWithReviews(selected, lens, {
-    getPriorityScore: getResultPriorityScore,
-  });
+    .slice(0, poolLimit);
 
   return state.filters.media === 'all'
-    ? balanceResultsByMedia(reranked, poolLimit)
-    : reranked.slice(0, poolLimit);
+    ? balanceResultsByMedia(selected, poolLimit)
+    : selected.slice(0, poolLimit);
 }
 
 async function extendLensPool(lensId) {
@@ -408,6 +406,14 @@ async function handleLensLoadMoreClick(event) {
   }
 }
 
+async function runDiscoverJobs(jobs) {
+  if (!jobs.length) return [];
+  const batches = await Promise.all(
+    jobs.map(job => discoverTMDBCached(job.mediaType, job.options))
+  );
+  return mergeResultsByIdentity(batches.flatMap(items => items || []));
+}
+
 async function runThemeDiscovery(lensId) {
   state.lensPage = 0;
   const lens = getLensById(lensId);
@@ -426,115 +432,29 @@ async function runThemeDiscovery(lensId) {
   setSearchLoading(searchPageEls, `Exploring ${lens.label.toLowerCase()}...`);
 
   const watchExtras = getDiscoverExtras();
-  const keywordOptions = buildLensKeywordDiscoverOptions(lens, watchExtras);
-  const hasKeywords = Boolean(keywordOptions.withKeywords);
-  const genreMovie = buildLensGenreDiscoverOptions(lens, 'movie', watchExtras);
-  const genreTv = buildLensGenreDiscoverOptions(lens, 'tv', watchExtras);
+  let combined = await runDiscoverJobs(buildLensPrimaryDiscoverJobs(lens, watchExtras));
 
-  const [
-    movieRated,
-    moviePopular,
-    seriesRated,
-    seriesPopular,
-  ] = await Promise.all([
-    discoverTMDBCached('movie', {
-      page: 1,
-      sortBy: 'vote_average.desc',
-      ...(hasKeywords ? keywordOptions : genreMovie),
-    }),
-    discoverTMDBCached('movie', {
-      page: 1,
-      sortBy: 'popularity.desc',
-      ...(hasKeywords ? keywordOptions : genreMovie),
-    }),
-    discoverTMDBCached('tv', {
-      page: 1,
-      sortBy: 'vote_average.desc',
-      ...(hasKeywords ? keywordOptions : genreTv),
-    }),
-    discoverTMDBCached('tv', {
-      page: 1,
-      sortBy: 'popularity.desc',
-      ...(hasKeywords ? keywordOptions : genreTv),
-    }),
-  ]);
-
-  let combined = mergeResultsByIdentity([
-    ...(movieRated || []),
-    ...(moviePopular || []),
-    ...(seriesRated || []),
-    ...(seriesPopular || []),
-  ]);
-
-  let currentMovieCount = combined.filter(item => item.media_type === 'movie').length;
-  let currentSeriesCount = combined.filter(item => item.media_type === 'tv').length;
-
-  const crewOptions = buildLensCrewDiscoverOptions(lens, watchExtras);
-  if (crewOptions.withCrew) {
-    const [crewMovies, crewSeries] = await Promise.all([
-      discoverTMDBCached('movie', {
-        page: 1,
-        sortBy: 'vote_average.desc',
-        ...crewOptions,
-      }),
-      discoverTMDBCached('tv', {
-        page: 1,
-        sortBy: 'vote_average.desc',
-        ...crewOptions,
-      }),
-    ]);
+  if (isLensDiscoverPoolShort(combined)) {
     combined = mergeResultsByIdentity([
       ...combined,
-      ...(crewMovies || []),
-      ...(crewSeries || []),
+      ...(await runDiscoverJobs(buildLensCrewDiscoverJobs(lens, watchExtras))),
     ]);
-    currentMovieCount = combined.filter(item => item.media_type === 'movie').length;
-    currentSeriesCount = combined.filter(item => item.media_type === 'tv').length;
   }
 
-  if (combined.length < 16 || currentMovieCount < 5 || currentSeriesCount < 5) {
-    const [movieRatedPageTwo, seriesRatedPageTwo] = await Promise.all([
-      discoverTMDBCached('movie', {
-        page: 2,
-        sortBy: 'vote_average.desc',
-        ...(hasKeywords ? keywordOptions : genreMovie),
-      }),
-      discoverTMDBCached('tv', {
-        page: 2,
-        sortBy: 'vote_average.desc',
-        ...(hasKeywords ? keywordOptions : genreTv),
-      }),
-    ]);
-
+  if (isLensDiscoverPoolShort(combined)) {
     combined = mergeResultsByIdentity([
       ...combined,
-      ...(movieRatedPageTwo || []),
-      ...(seriesRatedPageTwo || []),
+      ...(await runDiscoverJobs(buildLensShortPoolFallbackJobs(lens, watchExtras))),
     ]);
-
-    currentMovieCount = combined.filter(item => item.media_type === 'movie').length;
-    currentSeriesCount = combined.filter(item => item.media_type === 'tv').length;
   }
 
-  if (combined.length < 12 || currentMovieCount < 4 || currentSeriesCount < 4) {
-    const genreFallback = hasKeywords;
-    const [fallbackMovies, fallbackSeries] = await Promise.all([
-      discoverTMDBCached('movie', {
-        page: 1,
-        sortBy: 'vote_average.desc',
-        ...(genreFallback ? genreMovie : watchExtras),
-      }),
-      discoverTMDBCached('tv', {
-        page: 1,
-        sortBy: 'vote_average.desc',
-        ...(genreFallback ? genreTv : watchExtras),
-      }),
-    ]);
-
+  if (isLensDiscoverPoolShort(combined, {
+    minTotal: LENS_DISCOVER_MIN_POOL,
+    minPerMedia: LENS_DISCOVER_MIN_PER_MEDIA,
+  })) {
     combined = mergeResultsByIdentity([
       ...combined,
-      ...(fallbackMovies || []),
-      ...(fallbackSeries || []),
+      ...(await runDiscoverJobs(buildLensGenreFallbackJobs(lens, watchExtras))),
     ]);
   }
 

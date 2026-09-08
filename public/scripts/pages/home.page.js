@@ -7,10 +7,8 @@
  * 4) rank works by thematic affinity to the quote
  */
 
-import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { getDisplayAuthorName, getPhilosopherUrlByAuthor } from '/scripts/domain/philosopherAuthors.js';
 import { CURATED_TV_IDS } from '/scripts/domain/curatedTvIds.js';
-import { THEME_DATABASE } from '/scripts/themedatabase.js';
 import { discoverTMDB, getDetailsFromTMDB, getTrendingFromTMDB } from '/scripts/seriesapi.js';
 import {
   buildCuratedMatchIndex,
@@ -19,10 +17,9 @@ import {
   getThemeGenreFilters,
   mapDetailsToCandidate,
   mergeCandidateBuckets,
-  normalizeText,
   rankCandidates,
 } from '/scripts/mediaRankCore.js';
-import { setupAuthUI } from '/scripts/auth-ui.js';
+import { getSession, setupAuthUI } from '/scripts/auth-ui.js';
 import { renderMediaCards } from '/scripts/media-card.js';
 import { t } from '/scripts/services/i18n.js';
 import { localizeItemOverviews } from '/scripts/services/tmdbOverviewI18n.js';
@@ -31,116 +28,16 @@ import { getUiLocale } from '/scripts/services/uiLocale.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 import { updatePageSeo } from '/scripts/seo.js';
 import { rankTrendingByLensOverlap } from '/scripts/domain/searchLensRanking.js';
+import { hashString } from '/scripts/domain/detailsQuotePipeline.js';
+import { selectHomeQuote } from '/scripts/domain/homeQuoteSelection.js';
+import { listRatings } from '/scripts/ratings-api.js';
+import { ratingsByTargetId } from '/scripts/domain/userRatings.js';
 
 const API_BASE = '/api';
 const HOME_RESULT_LIMIT = 10;
 const DAILY_PAIRING_ENDPOINT = `${API_BASE}/daily-pairing`;
-const DAILY_QUOTE_SALT = 'philomedia-daily-quote';
 
 const CURATED_MATCH_INDEX = buildCuratedMatchIndex();
-
-const QUOTE_SOURCE_BOOST = {
-  custom: 24,
-  system: 22,
-  database: 20,
-  import: 16,
-  'database-import': 16,
-  'user-submitted': 14,
-  wikiquote: 8,
-  'wikiquote-en': 8,
-  'wikiquote-machine': 5,
-};
-
-const GENERIC_QUOTE_PATTERNS = [
-  /\b(life|world|people|things|everything|nothing)\s+(is|are)\s+(good|bad|beautiful|important|difficult|simple)\b/i,
-  /\b(always|never)\s+(be|do|say|think|remember)\b/i,
-  /\b(be yourself|follow your dreams|think positive|never give up)\b/i,
-];
-
-function hashString(value) {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = ((hash << 5) - hash) + value.charCodeAt(index);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
-
-function getQuoteText(quoteData) {
-  return String(quoteData?.quote ?? quoteData?.quoteText ?? '').trim();
-}
-
-function getQuoteAuthor(quoteData) {
-  return String(quoteData?.author ?? quoteData?.authorName ?? '').trim();
-}
-
-function getQuoteSource(quoteData) {
-  return String(quoteData?.source || quoteData?.submissionSource || '').trim().toLowerCase();
-}
-
-function scoreQuoteCandidate(quoteData) {
-  const quoteText = getQuoteText(quoteData);
-  const author = getQuoteAuthor(quoteData);
-  if (!quoteText || !author) return -Infinity;
-
-  const explicitThemes = Array.isArray(quoteData.themes)
-    ? quoteData.themes.filter(theme => THEME_DATABASE[String(theme).trim().toLowerCase()]).length
-    : 0;
-  const inferredThemes = analyzeWorkForThemes(quoteText);
-  const topThemeScore = inferredThemes[0]?.score || 0;
-  const wordCount = quoteText.split(/\s+/).filter(Boolean).length;
-  const uniqueWords = new Set(normalizeText(quoteText).split(' ').filter(word => word.length > 3));
-  const source = getQuoteSource(quoteData);
-  const sourceBoost = QUOTE_SOURCE_BOOST[source] ?? (
-    source.startsWith('wikiquote') ? QUOTE_SOURCE_BOOST.wikiquote : 10
-  );
-
-  let score = sourceBoost
-    + explicitThemes * 10
-    + Math.min(34, topThemeScore * 2)
-    + Math.min(16, uniqueWords.size * 1.4);
-
-  if (wordCount >= 9 && wordCount <= 34) score += 16;
-  if (wordCount < 6) score -= 28;
-  if (wordCount > 48) score -= 12;
-  if (GENERIC_QUOTE_PATTERNS.some(pattern => pattern.test(quoteText))) score -= 30;
-  if (!explicitThemes && inferredThemes.length === 0) score -= 40;
-
-  return score;
-}
-
-function normalizeQuoteEntry(entry) {
-  return {
-    id: entry.legacyId ?? entry._id ?? entry.id ?? null,
-    quote: getQuoteText(entry),
-    author: getQuoteAuthor(entry),
-    themes: Array.isArray(entry.themes) ? entry.themes : [],
-    source: getQuoteSource(entry),
-    originalLanguage: entry.originalLanguage,
-    quote_original: entry.quote_original,
-    quote_en: entry.quote_en,
-    quote_pt: entry.quote_pt,
-    _qualityScore: scoreQuoteCandidate(entry),
-  };
-}
-
-function selectDailyQuote(quotes) {
-  const normalizedQuotes = quotes.map(normalizeQuoteEntry).filter(entry => entry.quote && entry.author);
-  if (normalizedQuotes.length === 0) return null;
-
-  const eligibleQuotes = normalizedQuotes.filter(entry => {
-    const explicitThemes = Array.isArray(entry.themes) ? entry.themes.length : 0;
-    return explicitThemes > 0 || analyzeWorkForThemes(entry.quote).length > 0;
-  });
-
-  const pool = (eligibleQuotes.length > 0 ? eligibleQuotes : normalizedQuotes)
-    .sort((a, b) => b._qualityScore - a._qualityScore);
-  const highQualityPool = pool.filter(entry => entry._qualityScore >= 30);
-  const rotationPool = (highQualityPool.length >= 20 ? highQualityPool : pool).slice(0, 120);
-  const dailyIndex = hashString(`${getDayKey()}|${DAILY_QUOTE_SALT}`) % rotationPool.length;
-
-  return rotationPool[dailyIndex];
-}
 
 function getDayKey() {
   const now = new Date();
@@ -148,6 +45,17 @@ function getDayKey() {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+async function loadQuoteRatingsMap() {
+  try {
+    const session = await getSession();
+    if (!session?.authenticated) return null;
+    const payload = await listRatings({ targetType: 'quote' });
+    return ratingsByTargetId(payload.ratings || []);
+  } catch {
+    return null;
+  }
 }
 
 async function resolveCuratedCandidate(tmdbId) {
@@ -172,12 +80,14 @@ async function getCuratedCandidatesForQuote(quoteId) {
 }
 
 async function getQuoteForHome() {
+  const ratingsByQuoteId = await loadQuoteRatingsMap();
+
   try {
     const res = await fetch(`${API_BASE}/quotes/catalog?lang=en`);
     if (!res.ok) throw new Error('Quotes API error');
     const quotes = await res.json();
     if (Array.isArray(quotes) && quotes.length > 0) {
-      const selectedQuote = selectDailyQuote(quotes);
+      const selectedQuote = selectHomeQuote(quotes, getDayKey(), ratingsByQuoteId);
       if (selectedQuote) return selectedQuote;
     }
   } catch (e) {
@@ -192,7 +102,7 @@ async function getQuoteForHome() {
       ? payload.data
       : (Array.isArray(payload) ? payload : []);
     if (quotes.length > 0) {
-      const selectedQuote = selectDailyQuote(quotes);
+      const selectedQuote = selectHomeQuote(quotes, getDayKey(), ratingsByQuoteId);
       if (selectedQuote) return selectedQuote;
     }
   } catch (e) {
@@ -210,7 +120,7 @@ async function getQuoteForHome() {
     };
   }
 
-  return selectDailyQuote(allQuotes) || {
+  return selectHomeQuote(allQuotes, getDayKey(), ratingsByQuoteId) || {
     id: null,
     quote: 'Think deeply, watch meaningfully.',
     author: 'PhiloMedia',

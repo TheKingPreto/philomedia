@@ -16,6 +16,7 @@ import {
 import { t } from '/scripts/services/i18n.js';
 import { getUiLocale } from '/scripts/services/uiLocale.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
+import { fillPortraitHost } from '/scripts/domain/safePortraitUrl.js';
 
 const PAGE_SIZE = 12;
 const state = {
@@ -67,16 +68,19 @@ function createThemeChips(profile, themeLabels) {
     .join('');
 }
 
-function renderPortrait(profile) {
-  if (!profile.portraitUrl) {
-    return `<div class="philosopher-sigil philosopher-sigil-small" aria-hidden="true">${escapeHtml(profile.initials)}</div>`;
-  }
+function renderPortraitPlaceholder() {
+  return '<div class="philosopher-sigil philosopher-sigil-small" data-portrait-host aria-hidden="true"></div>';
+}
 
-  return `
-    <div class="philosopher-sigil philosopher-sigil-small philosopher-sigil-photo" aria-hidden="true">
-      <img src="${profile.portraitUrl}" alt="${escapeHtml(t('philosophers.portrait_alt', { name: profile.name }))}" loading="lazy">
-    </div>
-  `;
+function applyCardPortrait(card, profile) {
+  const host = card?.querySelector('[data-portrait-host], .philosopher-sigil');
+  if (!host) return;
+  fillPortraitHost(host, {
+    url: profile.portraitUrl,
+    alt: t('philosophers.portrait_alt', { name: profile.name }),
+    initials: profile.initials,
+    loading: 'lazy',
+  });
 }
 
 function renderCards(container, profiles) {
@@ -89,7 +93,7 @@ function renderCards(container, profiles) {
     <a href="${profile.url}" class="philosopher-card-link" data-philosopher-slug="${profile.slug}">
       <article class="philosopher-card">
         <div class="philosopher-card-top">
-          ${renderPortrait(profile)}
+          ${renderPortraitPlaceholder()}
           <div class="philosopher-card-headline">
             <p class="philosopher-card-period" data-philosopher-period>${escapeHtml(display.period)}</p>
             <h3>${escapeHtml(profile.name)}</h3>
@@ -108,6 +112,11 @@ function renderCards(container, profiles) {
     </a>
   `;
   }).join('');
+
+  profiles.forEach(profile => {
+    const card = container.querySelector(`[data-philosopher-slug="${profile.slug}"]`);
+    applyCardPortrait(card, profile);
+  });
 }
 
 function getPageCount() {
@@ -206,11 +215,7 @@ async function hydrateVisibleProfiles(container, profiles) {
       const card = container.querySelector(`[data-philosopher-slug="${profile.slug}"]`);
       if (!card) return;
 
-      const image = card.querySelector('.philosopher-sigil');
-      if (image && profile.portraitUrl) {
-        image.classList.add('philosopher-sigil-photo');
-        image.innerHTML = `<img src="${profile.portraitUrl}" alt="${escapeHtml(t('philosophers.portrait_alt', { name: profile.name }))}" loading="lazy">`;
-      }
+      applyCardPortrait(card, profile);
 
       const period = card.querySelector('[data-philosopher-period]');
       const localized = localizeThinkerCard(profile, getUiLocale());

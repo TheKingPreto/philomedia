@@ -186,6 +186,10 @@ export function getPhilosopherAuthorBySlug(slug) {
   return BY_SLUG.get(String(slug || '').trim()) || null;
 }
 
+export function isCuratedPhilosopherSlug(slug) {
+  return BY_SLUG.has(String(slug || '').trim().toLowerCase());
+}
+
 /** Nome canónico do pensador, ou o nome recebido quando não é um curado. */
 export function getDisplayAuthorName(author) {
   const slug = getPhilosopherSlugByAuthor(author);

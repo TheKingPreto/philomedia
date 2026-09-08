@@ -4,6 +4,7 @@ import {
   getPhilosopherSlugByAuthor,
   getPhilosopherUrl,
   getPhilosopherUrlByAuthor,
+  isCuratedPhilosopherSlug,
 } from '../../public/scripts/domain/philosopherAuthors.js';
 import { PHILOSOPHER_DEFINITIONS } from '../../public/scripts/philosopher-data.js';
 
@@ -28,6 +29,12 @@ describe('philosopherAuthors is the single source of thinker identity', () => {
   test('slugs are unique', () => {
     const slugs = PHILOSOPHER_AUTHORS.map((a) => a.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
+  });
+
+  test('flags curated slugs and ignores community names', () => {
+    expect(isCuratedPhilosopherSlug('socrates')).toBe(true);
+    expect(isCuratedPhilosopherSlug('Socrates')).toBe(true);
+    expect(isCuratedPhilosopherSlug('albert-camus')).toBe(false);
   });
 });
 

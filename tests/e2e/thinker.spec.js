@@ -19,4 +19,13 @@ test.describe('Thinker pages', () => {
     await expect(thinker.notFound).toBeVisible();
     await expect(thinker.notFound).toHaveText(/not available/i);
   });
+
+  test('curated thinker with quotes lists them', async ({ page }) => {
+    const thinker = new ThinkerPage(page);
+    await thinker.goto('socrates');
+
+    await expect(thinker.name).toHaveText(/Socrates/i);
+    await expect(thinker.quoteCards.first()).toBeVisible();
+    await expect(thinker.quoteCards.first()).not.toBeEmpty();
+  });
 });

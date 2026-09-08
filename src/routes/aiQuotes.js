@@ -27,9 +27,9 @@ const authoredGenerationLimiter = rateLimit({
 });
 
 /**
- * Leitura por obra: pública, porque é mostrada a visitantes anônimos. O teto
- * é mais alto por ser navegação legítima, e o cache do controlador garante que
- * títulos já vistos não voltam a custar uma chamada ao Gemini.
+ * Geração por obra: exige sessão, como theme/philosopher. Visitantes anónimos
+ * da página de detalhes leem o catálogo via `selectQuoteForMedia` e não
+ * chamam este endpoint. O cache continua a servir quem está autenticado.
  */
 const mediaContextLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -252,6 +252,8 @@ router.post(
  *         description: Quote generated and saved to database.
  *       400:
  *         description: Validation error or missing tmdbId/mediaType.
+ *       401:
+ *         description: Authentication required.
  *       429:
  *         description: Too many requests.
  *       502:
@@ -260,6 +262,7 @@ router.post(
 router.post(
   '/generate/media-context',
   mediaContextLimiter,
+  isAuthenticated,
   generateByMediaContextRules,
   validateRequest,
   generateByMediaContext

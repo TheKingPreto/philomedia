@@ -30,6 +30,7 @@ import {
   scorePhilosophicalTagsAgainstThemeWeights,
 } from '/scripts/curatedPhilosophicalProfiles.js';
 import { escapeHtml, normalizeText } from '/scripts/ui/viewHelpers.js';
+import { fillPortraitHost } from '/scripts/domain/safePortraitUrl.js';
 import {
   formatThemeLabelForLocale,
   localizeThinkerCard,
@@ -428,12 +429,24 @@ function bindPortraitFallback(sigil, profile) {
 }
 
 function applyPortrait(sigil, profile, url) {
-  if (!sigil || !url) return;
+  if (!sigil) return;
 
-  sigil.classList.add('philosopher-sigil-photo');
-  sigil.removeAttribute('aria-hidden');
-  sigil.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(t('philosophers.portrait_alt', { name: profile.name }))}" loading="eager" fetchpriority="high" decoding="async" width="176" height="220">`;
-  bindPortraitFallback(sigil, profile);
+  const applied = fillPortraitHost(sigil, {
+    url,
+    alt: t('philosophers.portrait_alt', { name: profile.name }),
+    initials: profile.initials,
+    loading: 'eager',
+    width: 176,
+    height: 220,
+    fetchPriority: 'high',
+    decoding: 'async',
+  });
+
+  if (applied) {
+    bindPortraitFallback(sigil, profile);
+  } else {
+    showSigilFallback(sigil, profile);
+  }
 }
 
 function renderHeader(profile) {

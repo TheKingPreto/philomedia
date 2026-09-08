@@ -28,6 +28,8 @@ import {
   saveLibraryItem,
 } from '/scripts/library-api.js';
 import { mountMediaStarRating, mountQuoteThumbRating } from '/scripts/ui/userRatingControls.js';
+import { listRatings } from '/scripts/ratings-api.js';
+import { ratingsByTargetId } from '/scripts/domain/userRatings.js';
 import { escapeHtml } from '/scripts/ui/viewHelpers.js';
 import { t } from '/scripts/services/i18n.js';
 import { getDisplayQuoteText } from '/scripts/services/quoteDisplayResolve.js';
@@ -426,7 +428,7 @@ async function renderRelatedWorks(works) {
   });
 }
 
-async function resolveStaticQuote(id, type, details, allQuotes, reviews) {
+async function resolveStaticQuote(id, type, details, allQuotes, reviews, ratingsByQuoteId) {
   if (!allQuotes?.length) return null;
 
   const curatedId = curatedQuoteMatches[id];
@@ -444,7 +446,7 @@ async function resolveStaticQuote(id, type, details, allQuotes, reviews) {
     const sourceTokens = extractSalientTokenGroups(buildSourceContext(details, reviews), 4, 6);
     const rankedQuotes = rankQuotesForSource(allQuotes, sourceThemeWeights, sourceTokens);
 
-    const selected = selectQuoteForMedia(rankedQuotes, mediaKey);
+    const selected = selectQuoteForMedia(rankedQuotes, mediaKey, ratingsByQuoteId);
     if (selected) return selected;
   } catch (err) {
     console.warn('[PhiloMedia] Theme analysis failed:', err.message);
@@ -600,6 +602,17 @@ function scheduleAIEnhancement(id, type) {
   }, AI_TRIGGER_DELAY_MS);
 }
 
+async function loadQuoteRatingsMap() {
+  try {
+    const session = await getSession();
+    if (!session?.authenticated) return null;
+    const payload = await listRatings({ targetType: 'quote' });
+    return ratingsByTargetId(payload.ratings || []);
+  } catch {
+    return null;
+  }
+}
+
 async function init() {
   setupLanguageChrome();
   setupAuthUI().catch(() => {});
@@ -648,9 +661,10 @@ async function init() {
       tmdbId: String(details.id),
     }).catch(() => {});
 
+    const quoteRatings = await loadQuoteRatingsMap();
     const [relatedWorks, staticQuote] = await Promise.all([
       loadRelatedWorks(id, type, details, reviews).catch(() => []),
-      resolveStaticQuote(id, type, details, allQuotes, reviews),
+      resolveStaticQuote(id, type, details, allQuotes, reviews, quoteRatings),
     ]);
 
     await renderRelatedWorks(relatedWorks);
@@ -672,8 +686,14 @@ async function init() {
       setText('quote-author', '');
     }
 
-    renderAIPlaceholder();
-    scheduleAIEnhancement(id, type);
+    const session = await getSession();
+    if (session?.authenticated) {
+      renderAIPlaceholder();
+      scheduleAIEnhancement(id, type);
+    } else {
+      const aiContainer = document.getElementById('ai-quote-container');
+      if (aiContainer) aiContainer.replaceChildren();
+    }
   } catch (err) {
     console.error('[PhiloMedia] Unexpected error:', err);
     showError(t('details.unexpected_error'));

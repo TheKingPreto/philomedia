@@ -136,7 +136,7 @@ describe('AIQuoteController unit tests', () => {
     });
 
     test('serves a repeated request from cache instead of calling Gemini again', async () => {
-      const req = () => ({ body: { tmdbId: '157336', mediaType: 'movie' } });
+      const req = () => authenticate({ body: { tmdbId: '157336', mediaType: 'movie' } });
       const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
 
       await generateByMediaContext(req(), res, jest.fn());

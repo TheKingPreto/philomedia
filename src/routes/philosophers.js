@@ -74,9 +74,9 @@ const contributionRules = [
     .custom(value => {
       const trimmed = String(value || '').trim();
       if (!trimmed) return true;
-      return /^https?:\/\//i.test(trimmed);
+      return /^https:\/\//i.test(trimmed);
     })
-    .withMessage('portraitUrl must be an http or https URL'),
+    .withMessage('portraitUrl must be an https URL'),
   body('wikiTitle')
     .optional()
     .isString()

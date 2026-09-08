@@ -2,7 +2,17 @@ import PhilosopherProfile from '../models/PhilosopherProfile.js';
 import Quote from '../models/Quote.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { normalizeQuoteThemes } from '../../public/scripts/domain/canonicalThemes.js';
+import { isCuratedPhilosopherSlug } from '../../public/scripts/domain/philosopherAuthors.js';
+import { sanitizePortraitUrl } from '../../public/scripts/domain/safePortraitUrl.js';
 import { resolvePhilosopherTextField } from '../domain/i18n/quoteDisplay.js';
+import {
+  canManageResource,
+  pickAllowedFields,
+} from '../utils/resourceAccess.js';
+
+const EDITABLE_QUOTE_FIELDS = ['quoteText', 'themes', 'quoteLanguage'];
+const SLUG_CONFLICT_MESSAGE = 'A thinker with this name already exists.';
+const CURATED_CONFLICT_MESSAGE = 'Curated thinkers cannot be overwritten.';
 
 function normalizeKey(value) {
   return String(value || '')
@@ -49,7 +59,7 @@ function toPlainProfile(profile) {
       pt: resolvePhilosopherTextField(profile, 'focus', 'pt'),
     },
     aliases: uniqStrings(profile.aliases || []),
-    portraitUrl: profile.portraitUrl || '',
+    portraitUrl: sanitizePortraitUrl(profile.portraitUrl) || '',
     wikiTitle: profile.wikiTitle || '',
   };
 }
@@ -59,9 +69,13 @@ function buildProfileUpdates(input = {}) {
 
   ['period', 'summary', 'focus', 'portraitUrl', 'wikiTitle'].forEach(field => {
     const value = String(input[field] || '').trim();
-    if (value) {
-      updates[field] = value;
+    if (!value) return;
+    if (field === 'portraitUrl') {
+      const safeUrl = sanitizePortraitUrl(value);
+      if (safeUrl) updates.portraitUrl = safeUrl;
+      return;
     }
+    updates[field] = value;
   });
 
   const lang = String(input.originalLanguage || '').trim().toLowerCase();
@@ -94,6 +108,7 @@ function normalizeQuotesPayload(quotes = [], defaultLang = 'en') {
   const langDefault = String(defaultLang || 'en').trim().toLowerCase() === 'pt' ? 'pt' : 'en';
 
   return (quotes || [])
+    .map(quote => pickAllowedFields(quote, EDITABLE_QUOTE_FIELDS))
     .map(quote => {
       const ql = String(quote?.quoteLanguage || langDefault).trim().toLowerCase();
       return {
@@ -103,6 +118,12 @@ function normalizeQuotesPayload(quotes = [], defaultLang = 'en') {
       };
     })
     .filter(quote => quote.quoteText);
+}
+
+function canManagePhilosopher(profile, user) {
+  return canManageResource({
+    submittedBy: profile?.createdBy || profile?.submittedBy || null,
+  }, user);
 }
 
 export const listPhilosopherProfiles = asyncHandler(async (req, res) => {
@@ -125,27 +146,40 @@ export const createPhilosopherSubmission = asyncHandler(async (req, res) => {
   const aliases = uniqStrings(req.body.aliases || []).filter(alias => normalizeKey(alias) !== normalizeKey(name));
   const quotePayload = normalizeQuotesPayload(req.body.quotes, req.body.originalLanguage);
 
-  const existingProfile = await PhilosopherProfile.findOne({ slug });
-  const profileData = {
-    slug,
-    name,
-    createdBy: req.user._id || null,
-    ...buildProfileUpdates(req.body),
-  };
+  if (isCuratedPhilosopherSlug(slug)) {
+    return res.status(409).json({
+      message: CURATED_CONFLICT_MESSAGE,
+      slug,
+    });
+  }
 
+  const existingProfile = await PhilosopherProfile.findOne({ slug });
+  if (existingProfile && !canManagePhilosopher(existingProfile, req.user)) {
+    return res.status(409).json({
+      message: SLUG_CONFLICT_MESSAGE,
+      slug,
+    });
+  }
+
+  const updates = buildProfileUpdates(req.body);
   if (aliases.length > 0) {
-    profileData.aliases = uniqStrings([...(existingProfile?.aliases || []), ...aliases]);
+    updates.aliases = uniqStrings([...(existingProfile?.aliases || []), ...aliases]);
   } else if (existingProfile?.aliases?.length) {
-    profileData.aliases = uniqStrings(existingProfile.aliases);
+    updates.aliases = uniqStrings(existingProfile.aliases);
   }
 
   const philosopherProfile = existingProfile
     ? await PhilosopherProfile.findOneAndUpdate(
         { slug },
-        { $set: profileData },
+        { $set: updates },
         { new: true, runValidators: true }
       )
-    : await PhilosopherProfile.create(profileData);
+    : await PhilosopherProfile.create({
+        slug,
+        name,
+        createdBy: req.user._id || null,
+        ...updates,
+      });
 
   const existingQuotes = await Quote.find({
     authorName: philosopherProfile.name,

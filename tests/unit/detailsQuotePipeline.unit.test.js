@@ -27,6 +27,7 @@ import {
   selectPoolIndex,
   selectQuoteForMedia,
 } from '../../public/scripts/domain/detailsQuotePipeline.js';
+import { selectHomeQuote } from '../../public/scripts/domain/homeQuoteSelection.js';
 
 const GENRE_DRAMA = 18;
 const GENRE_SCIFI = 878;
@@ -228,13 +229,39 @@ describe('selectQuoteForMedia', () => {
     expect(selectQuoteForMedia(null, 'movie:1')).toBeNull();
   });
 
-  it('ainda não aplica peso de rating no ranking (ponto de extensão)', () => {
+  it('exclui a citação com polegar para baixo quando há alternativa', () => {
     const ranked = rankQuotesForSource(CATALOG, new Map(), { core: [], context: [] });
-    const biased = applyQuoteRatingBias(ranked, new Map([['q1', 1], ['q2', -1]]));
+    const leader = ranked[0];
+    const selected = selectQuoteForMedia(
+      ranked,
+      'movie:1',
+      new Map([[String(leader.id), -1]])
+    );
 
-    expect(biased).toBe(ranked);
-    expect(selectQuoteForMedia(ranked, 'movie:1', new Map([['q1', 1]])).quote)
-      .toBe(selectQuoteForMedia(ranked, 'movie:1').quote);
+    expect(selected.id).not.toBe(leader.id);
+    expect(applyQuoteRatingBias(ranked, new Map([[String(leader.id), -1]])))
+      .not.toEqual(expect.arrayContaining([expect.objectContaining({ id: leader.id })]));
+  });
+
+  it('privilegia a citação com polegar para cima num empate', () => {
+    const tied = [
+      { id: 'q1', quote: 'First tied line about virtue.', author: 'Plato', themes: ['virtue'], source: 'custom', _score: 40, _themeScore: 40, _tokenScore: 20 },
+      { id: 'q2', quote: 'Second tied line about virtue.', author: 'Aristotle', themes: ['virtue'], source: 'custom', _score: 40, _themeScore: 40, _tokenScore: 20 },
+    ];
+    const biased = applyQuoteRatingBias(tied, new Map([['q2', 1]]));
+
+    expect(biased[0].id).toBe('q2');
+  });
+});
+
+describe('home quote selection', () => {
+  it('reuses selectQuoteForMedia for the same catalog and day key', () => {
+    const dayKey = '2026-09-08';
+    const ranked = rankQuotesForSource(CATALOG, new Map(), { core: [], context: [] });
+    const fromPipeline = selectQuoteForMedia(ranked, `daily:${dayKey}`);
+
+    expect(selectHomeQuote(CATALOG, dayKey).quote).toBe(fromPipeline.quote);
+    expect(selectHomeQuote(CATALOG, dayKey).id).toBe(fromPipeline.id);
   });
 });
 

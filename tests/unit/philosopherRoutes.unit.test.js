@@ -113,16 +113,68 @@ describe('philosopher contribution routes', () => {
         authorName: 'Albert Camus',
         submissionSource: 'user-submitted',
         quoteLanguage: 'en',
+        submittedBy: user._id,
       }),
     ]));
+    expect(insertManySpy.mock.calls[0][0][0]).not.toHaveProperty('legacyId');
+    expect(insertManySpy.mock.calls[0][0][0]).not.toHaveProperty('isGenerated');
   });
 
-  test('POST /api/philosophers adds quotes to an existing thinker profile without duplicating quotes', async () => {
+  test('POST /api/philosophers returns 409 for curated slugs and does not write', async () => {
+    const user = { _id: '507f1f77bcf86cd799439011' };
+    const findSpy = jest.spyOn(PhilosopherProfile, 'findOne');
+    const createSpy = jest.spyOn(PhilosopherProfile, 'create');
+    const insertManySpy = jest.spyOn(Quote, 'insertMany');
+
+    const response = await request(createApp(user))
+      .post('/api/philosophers')
+      .send({
+        name: 'Socrates',
+        quotes: [{ quoteText: 'The unexamined life is not worth living.' }],
+      });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual(expect.objectContaining({
+      slug: 'socrates',
+    }));
+    expect(findSpy).not.toHaveBeenCalled();
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(insertManySpy).not.toHaveBeenCalled();
+  });
+
+  test('POST /api/philosophers returns 409 when another user already owns the slug', async () => {
     const user = { _id: '507f1f77bcf86cd799439011' };
     const existingProfile = {
       _id: 'profile-3',
       slug: 'albert-camus',
       name: 'Albert Camus',
+      createdBy: '507f1f77bcf86cd799439022',
+      aliases: ['Camus'],
+    };
+
+    jest.spyOn(PhilosopherProfile, 'findOne').mockResolvedValue(existingProfile);
+    const updateSpy = jest.spyOn(PhilosopherProfile, 'findOneAndUpdate');
+    const insertManySpy = jest.spyOn(Quote, 'insertMany');
+
+    const response = await request(createApp(user))
+      .post('/api/philosophers')
+      .send({
+        name: 'Albert Camus',
+        quotes: [{ quoteText: 'Real generosity toward the future lies in giving all to the present.' }],
+      });
+
+    expect(response.status).toBe(409);
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(insertManySpy).not.toHaveBeenCalled();
+  });
+
+  test('POST /api/philosophers lets the owner add quotes without duplicating them', async () => {
+    const user = { _id: '507f1f77bcf86cd799439011' };
+    const existingProfile = {
+      _id: 'profile-3',
+      slug: 'albert-camus',
+      name: 'Albert Camus',
+      createdBy: user._id,
       aliases: ['Camus'],
       period: '20th-century France · 1913-1960',
       summary: 'Camus studies absurdity and revolt.',
@@ -159,6 +211,9 @@ describe('philosopher contribution routes', () => {
           {
             quoteText: 'Real generosity toward the future lies in giving all to the present.',
             themes: ['humanism', 'existentialism'],
+            submittedBy: '507f1f77bcf86cd799439099',
+            legacyId: 9999,
+            isGenerated: true,
           },
         ],
       });
@@ -176,18 +231,21 @@ describe('philosopher contribution routes', () => {
       { slug: 'albert-camus' },
       {
         $set: expect.objectContaining({
-          name: 'Albert Camus',
           aliases: expect.arrayContaining(['Camus', 'A. Camus']),
         }),
       },
       { new: true, runValidators: true }
     );
+    expect(updateSpy.mock.calls[0][1].$set).not.toHaveProperty('createdBy');
     expect(insertManySpy).toHaveBeenCalledWith([
       expect.objectContaining({
         quoteText: 'Real generosity toward the future lies in giving all to the present.',
         authorName: 'Albert Camus',
         submissionSource: 'user-submitted',
+        submittedBy: user._id,
       }),
     ]);
+    expect(insertManySpy.mock.calls[0][0][0]).not.toHaveProperty('legacyId');
+    expect(insertManySpy.mock.calls[0][0][0].isGenerated).not.toBe(true);
   });
 });

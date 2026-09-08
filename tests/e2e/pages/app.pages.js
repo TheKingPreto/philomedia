@@ -31,6 +31,7 @@ export class ThinkerPage {
     this.name = page.locator('#philosopher-name');
     this.emptyQuotes = page.locator('.philosopher-empty-state .empty-state-title');
     this.notFound = page.locator('.error-state-title');
+    this.quoteCards = page.locator('#philosopher-quotes .philosopher-quote-card');
   }
 
   async goto(slug) {
@@ -48,6 +49,8 @@ export class DetailsPage {
   constructor(page) {
     this.page = page;
     this.title = page.locator('#details-title');
+    this.quoteText = page.locator('#quote-text');
+    this.relatedWorks = page.locator('#related-works');
     this.starButtons = page.locator('#details-star-rating .star-rating-button');
     this.ratingHint = page.locator('#details-rating-hint');
     this.quoteThumbs = page.locator('#quote-rating .quote-rating-button');
@@ -59,5 +62,24 @@ export class DetailsPage {
       localStorage.setItem('philomedia_ui_lang', 'en');
     });
     await this.page.goto(`/html/details.html?id=${encodeURIComponent(id)}&type=${encodeURIComponent(type)}`);
+  }
+}
+
+export class HomePage {
+  /**
+   * @param {import('@playwright/test').Page} page
+   */
+  constructor(page) {
+    this.page = page;
+    this.hero = page.getByRole('heading', { name: /philosophy through cinema/i });
+    this.quoteText = page.locator('#quote-text');
+    this.quoteAuthor = page.locator('#quote-author');
+  }
+
+  async goto() {
+    await this.page.addInitScript(() => {
+      localStorage.setItem('philomedia_ui_lang', 'en');
+    });
+    await this.page.goto('/html/index.html');
   }
 }

@@ -20,10 +20,25 @@ describe('AI generation endpoints require a session', () => {
     expect(res.status).toBe(401);
   });
 
-  test('POST /generate/media-context stays public for anonymous readers', async () => {
+  test('POST /generate/media-context returns 401 without auth', async () => {
     const res = await request(app)
       .post('/api/ai/quotes/generate/media-context')
       .send({ tmdbId: '157336', mediaType: 'movie' });
+
+    expect(res.status).toBe(401);
+  });
+
+  test('POST /generate/media-context accepts a test session', async () => {
+    const originalFlag = process.env.ALLOW_TEST_AUTH;
+    process.env.ALLOW_TEST_AUTH = '1';
+
+    const res = await request(app)
+      .post('/api/ai/quotes/generate/media-context')
+      .set('x-test-auth-user', '{"_id":"507f1f77bcf86cd799439011","displayName":"Fixture"}')
+      .send({ tmdbId: '157336', mediaType: 'movie' });
+
+    if (originalFlag === undefined) delete process.env.ALLOW_TEST_AUTH;
+    else process.env.ALLOW_TEST_AUTH = originalFlag;
 
     expect(res.status).not.toBe(401);
   });

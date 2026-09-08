@@ -15,4 +15,16 @@ test.describe('Details ratings', () => {
     await expect(details.quoteHint).toBeVisible();
     await expect(details.quoteHint).toContainText(/sign in/i);
   });
+
+  test('anonymous visitor sees a catalog quote and related works', async ({ page }) => {
+    const details = new DetailsPage(page);
+    await details.goto('550', 'movie');
+
+    await expect(details.quoteText).not.toBeEmpty();
+    await expect(details.quoteText).not.toHaveText(/loading/i);
+    await expect(details.relatedWorks).toBeVisible();
+    await expect(page.locator('#related-results .media-card-shell').first()).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /details\.html/);
+  });
 });
