@@ -1,12 +1,14 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as dotenv from 'dotenv';
 import { translateQuotesBatch } from '../src/services/QuoteTranslationService.js';
 
 dotenv.config();
 
-const SOURCE_PATH = path.resolve('quotes_wikiquote.json');
-const TARGET_PATH = path.resolve('quotes_wikiquote.en.json');
+const DATA_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data');
+const SOURCE_PATH = path.join(DATA_DIR, 'quotes_wikiquote.json');
+const TARGET_PATH = path.join(DATA_DIR, 'quotes_wikiquote.en.json');
 const DEFAULT_BATCH_SIZE = 8;
 
 function parseArgs(argv) {
@@ -150,7 +152,7 @@ async function main() {
   ]);
 
   if (!sourceEntries.length) {
-    throw new Error('No source quotes found in quotes_wikiquote.json.');
+    throw new Error('No source quotes found in scripts/data/quotes_wikiquote.json.');
   }
 
   const normalizedExistingTranslations = dedupeEntries(existingTranslations);

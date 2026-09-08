@@ -94,6 +94,13 @@ function renderFilters() {
     filters: state.filters,
     lensesExpanded: state.lensesExpanded,
   });
+
+  const filtersActive = state.filters.lens !== 'all'
+    || state.filters.media !== 'all'
+    || state.filters.rating !== 'any'
+    || (state.filters.provider && state.filters.provider !== 'any')
+    || Boolean(state.rawResults.length);
+  searchToolbar.hidden = !filtersActive;
 }
 
 function syncSearchQueryParams({ lensId = state.filters.lens, providerId = state.filters.provider } = {}) {

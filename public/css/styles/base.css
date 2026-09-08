@@ -433,7 +433,18 @@ main {
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--gold);
-  margin-bottom: 1.75rem;
+  margin-bottom: 0.85rem;
+}
+
+#quote-section-lead {
+  position: relative;
+  z-index: 1;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 38rem;
+  margin: 0 auto 1.5rem;
+  text-wrap: pretty;
 }
 
 #quote-text {
@@ -2319,7 +2330,12 @@ footer {
   #quote-section h2 {
     font-size: 0.62rem;
     letter-spacing: 0.14em;
-    margin-bottom: 1.25rem;
+    margin-bottom: 0.7rem;
+  }
+  #quote-section-lead {
+    font-size: 0.88rem;
+    margin-bottom: 1.15rem;
+    padding-inline: 0.25rem;
   }
   #quote-text {
     font-size: 1.25rem;

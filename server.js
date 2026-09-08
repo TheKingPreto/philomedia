@@ -29,7 +29,7 @@ import {
   buildSessionCookieOptions,
   shouldExposeApiDocs,
 } from './src/config/httpSecurity.js';
-import { PHILOSOPHER_AUTHORS } from './public/scripts/domain/philosopherAuthors.js';
+import { collectSitemapEntries } from './src/services/sitemapUrls.js';
 
 if (process.env.NODE_ENV !== 'test') {
   dotenv.config();
@@ -186,16 +186,7 @@ app.get('/robots.txt', (req, res) => {
 });
 
 app.get('/sitemap.xml', (req, res) => {
-  const urls = [
-    { path: '/html/index.html', changefreq: 'daily', priority: '1.0' },
-    { path: '/html/search.html', changefreq: 'weekly', priority: '0.9' },
-    { path: '/html/philosophers.html', changefreq: 'weekly', priority: '0.9' },
-    ...PHILOSOPHER_AUTHORS.map(author => ({
-      path: `/html/philosopher.html?slug=${encodeURIComponent(author.slug)}`,
-      changefreq: 'weekly',
-      priority: '0.7',
-    })),
-  ];
+  const urls = collectSitemapEntries();
 
   const escapeXml = value => String(value)
     .replace(/&/g, '&amp;')

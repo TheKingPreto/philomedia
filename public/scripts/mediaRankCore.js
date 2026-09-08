@@ -1,6 +1,6 @@
 /**
- * Shared TMDB candidate ranking + quote profile for home page and server API.
- * Generated from src/domain/mediaRanking/mediaRankCore.js — run npm run extract:media-rank after edits.
+ * Canonical TMDB candidate ranking + quote profile (browser and server).
+ * Server re-exports this module from src/domain/mediaRanking/mediaRankCore.js.
  */
 import { analyzeWorkForThemes } from './hermeneutics.js';
 import { THEME_DATABASE } from './themedatabase.js';
@@ -258,6 +258,62 @@ function scoreKeywordOverlap(keywords, candidateText) {
   return score;
 }
 
+export function extractCandidateKeywordNames(candidate) {
+  if (Array.isArray(candidate?.tmdbKeywords) && candidate.tmdbKeywords.length) {
+    return candidate.tmdbKeywords
+      .map(item => (typeof item === 'string' ? item : item?.name))
+      .filter(Boolean);
+  }
+
+  const payload = candidate?.keywords;
+  const list = Array.isArray(payload?.keywords)
+    ? payload.keywords
+    : Array.isArray(payload?.results)
+      ? payload.results
+      : Array.isArray(payload)
+        ? payload
+        : [];
+
+  return list
+    .map(item => (typeof item === 'string' ? item : item?.name))
+    .filter(Boolean);
+}
+
+function collectProfileKeywordNeedles(profile) {
+  const needles = new Set();
+  const add = value => {
+    const normalized = normalizeText(value);
+    if (!normalized || normalized.length < 4 || KEYWORD_STOPWORDS.has(normalized)) return;
+    needles.add(normalized);
+  };
+
+  (profile.keywords || []).forEach(add);
+  (profile.themes || []).forEach(theme => {
+    add(theme);
+    add(formatThemeLabel(theme));
+    getThemeSignals(theme).forEach(add);
+  });
+
+  return [...needles];
+}
+
+export function scoreTmdbKeywordOverlap(profile, candidate) {
+  const names = extractCandidateKeywordNames(candidate)
+    .map(name => normalizeText(name))
+    .filter(Boolean);
+  if (!names.length) return 0;
+
+  const needles = collectProfileKeywordNeedles(profile);
+  if (!needles.length) return 0;
+
+  const hits = names.reduce((total, name) => (
+    total + (needles.some(needle => name.includes(needle) || needle.includes(name)) ? 1 : 0)
+  ), 0);
+
+  if (hits === 0) return 0;
+  return Math.min(40, 14 + hits * 10);
+}
+
 function scoreGenreHints(preferredGenres, candidateGenres) {
   if (!preferredGenres.length || !Array.isArray(candidateGenres) || candidateGenres.length === 0) {
     return 0;
@@ -358,20 +414,30 @@ export function buildCuratedMatchIndex() {
 export function rankCandidates(profile, candidates, limit = HOME_RESULT_LIMIT) {
   const ranked = candidates
     .map(candidate => {
-      const context = `${candidate.title || candidate.name || ''} ${candidate._overviewEn || candidate.overview || ''}`.trim();
+      const keywordNames = extractCandidateKeywordNames(candidate);
+      const context = `${candidate.title || candidate.name || ''} ${candidate._overviewEn || candidate.overview || ''} ${keywordNames.join(' ')}`.trim();
       const candidateWeights = createWeightMap(analyzeWorkForThemes(context));
       const themeScore = scoreThemeOverlap(profile.themeWeights, context);
       const signalScore = scoreThemeSignals(profile.themeWeights, context);
       const keywordScore = scoreKeywordOverlap(profile.keywords, context);
+      const tmdbKeywordScore = scoreTmdbKeywordOverlap(profile, candidate);
       const genreScore = scoreGenreHints(profile.preferredGenres, candidate.genre_ids);
       const sourceBoost = scoreSourceBoost(candidate);
       const ratingScore = Math.max(0, Number(candidate.vote_average || 0) - 6) * 1.8;
       const popularityScore = Math.min(6, (Number(candidate.popularity) || 0) / 35);
       const missingOverviewPenalty = candidate.overview ? 0 : 12;
       const primaryThemeFit = scorePrimaryThemeFit(profile, candidateWeights, context);
-      const evidenceScore = themeScore + signalScore + keywordScore;
-      const weakThemePenalty = themeScore + signalScore < 16 && keywordScore < 8 ? 22 : 0;
-      const noThemePenalty = themeScore === 0 && signalScore === 0 && keywordScore === 0 ? 28 : 0;
+      const evidenceScore = themeScore + signalScore + keywordScore + tmdbKeywordScore;
+      const hasPhilosophicalKeyword = tmdbKeywordScore >= 14;
+      const weakThemePenalty = hasPhilosophicalKeyword
+        ? 0
+        : (themeScore + signalScore < 16 && keywordScore < 8 ? 22 : 0);
+      const noThemePenalty = !hasPhilosophicalKeyword
+        && themeScore === 0
+        && signalScore === 0
+        && keywordScore === 0
+        ? 28
+        : 0;
       const driftPenalty = scoreConceptDriftPenalty(profile, candidateWeights, context);
 
       const curatedTagScore = scorePhilosophicalTagsAgainstThemeWeights(
@@ -385,6 +451,7 @@ export function rankCandidates(profile, candidates, limit = HOME_RESULT_LIMIT) {
           themeScore * 1.45
           + signalScore
           + keywordScore
+          + tmdbKeywordScore
           + genreScore
           + sourceBoost
           + ratingScore
@@ -399,6 +466,8 @@ export function rankCandidates(profile, candidates, limit = HOME_RESULT_LIMIT) {
         _primaryThemeMisses: primaryThemeFit.misses.length,
         _evidenceScore: evidenceScore,
         _driftPenalty: driftPenalty,
+        _tmdbKeywordScore: tmdbKeywordScore,
+        _weakThemePenalty: weakThemePenalty,
       };
     })
     .sort((a, b) => b._score - a._score);

@@ -620,19 +620,32 @@ export function rankRelatedCandidates(details, reviews, candidates, currentMedia
     : [];
   const sourceDate = getDisplayDate(details);
   const sourceProfile = getCuratedPhilosophicalProfile(String(currentMediaId));
+  const sourceKeywords = extractTmdbKeywordNames(details);
+  const sourceKeywordSet = new Set(sourceKeywords.map(name => normalizeText(name)).filter(Boolean));
+  const sourceThemes = new Set(
+    [...sourceThemeWeights.keys()].map(theme => normalizeText(theme)).filter(Boolean)
+  );
 
   const ranked = candidates
     .map(candidate => {
-      const candidateContext = `${candidate.title || candidate.name || ''} ${candidate._overviewEn || candidate.overview || ''}`.trim();
+      const keywordNames = extractTmdbKeywordNames(candidate);
+      const candidateContext = `${candidate.title || candidate.name || ''} ${candidate._overviewEn || candidate.overview || ''} ${keywordNames.join(' ')}`.trim();
       const themeScore = scoreThemeAlignment(sourceThemeWeights, candidateContext);
       const tokenScore = scoreTokenAlignment(sourceTokens, candidateContext);
+      const keywordOverlapScore = scoreTokenAlignment(
+        extractSalientTokens(sourceKeywords.join(' '), 10),
+        keywordNames.join(' '),
+      );
       const genreScore = scoreGenreAlignment(sourceGenreIds, candidate.genre_ids);
       const localeScore = scoreLocaleAlignment(details, candidate);
       const yearScore = scoreYearAlignment(sourceDate, getDisplayDate(candidate));
       const sourceBoost = scoreSourceBoost(candidate);
       const ratingScore = Math.max(0, Number(candidate.vote_average || 0) - 6) * 1.4;
       const popularityScore = Math.min(8, (Number(candidate.popularity) || 0) / 35);
-      const weakMatchPenalty = themeScore < 14 && tokenScore < 10 ? 18 : 0;
+      const hasPhilosophicalKeyword = keywordOverlapScore >= 8 || keywordNames.some(name => (
+        sourceThemes.has(normalizeText(name)) || sourceKeywordSet.has(normalizeText(name))
+      ));
+      const weakMatchPenalty = themeScore < 14 && tokenScore < 10 && !hasPhilosophicalKeyword ? 18 : 0;
       const noOverviewPenalty = candidate.overview ? 0 : 10;
       const curatedAffinity = scoreCuratedRelatedAffinity(
         sourceProfile,
@@ -643,6 +656,7 @@ export function rankRelatedCandidates(details, reviews, candidates, currentMedia
       const score =
         themeScore * 1.3
         + tokenScore
+        + keywordOverlapScore
         + genreScore
         + localeScore
         + yearScore

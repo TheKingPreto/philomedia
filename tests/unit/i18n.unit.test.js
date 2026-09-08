@@ -63,7 +63,8 @@ describe('translation tables', () => {
     expect(resolveTranslation('library.sort.rating', 'pt')).toBe('Nota TMDB');
     expect(resolveTranslation('library.sort.rating', 'en')).toBe('TMDB rating');
     expect(resolveTranslation('library.sort.mine', 'pt')).toBe('Minha nota');
-    expect(resolveTranslation('details.tmdb_rating', 'en')).toBe('TMDB rating');
+    expect(resolveTranslation('home.hero_kicker', 'pt')).toBe('Filosofia através do cinema');
+    expect(resolveTranslation('home.seo_description', 'en')).toMatch(/lenses, quotes, and thinkers/i);
     expect(resolveTranslation('details.your_rating', 'pt')).toBe('Sua nota');
   });
 });

@@ -10,7 +10,7 @@ module.exports = {
     ecmaVersion: 2024,
     sourceType: 'module',
   },
-  ignorePatterns: ['node_modules/', 'coverage/'],
+  ignorePatterns: ['node_modules/', 'coverage/', 'test-results/', 'playwright-report/', 'blob-report/'],
   rules: {
     'no-unused-vars': [
       'error',
@@ -33,6 +33,12 @@ module.exports = {
       files: ['tests/**/*.js', '**/*.test.js'],
       env: {
         jest: true,
+      },
+    },
+    {
+      files: ['tests/e2e/**/*.js', 'playwright.config.js'],
+      env: {
+        browser: true,
       },
     },
   ],

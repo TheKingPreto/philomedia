@@ -2,3 +2,9 @@
 .env
 quotes_wikiquote.json
 quotes_wikiquote.en.json
+scripts/data/quotes_wikiquote.json
+scripts/data/quotes_wikiquote.en.json
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache

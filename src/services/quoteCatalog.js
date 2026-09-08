@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Quote from '../models/Quote.js';
 import { customQuotes } from '../../public/scripts/custom-quotes.js';
 import { getCustomQuoteTranslationPt } from '../../public/scripts/services/customQuoteTranslationsPt.js';
@@ -7,8 +8,9 @@ import { normalizeQuoteThemes } from '../../public/scripts/domain/canonicalTheme
 import { repairQuoteSpacing } from '../domain/i18n/repairQuoteSpacing.js';
 import { resolveQuoteForLocale } from '../domain/i18n/quoteDisplay.js';
 
-const WIKIQUOTE_PATH = path.resolve(process.cwd(), 'quotes_wikiquote.json');
-const WIKIQUOTE_EN_PATH = path.resolve(process.cwd(), 'quotes_wikiquote.en.json');
+const DATA_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../scripts/data');
+const WIKIQUOTE_PATH = path.join(DATA_DIR, 'quotes_wikiquote.json');
+const WIKIQUOTE_EN_PATH = path.join(DATA_DIR, 'quotes_wikiquote.en.json');
 const TRANSLATED_AUTHOR_ALIASES = {
   'buda': 'Buddha',
   'confucio': 'Confucius',

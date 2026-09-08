@@ -1,6 +1,6 @@
 /**
  * @file scripts/import_quotes_wikiquote.js
- * @description Imports quotes from quotes_wikiquote.json into MongoDB.
+ * @description Imports quotes from scripts/data/quotes_wikiquote.json into MongoDB.
  *
  * Usage:
  *   node scripts/import_quotes_wikiquote.js
@@ -19,12 +19,13 @@
 import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import * as dotenv from 'dotenv';
 import Quote from '../src/models/Quote.js';
 
 dotenv.config();
 
-const FILE_PATH  = path.resolve('quotes_wikiquote.json');
+const FILE_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data/quotes_wikiquote.json');
 const BATCH_SIZE = 200;
 
 const MONGODB_URI = process.env.MONGODB_URI;

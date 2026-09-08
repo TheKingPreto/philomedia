@@ -114,7 +114,7 @@ function showError(message) {
   setLoading(false);
   updatePageSeo({
     title: 'PhiloMedia | Details unavailable',
-    description: 'The requested PhiloMedia media page could not be loaded right now.',
+    description: t('details.seo_unavailable'),
     path: window.location.pathname,
     type: 'article',
   });
@@ -345,8 +345,10 @@ function populateDetails(details, type) {
 
   updatePageSeo({
     title: `${title} | PhiloMedia`,
-    description: details.overview || `${title} receives a philosophical reading, contextual quote pairing, and related works inside PhiloMedia.`,
-    path: `${window.location.pathname}?id=${encodeURIComponent(details.id)}&type=${encodeURIComponent(type)}`,
+    description: details.overview
+      ? `${details.overview}`.slice(0, 220)
+      : t('details.seo_description', { title }),
+    path: `/html/details.html?id=${encodeURIComponent(details.id)}&type=${encodeURIComponent(type)}`,
     image: posterUrl,
     type: 'article',
   });
@@ -610,6 +612,13 @@ async function init() {
     showError(t('details.invalid_id'));
     return;
   }
+
+  updatePageSeo({
+    title: 'PhiloMedia | A philosophical reading',
+    description: t('details.seo_fallback_description'),
+    path: `/html/details.html?id=${encodeURIComponent(id)}&type=${encodeURIComponent(type)}`,
+    type: 'article',
+  });
 
   setLoading(true);
 

@@ -29,6 +29,7 @@ import { localizeItemOverviews } from '/scripts/services/tmdbOverviewI18n.js';
 import { resolveDisplayQuoteText } from '/scripts/services/quoteDisplayResolve.js';
 import { getUiLocale } from '/scripts/services/uiLocale.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
+import { updatePageSeo } from '/scripts/seo.js';
 import { rankTrendingByLensOverlap } from '/scripts/domain/searchLensRanking.js';
 
 const API_BASE = '/api';
@@ -455,6 +456,12 @@ async function renderPhilosophicalTrending() {
 async function init() {
   setupLanguageChrome();
   setupAuthUI().catch(() => {});
+  updatePageSeo({
+    title: t('home.seo_title'),
+    description: t('home.seo_description'),
+    path: '/html/index.html',
+    type: 'website',
+  });
 
   const quoteTextEl = document.getElementById('quote-text');
   const quoteAuthorEl = document.getElementById('quote-author');

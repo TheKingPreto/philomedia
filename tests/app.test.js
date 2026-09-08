@@ -55,6 +55,8 @@ describe('Basic API endpoints', () => {
     expect(res.text).toContain('/html/philosophers.html');
     expect(res.text).toContain('/html/philosopher.html?slug=socrates');
     expect(res.text).toContain('/html/philosopher.html?slug=isaac-newton');
+    expect(res.text).toContain('/html/details.html?id=');
+    expect(res.text).toContain('type=');
     expect(res.text).toMatch(/<urlset xmlns="http:\/\/www.sitemaps.org\/schemas\/sitemap\/0.9">/);
   });
 

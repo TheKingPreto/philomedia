@@ -4,7 +4,7 @@ import { customQuotes } from '../public/scripts/custom-quotes.js';
 import { THEME_BUCKETS } from './theme-buckets.js';
 
 const ROOT = process.cwd();
-const WIKIQUOTE_PATH = path.resolve(ROOT, 'quotes_wikiquote.en.json');
+const WIKIQUOTE_PATH = path.resolve(ROOT, 'scripts', 'data', 'quotes_wikiquote.en.json');
 const OUTPUT_PATH = path.resolve(ROOT, 'src', 'data', 'dailyPairings.real.json');
 const MAIN_PATH = path.resolve(ROOT, 'src', 'data', 'dailyPairings.json');
 
@@ -80,7 +80,7 @@ async function readWikiQuotes() {
   const raw = await fs.readFile(WIKIQUOTE_PATH, 'utf8');
   const entries = JSON.parse(raw);
   if (!Array.isArray(entries)) {
-    throw new Error('Expected quotes_wikiquote.en.json to contain an array');
+    throw new Error('Expected scripts/data/quotes_wikiquote.en.json to contain an array');
   }
   return entries.map(entry => ({
     quote: entry.text,

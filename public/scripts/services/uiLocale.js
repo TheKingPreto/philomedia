@@ -2,7 +2,7 @@ const STORAGE_KEY = 'philomedia_ui_lang';
 
 export function normalizeUiLocale(value) {
   const v = String(value || 'en').trim().toLowerCase();
-  return v === 'pt' ? 'pt' : 'en';
+  return v === 'pt' || v.startsWith('pt-') || v.startsWith('pt_') ? 'pt' : 'en';
 }
 
 export function getUiLocale() {
@@ -30,7 +30,7 @@ export function setUiLocale(lang) {
   }
 
   if (typeof document !== 'undefined') {
-    document.documentElement.lang = normalized === 'pt' ? 'pt' : 'en';
+    document.documentElement.lang = documentLangFromUiLocale(normalized);
   }
 
   if (typeof window !== 'undefined') {
@@ -50,10 +50,15 @@ export function getTmdbCatalogLanguage() {
   return 'en-US';
 }
 
+/** HTML `lang` for the active UI locale (`pt-BR` / `en`). */
+export function documentLangFromUiLocale(locale = getUiLocale()) {
+  return normalizeUiLocale(locale) === 'pt' ? 'pt-BR' : 'en';
+}
+
 export function initDocumentLocale() {
   const loc = getUiLocale();
   if (typeof document !== 'undefined') {
-    document.documentElement.lang = loc === 'pt' ? 'pt' : 'en';
+    document.documentElement.lang = documentLangFromUiLocale(loc);
   }
   return loc;
 }
