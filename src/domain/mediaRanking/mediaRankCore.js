@@ -359,7 +359,7 @@ export function buildCuratedMatchIndex() {
 export function rankCandidates(profile, candidates, limit = HOME_RESULT_LIMIT) {
   const ranked = candidates
     .map(candidate => {
-      const context = `${candidate.title || candidate.name || ''} ${candidate.overview || ''}`.trim();
+      const context = `${candidate.title || candidate.name || ''} ${candidate._overviewEn || candidate.overview || ''}`.trim();
       const candidateWeights = createWeightMap(analyzeWorkForThemes(context));
       const themeScore = scoreThemeOverlap(profile.themeWeights, context);
       const signalScore = scoreThemeSignals(profile.themeWeights, context);

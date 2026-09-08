@@ -79,6 +79,30 @@ export function buildWatchProviderDiscoverExtras() {
   return {};
 }
 
+export function getUiLocale() {
+  return 'en';
+}
+
+export function normalizeUiLocale(value) {
+  return String(value || 'en').trim().toLowerCase() === 'pt' ? 'pt' : 'en';
+}
+
+export function scoringOverview(item) {
+  return item?._overviewEn || item?.overview || '';
+}
+
+export function localizeItemOverviews(items) {
+  return items;
+}
+
+export function overlayPortugueseOverviews(items) {
+  return items;
+}
+
+export function itemAlreadyLocalized() {
+  return false;
+}
+
 // philosophersmatch.js (se usado)
 export const matchPhilosopher = () => null;
 

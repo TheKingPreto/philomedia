@@ -15,7 +15,7 @@ import {
   getSimilarFromTMDB,
 } from '/scripts/seriesapi.js';
 import { discoverTMDBCached, searchTMDBCached } from '/scripts/services/tmdbCachedClient.js';
-import { getQuoteCatalog, getQuotes } from '/scripts/philosophersapi.js';
+import { getQuoteCatalog, getQuotes } from '/scripts/services/quoteCatalogClient.js';
 import { curatedQuoteMatches } from '/scripts/curatedmatches.js';
 import { getSession, redirectToLogin, setupAuthUI } from '/scripts/auth-ui.js';
 import { renderMediaCards } from '/scripts/media-card.js';

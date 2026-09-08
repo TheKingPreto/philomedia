@@ -2,7 +2,7 @@
  * Shared in-memory caches for TMDB discover/search (used by search + philosopher pages).
  */
 import { discoverTMDB, searchTMDB } from '/scripts/seriesapi.js';
-import { getTmdbCatalogLanguage } from '/scripts/services/uiLocale.js';
+import { getTmdbLanguage } from '/scripts/services/uiLocale.js';
 
 const discoverRequestCache = new Map();
 const searchRequestCache = new Map();
@@ -12,7 +12,7 @@ export function buildTmdbRequestCacheKey(prefix, payload) {
 }
 
 export async function discoverTMDBCached(media, options = {}) {
-  const cacheKey = buildTmdbRequestCacheKey('discover', { media, language: getTmdbCatalogLanguage(), ...options });
+  const cacheKey = buildTmdbRequestCacheKey('discover', { media, language: options.language || getTmdbLanguage(), ...options });
 
   if (!discoverRequestCache.has(cacheKey)) {
     discoverRequestCache.set(
@@ -38,7 +38,7 @@ export async function searchTMDBCached(query, { page = 1, language } = {}) {
   const cacheKey = buildTmdbRequestCacheKey('search', {
     query: trimmedQuery.toLowerCase(),
     page: Number(page) || 1,
-    language: language || getTmdbCatalogLanguage(),
+    language: language || getTmdbLanguage(),
   });
 
   if (!searchRequestCache.has(cacheKey)) {

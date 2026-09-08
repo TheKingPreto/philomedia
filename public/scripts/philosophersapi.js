@@ -1,25 +1,14 @@
 /**
  * @file scripts/philosophersapi.js
- * @description Quote provider for PhiloMedia frontend.
+ * @description Thinker directory, Wikipedia portraits, and quote catalog re-exports.
  *
- * Resolution order:
- *  1. GET /api/quotes  — MongoDB (populated via seed-quotes.js)
- *     Maps { quoteText, authorName, legacyId } → { id, quote, author, themes }
- *     so curatedmatches.js numeric IDs keep working.
- *
- *  2. External philosophersapi.com + local custom-quotes.js
- *     Used as fallback if the backend is unreachable (offline, cold start, etc.)
- *
- * The frontend never needs to know which source was used.
+ * O catálogo de citações vive em quoteCatalogClient.js para a página de details
+ * não puxar Wikipedia + custom-quotes no grafo inicial.
  */
 
-import { customQuotes } from '/scripts/custom-quotes.js';
-import { getCustomQuoteTranslationPt } from '/scripts/services/customQuoteTranslationsPt.js';
+export { getQuoteCatalog, getQuotes } from '/scripts/services/quoteCatalogClient.js';
 
-const API_QUOTES_ENDPOINT = '/api/quotes';
-const API_QUOTES_CATALOG_ENDPOINT = '/api/quotes/catalog';
 const API_PHILOSOPHERS_ENDPOINT = '/api/philosophers';
-const PHILOSOPHERS_API_URL = 'https://philosophersapi.com/api/quotes';
 const PHILOSOPHERS_URL = 'https://philosophersapi.com/api/philosophers';
 const WIKIPEDIA_SUMMARY_ENDPOINTS = [
   'https://en.wikipedia.org/api/rest_v1/page/summary/',
@@ -37,7 +26,6 @@ const THINKER_REFERENCE_ALIASES = {
   'soren kierkegaard': ['Søren Kierkegaard', 'Soren Kierkegaard'],
 };
 
-const quoteCatalogPromises = new Map();
 let philosopherDirectoryPromise = null;
 let submittedPhilosophersPromise = null;
 const referenceLookupCache = new Map();
@@ -61,190 +49,6 @@ function withTimeout(promise, timeoutMs = REFERENCE_TIMEOUT_MS, fallback = null)
     timer = setTimeout(() => resolve(fallback), timeoutMs);
   });
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
-}
-
-// ─── Source 1: MongoDB via backend API ───────────────────────────────────────
-
-/**
- * Fetches quotes from the backend REST API (/api/quotes).
- * The API returns paginated MongoDB documents; this helper walks every page.
- * Maps { quoteText, authorName, legacyId } → { id, quote, author, themes }
- * so curatedmatches.js numeric IDs keep working.
- *
- * The `id` field is set to `legacyId` so curatedmatches.js numeric lookups work.
- * Falls back to `_id` (string) for AI-generated quotes that have no legacyId.
- *
- * @returns {Promise<Array>} normalised quotes, or [] on any error
- */
-async function fetchFromDB() {
-  const pageSize = 500;
-  let page = 1;
-  const docs = [];
-
-  for (;;) {
-    const qs = new URLSearchParams({
-      page: String(page),
-      limit: String(pageSize),
-    });
-    const res = await fetch(`${API_QUOTES_ENDPOINT}?${qs.toString()}`);
-    if (!res.ok) throw new Error(`/api/quotes responded ${res.status}`);
-
-    const payload = await res.json();
-
-    if (payload?.data && Array.isArray(payload.data)) {
-      docs.push(...payload.data);
-      const totalPages = typeof payload.totalPages === 'number' ? payload.totalPages : page;
-      if (page >= totalPages || payload.data.length === 0) break;
-      page += 1;
-      continue;
-    }
-
-    if (Array.isArray(payload)) {
-      docs.push(...payload);
-      break;
-    }
-
-    throw new Error('Unexpected quotes payload shape from /api/quotes');
-  }
-
-  if (docs.length === 0) throw new Error('Empty quotes from DB');
-
-  return docs.map(doc => {
-    const orig = String(doc.quoteLanguage || 'en').trim().toLowerCase() || 'en';
-    const trans = doc.quoteTranslations && typeof doc.quoteTranslations === 'object'
-      ? doc.quoteTranslations
-      : {};
-    const canonical = String(doc.quoteText || '').trim();
-    const quoteEn = String(trans.en || '').trim() || (orig === 'en' ? canonical : '');
-    const quotePt = String(trans.pt || '').trim() || (orig === 'pt' ? canonical : '');
-
-    return {
-      id: doc.legacyId ?? doc._id,
-      quote: canonical,
-      author: doc.authorName,
-      themes: doc.themes || [],
-      originalLanguage: orig,
-      quote_original: canonical,
-      quote_en: quoteEn,
-      quote_pt: quotePt,
-    };
-  });
-}
-
-async function fetchQuoteCatalogFromBackend(lang = 'en') {
-  const res = await fetch(`${API_QUOTES_CATALOG_ENDPOINT}?lang=${encodeURIComponent(lang)}`);
-  if (!res.ok) throw new Error(`/api/quotes/catalog responded ${res.status}`);
-
-  const docs = await res.json();
-  if (!Array.isArray(docs) || docs.length === 0) throw new Error('Empty quote catalog');
-
-  return docs.map(doc => ({
-    id: doc.id,
-    quote: doc.quote,
-    author: doc.author,
-    themes: doc.themes || [],
-    source: doc.source || 'catalog',
-    lang: doc.lang,
-    originalLanguage: doc.originalLanguage,
-    quote_original: doc.quote_original,
-    quote_en: doc.quote_en,
-    quote_pt: doc.quote_pt,
-    translationStatus: doc.translationStatus,
-  }));
-}
-
-// ─── Source 2: External API + local fallback ──────────────────────────────────
-
-/**
- * Fetches from philosophersapi.com and merges with local custom-quotes.
- * Returns the same { id, quote, author, themes } shape.
- */
-async function fetchFromExternalAndLocal() {
-  let apiQuotes = [];
-
-  try {
-    const [quotesRes, philosophersRes] = await Promise.all([
-      fetch(PHILOSOPHERS_API_URL),
-      fetch(PHILOSOPHERS_URL),
-    ]);
-
-    if (!quotesRes.ok || !philosophersRes.ok) {
-      throw new Error('External philosophers API unavailable');
-    }
-
-    const quotesData      = await quotesRes.json();
-    const philosophersData = await philosophersRes.json();
-
-    const philosopherMap = new Map(philosophersData.map(p => [p.id, p.name]));
-
-    apiQuotes = quotesData.map(q => ({
-      id:     q.id || null,
-      quote:  q.quote,
-      author: q.philosopher ? (philosopherMap.get(q.philosopher.id) || 'Unknown') : 'Unknown',
-      themes: q.tags || [],
-    }));
-  } catch (err) {
-    console.warn('[PhiloMedia] External API unavailable, using local quotes only:', err.message);
-  }
-
-  // Merge: custom-quotes take priority (deduplicate by quote text)
-  const combined = new Map();
-  customQuotes.forEach(q => {
-    const quotePt = getCustomQuoteTranslationPt(q.id);
-    combined.set(q.quote, {
-      id: q.id,
-      quote: q.quote,
-      author: q.author,
-      themes: q.themes || [],
-      originalLanguage: 'en',
-      quote_original: q.quote,
-      quote_en: q.quote,
-      quote_pt: quotePt,
-    });
-  });
-  apiQuotes.forEach(q => { if (!combined.has(q.quote)) combined.set(q.quote, q); });
-
-  return Array.from(combined.values());
-}
-
-// ─── Public API ───────────────────────────────────────────────────────────────
-
-/**
- * Returns all available philosophical quotes, normalised to:
- *   { id, quote, author, themes }
- *
- * Always resolves — never throws — so callers get [] at worst.
- */
-export async function getQuotes() {
-  // Try the DB first (fast, reliable, no CORS dependency)
-  try {
-    const dbQuotes = await fetchFromDB();
-    return dbQuotes;
-  } catch (err) {
-    console.warn('[PhiloMedia] DB quotes unavailable, falling back to external API:', err.message);
-  }
-
-  // Fallback: external API + local file
-  try {
-    return await fetchFromExternalAndLocal();
-  } catch (err) {
-    console.warn('[PhiloMedia] All quote sources failed:', err.message);
-    return [];
-  }
-}
-
-export async function getQuoteCatalog(lang = 'en') {
-  const locale = String(lang || 'en').trim().toLowerCase();
-
-  if (!quoteCatalogPromises.has(locale)) {
-    quoteCatalogPromises.set(locale, fetchQuoteCatalogFromBackend(locale)
-      .catch(err => {
-        console.warn('[PhiloMedia] Quote catalog unavailable, falling back to regular quotes:', err.message);
-        return getQuotes();
-      }));
-  }
-
-  return quoteCatalogPromises.get(locale);
 }
 
 function repairMojibake(value) {

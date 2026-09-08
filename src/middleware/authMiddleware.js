@@ -1,10 +1,16 @@
 /**
- * In NODE_ENV=test, authentication can be satisfied by sending a JSON user fixture:
+ * In NODE_ENV=test AND ALLOW_TEST_AUTH=1, authentication can be satisfied by
+ * sending a JSON user fixture:
  *   Header: x-test-auth-user: {"displayName":"T","watchlist":[]}
  * or env TEST_AUTH_USER_JSON with the same payload.
- * This keeps integration tests explicit instead of skipping auth entirely.
+ * NODE_ENV=test alone on an exposed host is not enough.
  */
+import { isTestAuthAllowed } from '../config/httpSecurity.js';
+
 function tryAttachTestAuthUser(req) {
+  if (!isTestAuthAllowed()) {
+    return 'missing';
+  }
   const raw =
     req.get?.('x-test-auth-user')
     || process.env.TEST_AUTH_USER_JSON;
@@ -23,7 +29,7 @@ function tryAttachTestAuthUser(req) {
 }
 
 export const isAuthenticated = (req, res, next) => {
-  if (process.env.NODE_ENV === 'test') {
+  if (isTestAuthAllowed()) {
     const outcome = tryAttachTestAuthUser(req);
     if (outcome === 'invalid') {
       return res.status(500).json({
@@ -50,7 +56,7 @@ export const isAuthenticated = (req, res, next) => {
  * que não podem escrever no banco sem login.
  */
 export const isRequestAuthenticated = (req) => {
-  if (process.env.NODE_ENV === 'test' && tryAttachTestAuthUser(req) === 'ok') {
+  if (isTestAuthAllowed() && tryAttachTestAuthUser(req) === 'ok') {
     return true;
   }
 

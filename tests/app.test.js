@@ -25,6 +25,20 @@ describe('Basic API endpoints', () => {
     expect(res.body).toHaveProperty('openapi');
   });
 
+  test('CORS default allowlist never reflects an unknown origin', async () => {
+    const allowed = await request(app)
+      .get('/health')
+      .set('Origin', 'http://localhost:3000');
+    expect(allowed.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+    expect(allowed.headers['access-control-allow-credentials']).toBe('true');
+
+    const blocked = await request(app)
+      .get('/health')
+      .set('Origin', 'https://evil.example');
+    expect(blocked.headers['access-control-allow-origin']).not.toBe('*');
+    expect(blocked.headers['access-control-allow-origin']).not.toBe('https://evil.example');
+  });
+
   test('GET /robots.txt should expose crawl directives', async () => {
     const res = await request(app).get('/robots.txt');
     expect(res.statusCode).toBe(200);

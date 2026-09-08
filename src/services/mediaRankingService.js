@@ -1,5 +1,7 @@
 import { rankCandidates } from '../domain/mediaRanking/mediaRankCore.js';
 
+export const MAX_RANK_CANDIDATES = 100;
+
 /**
  * Rehydrates a quote profile from JSON (Map themeWeights).
  * @param {unknown} body
@@ -39,12 +41,27 @@ export function rankCandidatesFromBody(body) {
     };
   }
 
+  if (candidates.length > MAX_RANK_CANDIDATES) {
+    return {
+      ok: false,
+      status: 400,
+      error: `Too many candidates. Maximum is ${MAX_RANK_CANDIDATES}.`,
+    };
+  }
+
   try {
     const max = Math.min(50, Math.max(1, Number(limit) || 10));
     const results = rankCandidates(profile, candidates, max);
     return { ok: true, results };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { ok: false, status: 500, error: message };
+    console.error('rank-candidates ranking error:', message);
+    return {
+      ok: false,
+      status: 500,
+      error: process.env.NODE_ENV === 'production'
+        ? 'Ranking failed.'
+        : message,
+    };
   }
 }

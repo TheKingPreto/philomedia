@@ -41,8 +41,8 @@ describe('tmdbClient', () => {
     const results = await tmdbClient.searchMulti('interstellar');
 
     expect(results.results).toEqual([
-      { id: 1, media_type: 'movie', title: 'Movie', _overviewLocale: 'en' },
-      { id: 2, media_type: 'tv', name: 'Series', _overviewLocale: 'en' },
+      { id: 1, media_type: 'movie', title: 'Movie', _overviewLocale: 'en', _overviewEn: '' },
+      { id: 2, media_type: 'tv', name: 'Series', _overviewLocale: 'en', _overviewEn: '' },
     ]);
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
@@ -190,7 +190,7 @@ describe('tmdbClient', () => {
 
     const results = await tmdbClient.searchMulti('dune');
 
-    expect(results.results).toEqual([{ id: 1, media_type: 'movie', title: 'Dune', _overviewLocale: 'en' }]);
+    expect(results.results).toEqual([{ id: 1, media_type: 'movie', title: 'Dune', _overviewLocale: 'en', _overviewEn: '' }]);
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
@@ -306,5 +306,26 @@ describe('tmdbClient', () => {
       expect.stringContaining('/trending/movie/week?'),
       expect.anything()
     );
+  });
+
+  test('searchMulti in pt-BR keeps PT overview and attaches English scoring text', async () => {
+    mockFetch
+      .mockResolvedValueOnce(mockJsonResponse({
+        results: [{ id: 1, media_type: 'movie', title: 'Duna', overview: 'Uma equipe atravessa um buraco de minhoca.' }],
+      }))
+      .mockResolvedValueOnce(mockJsonResponse({
+        results: [{ id: 1, media_type: 'movie', title: 'Dune', overview: 'A team crosses a wormhole.' }],
+      }));
+
+    const results = await tmdbClient.searchMulti('dune', { language: 'pt-BR' });
+
+    expect(results.results[0]).toMatchObject({
+      id: 1,
+      overview: 'Uma equipe atravessa um buraco de minhoca.',
+      _overviewLocale: 'pt',
+      _overviewEn: 'A team crosses a wormhole.',
+    });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch.mock.calls[0][0]).toContain('language=pt-BR');
   });
 });

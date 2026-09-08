@@ -623,7 +623,7 @@ export function rankRelatedCandidates(details, reviews, candidates, currentMedia
 
   const ranked = candidates
     .map(candidate => {
-      const candidateContext = `${candidate.title || candidate.name || ''} ${candidate.overview || ''}`.trim();
+      const candidateContext = `${candidate.title || candidate.name || ''} ${candidate._overviewEn || candidate.overview || ''}`.trim();
       const themeScore = scoreThemeAlignment(sourceThemeWeights, candidateContext);
       const tokenScore = scoreTokenAlignment(sourceTokens, candidateContext);
       const genreScore = scoreGenreAlignment(sourceGenreIds, candidate.genre_ids);

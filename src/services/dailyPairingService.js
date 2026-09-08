@@ -78,7 +78,10 @@ function dedupeWorks(works = []) {
   });
 }
 
-function mapDetailsToSummary(details, mediaType) {
+function mapDetailsToSummary(details, mediaType, { language = 'en-US' } = {}) {
+  const overviewLocale = String(language || 'en-US').toLowerCase().startsWith('pt')
+    ? 'pt'
+    : 'en';
   return {
     id: details.id,
     title: details.title ?? details.name,
@@ -96,11 +99,12 @@ function mapDetailsToSummary(details, mediaType) {
       : [],
     original_language: details.original_language || '',
     origin_country: Array.isArray(details.origin_country) ? details.origin_country : [],
+    _overviewLocale: overviewLocale,
   };
 }
 
-async function getMediaSummary(work) {
-  const cacheKey = normalizeWorkKey(work);
+async function getMediaSummary(work, language = 'en-US') {
+  const cacheKey = `${normalizeWorkKey(work)}:${language}`;
   const now = Date.now();
   const cached = mediaCache.get(cacheKey);
   if (cached && cached.expiresAt > now) {
@@ -112,8 +116,8 @@ async function getMediaSummary(work) {
     if (oldestKey !== undefined) mediaCache.delete(oldestKey);
   }
 
-  const promise = tmdbClient.getDetails(work.tmdbId, work.mediaType)
-    .then(details => mapDetailsToSummary(details, work.mediaType))
+  const promise = tmdbClient.getDetails(work.tmdbId, work.mediaType, { language })
+    .then(details => mapDetailsToSummary(details, work.mediaType, { language }))
     .catch(() => null);
 
   mediaCache.set(cacheKey, { promise, expiresAt: now + MEDIA_CACHE_TTL_MS });
@@ -248,7 +252,8 @@ export async function getDailyPairing({
     fallback: DEFAULT_LIMIT,
   });
   const slice = allWorks.slice(safeOffset, safeOffset + safeLimit);
-  const results = (await Promise.all(slice.map(getMediaSummary))).filter(Boolean);
+  const tmdbLanguage = locale === 'pt' ? 'pt-BR' : 'en-US';
+  const results = (await Promise.all(slice.map(work => getMediaSummary(work, tmdbLanguage)))).filter(Boolean);
   const nextOffset = safeOffset + slice.length;
   const englishQuote = String(selected.entry.quote || '').trim();
   const displayQuote = await resolveEditorialQuoteForLocale(

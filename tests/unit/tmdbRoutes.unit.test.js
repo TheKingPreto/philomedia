@@ -151,6 +151,30 @@ describe('tmdb routes', () => {
     });
   });
 
+  test('POST /rank-candidates rejects oversized candidate arrays', async () => {
+    const app = buildApp();
+    const response = await request(app)
+      .post('/api/tmdb/rank-candidates')
+      .send({
+        profile: {
+          themes: ['existentialism'],
+          themeWeights: { existentialism: 1 },
+          keywords: [],
+          preferredGenres: [18],
+        },
+        candidates: Array.from({ length: 101 }, (_, index) => ({
+          id: index + 1,
+          title: `X${index}`,
+          overview: 'y',
+          media_type: 'movie',
+          genre_ids: [18],
+        })),
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/Too many candidates/);
+  });
+
   test('POST /rank-candidates returns 400 when profile is missing', async () => {
     const app = buildApp();
     const response = await request(app)

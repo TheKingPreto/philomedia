@@ -244,7 +244,21 @@ function mapMediaSummary(item, mediaType, { language = DEFAULT_LANGUAGE } = {}) 
     original_language: item.original_language || '',
     origin_country: Array.isArray(item.origin_country) ? item.origin_country : [],
     _overviewLocale: overviewLocale,
+    ...(overviewLocale === 'en' ? { _overviewEn: item.overview || '' } : {}),
   };
+}
+
+function isPortugueseLanguage(language) {
+  return String(language || '').toLowerCase().startsWith('pt');
+}
+
+function mergeEnglishOverviews(displayItems, englishItems) {
+  const byId = new Map((englishItems || []).map(item => [String(item.id), item]));
+  return (displayItems || []).map(item => {
+    const english = byId.get(String(item.id));
+    const overviewEn = english?.overview || item._overviewEn || '';
+    return overviewEn ? { ...item, _overviewEn: overviewEn } : item;
+  });
 }
 
 export function mapTmdbReviews(results = []) {
@@ -301,12 +315,32 @@ export async function searchMulti(query, { language = DEFAULT_LANGUAGE, page = 1
     ? 'pt'
     : 'en';
 
+  const results = Array.isArray(data.results)
+    ? data.results
+      .filter(item => VALID_MEDIA_TYPES.has(item.media_type))
+      .map(item => ({
+        ...item,
+        _overviewLocale: overviewLocale,
+        ...(overviewLocale === 'en' ? { _overviewEn: item.overview || '' } : {}),
+      }))
+    : [];
+
+  if (overviewLocale === 'pt' && results.length) {
+    const englishData = await fetchTMDBJson('/search/multi', {
+      query,
+      page: String(page || 1),
+      include_adult: 'false',
+    }, { language: DEFAULT_LANGUAGE });
+    const englishResults = Array.isArray(englishData.results) ? englishData.results : [];
+    return {
+      results: mergeEnglishOverviews(results, englishResults),
+      page: Number(data.page) || Number(page) || 1,
+      totalPages: Number(data.total_pages) || 1,
+    };
+  }
+
   return {
-    results: Array.isArray(data.results)
-      ? data.results
-        .filter(item => VALID_MEDIA_TYPES.has(item.media_type))
-        .map(item => ({ ...item, _overviewLocale: overviewLocale }))
-      : [],
+    results,
     page: Number(data.page) || Number(page) || 1,
     totalPages: Number(data.total_pages) || 1,
   };
@@ -386,7 +420,7 @@ export async function getDiscover(media = 'movie', page = 1, options = {}) {
   const watchRegion = String(options.watchRegion || (withWatchProviders ? DEFAULT_WATCH_REGION : '')).trim();
   const watchMonetizationTypes = String(options.watchMonetizationTypes || '').trim();
 
-  const data = await fetchOptionalTMDBJson(`/discover/${media}`, {
+  const discoverParams = {
     sort_by: options.sortBy || 'vote_average.desc',
     'vote_count.gte': String(options.voteCountGte || 120),
     page: String(page),
@@ -400,18 +434,39 @@ export async function getDiscover(media = 'movie', page = 1, options = {}) {
       : {}),
     ...(withCrew ? { with_crew: withCrew } : {}),
     ...(options.withOriginalLanguage ? { with_original_language: options.withOriginalLanguage } : {}),
-  }, { language });
+  };
 
-  return Array.isArray(data?.results)
+  const data = await fetchOptionalTMDBJson(`/discover/${media}`, discoverParams, { language });
+  const items = Array.isArray(data?.results)
     ? data.results.map(item => mapMediaSummary(item, media, { language }))
     : [];
+
+  if (!isPortugueseLanguage(language) || !items.length) return items;
+
+  const englishData = await fetchOptionalTMDBJson(`/discover/${media}`, discoverParams, {
+    language: DEFAULT_LANGUAGE,
+  });
+  const englishItems = Array.isArray(englishData?.results)
+    ? englishData.results.map(item => mapMediaSummary(item, media, { language: DEFAULT_LANGUAGE }))
+    : [];
+  return mergeEnglishOverviews(items, englishItems);
 }
 
 export async function getTrending(media = 'movie', window = 'week', { language = DEFAULT_LANGUAGE } = {}) {
   assertValidMediaType(media);
   const timeWindow = window === 'day' ? 'day' : 'week';
   const data = await fetchOptionalTMDBJson(`/trending/${media}/${timeWindow}`, {}, { language });
-  return Array.isArray(data?.results)
+  const items = Array.isArray(data?.results)
     ? data.results.map(item => mapMediaSummary(item, media, { language }))
     : [];
+
+  if (!isPortugueseLanguage(language) || !items.length) return items;
+
+  const englishData = await fetchOptionalTMDBJson(`/trending/${media}/${timeWindow}`, {}, {
+    language: DEFAULT_LANGUAGE,
+  });
+  const englishItems = Array.isArray(englishData?.results)
+    ? englishData.results.map(item => mapMediaSummary(item, media, { language: DEFAULT_LANGUAGE }))
+    : [];
+  return mergeEnglishOverviews(items, englishItems);
 }

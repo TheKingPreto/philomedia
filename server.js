@@ -24,6 +24,11 @@ import { specs } from './config/swagger.js';
 import { connectMongo, registerMongoConnectionLogging } from './config/database.js';
 import { buildPublicUrl, getPublicBaseUrl } from './src/utils/publicUrl.js';
 import { preferredLocaleFromHeader } from './src/utils/preferredLocale.js';
+import {
+  buildCorsOptions,
+  buildSessionCookieOptions,
+  shouldExposeApiDocs,
+} from './src/config/httpSecurity.js';
 import { PHILOSOPHER_AUTHORS } from './public/scripts/domain/philosopherAuthors.js';
 
 if (process.env.NODE_ENV !== 'test') {
@@ -70,8 +75,8 @@ export const oauthEnabled =
   Boolean(process.env.GOOGLE_CLIENT_SECRET);
 
 app.set('trust proxy', 1);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '120kb' }));
+app.use(express.urlencoded({ extended: true, limit: '120kb' }));
 
 app.use(helmet({
   contentSecurityPolicy: false,
@@ -87,10 +92,10 @@ app.use((req, res, next) => {
     [
       "default-src 'self'",
       "script-src 'self'",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https://image.tmdb.org https://philosophersapi.com https://upload.wikimedia.org",
       "connect-src 'self' https://api.themoviedb.org https://philosophersapi.com https://en.wikipedia.org https://pt.wikipedia.org",
-      "font-src 'self' https://fonts.gstatic.com https://r2cdn.perplexity.ai",
+      "font-src 'self'",
       "base-uri 'self'",
       "form-action 'self'",
       "frame-ancestors 'none'",
@@ -102,10 +107,7 @@ app.use((req, res, next) => {
 
 app.use(compression());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  credentials: true,
-}));
+app.use(cors(buildCorsOptions()));
 
 const testNoopLimiter = (req, res, next) => next();
 
@@ -239,11 +241,7 @@ if (process.env.NODE_ENV !== 'test') {
         client: mongoose.connection.getClient(),
         dbName: mongoose.connection.db.databaseName,
       }),
-      cookie: {
-        maxAge: 24 * 60 * 60 * 1000,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-      },
+      cookie: buildSessionCookieOptions(),
     })
   );
 
@@ -345,11 +343,13 @@ app.use(express.static('public', {
   },
 }));
 
-app.get('/api-docs/swagger.json', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(specs);
-});
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+if (shouldExposeApiDocs()) {
+  app.get('/api-docs/swagger.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(specs);
+  });
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+}
 
 app.get('/favicon.ico', (req, res) => {
   res.redirect(302, '/favicon.svg');
@@ -400,7 +400,9 @@ app.use((err, req, res, _next) => {
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
     console.log(`PhiloMedia running on http://localhost:${PORT}`);
-    console.log(`API docs: http://localhost:${PORT}/api-docs`);
+    if (shouldExposeApiDocs()) {
+      console.log(`API docs: http://localhost:${PORT}/api-docs`);
+    }
     if (!oauthEnabled) {
       console.log('Google OAuth: disabled (add credentials to enable login)');
     }

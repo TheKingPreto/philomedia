@@ -46,7 +46,7 @@ PhiloMedia connects films and TV series to philosophical quotes, offering users 
 - **Internationalization (i18n):** Language selection (EN/PT) persists via `localStorage`. Translations cover UI strings, TMDB metadata, quote catalogs, and philosopher biographies.
 - **AI Interpretation:** Google Gemini generates contextual readings for each title. Includes automatic model fallback (`gemini-2.5-flash` → `gemini-2.0-flash-lite` → `gemini-1.5-flash`) to handle rate limits gracefully.
 - **User Library:** Google OAuth authentication with personal media collection support.
-- **API Documentation:** Full Swagger UI available at `/api-docs`.
+- **API Documentation:** Swagger UI at `/api-docs` in non-production environments.
 - **Data Utilities:** Scripts for seeding quotes, importing Wikiquote datasets, and machine-translating content.
 
 ## Local Setup
@@ -61,7 +61,8 @@ npm install
 
 # 3. Configure environment variables
 cp .env.example .env
-# Fill in: MONGODB_URI, SESSION_SECRET, TMDB_API_KEY, GOOGLE_AI_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+# Fill in: MONGODB_URI, SESSION_SECRET, TMDB_API_KEY, GOOGLE_AI_API_KEY
+# Optional: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, CORS_ORIGIN, PUBLIC_SITE_URL
 
 # 4. Start development server
 npm run dev

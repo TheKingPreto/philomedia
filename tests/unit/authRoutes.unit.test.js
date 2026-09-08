@@ -19,17 +19,19 @@ function buildUser(overrides = {}) {
 
 function createApp(user = null) {
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: '120kb' }));
+  const sessionDestroy = jest.fn(callback => callback?.());
   app.use((req, res, next) => {
     req.user = user;
     req.isAuthenticated = () => Boolean(user);
     req.logout = callback => callback?.();
     req.session = {
-      destroy: callback => callback?.(),
+      destroy: sessionDestroy,
     };
     next();
   });
   app.use('/auth', authRouter);
+  app.locals.sessionDestroy = sessionDestroy;
   return app;
 }
 
@@ -96,6 +98,43 @@ describe('auth routes', () => {
     expect(response.body).toEqual({
       message: 'User not authenticated. Please log in.',
     });
+  });
+
+  test('PATCH /auth/profile/avatar rejects decoded data URLs over 80KB', async () => {
+    const user = buildUser();
+    const app = createApp(user);
+    const payload = Buffer.alloc(80 * 1024 + 1, 1).toString('base64');
+
+    const response = await request(app)
+      .patch('/auth/profile/avatar')
+      .send({
+        avatarUrl: `data:image/png;base64,${payload}`,
+      });
+
+    expect(response.status).toBe(400);
+    expect(user.save).not.toHaveBeenCalled();
+  });
+
+  test('POST /auth/logout destroys the session', async () => {
+    const user = buildUser();
+    const app = createApp(user);
+
+    const response = await request(app).post('/auth/logout');
+
+    expect(response.status).toBe(302);
+    expect(response.headers.location).toBe('/html/index.html');
+    expect(app.locals.sessionDestroy).toHaveBeenCalled();
+  });
+
+  test('GET /auth/logout does not destroy the session', async () => {
+    const user = buildUser();
+    const app = createApp(user);
+
+    const response = await request(app).get('/auth/logout');
+
+    expect(response.status).toBe(405);
+    expect(response.body.error).toMatch(/POST/);
+    expect(app.locals.sessionDestroy).not.toHaveBeenCalled();
   });
 
   test('PATCH /auth/profile/avatar validates unsupported avatar URLs', async () => {

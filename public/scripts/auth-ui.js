@@ -58,6 +58,26 @@ export function redirectToLogin() {
   window.location.href = '/auth/google';
 }
 
+function createLogoutControl() {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'nav-logout-button';
+  button.dataset.authRole = 'logout';
+  button.textContent = t('nav.logout');
+  button.addEventListener('click', async event => {
+    event.preventDefault();
+    try {
+      await fetch('/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+      });
+    } finally {
+      window.location.href = '/html/index.html';
+    }
+  });
+  return button;
+}
+
 function createNavLink({ href, text, dataRole }) {
   const link = document.createElement('a');
   link.href = href;
@@ -122,13 +142,7 @@ export async function setupAuthUI() {
         className: 'nav-user-chip',
       })
     );
-    authSlot.appendChild(
-      createNavLink({
-        href: '/auth/logout',
-        text: t('nav.logout'),
-        dataRole: 'logout',
-      })
-    );
+    authSlot.appendChild(createLogoutControl());
     return session;
   }
 

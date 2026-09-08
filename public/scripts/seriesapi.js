@@ -1,4 +1,4 @@
-import { getTmdbCatalogLanguage, getTmdbLanguage } from '/scripts/services/uiLocale.js';
+import { getTmdbLanguage } from '/scripts/services/uiLocale.js';
 
 const API_BASE = '/api/tmdb';
 
@@ -7,14 +7,9 @@ function withLanguage(params = new URLSearchParams()) {
   return params;
 }
 
-function withCatalogLanguage(params = new URLSearchParams()) {
-  params.set('language', getTmdbCatalogLanguage());
-  return params;
-}
-
 export async function searchTMDB(query, { page = 1, language } = {}) {
   if (!query) return [];
-  const params = withCatalogLanguage(new URLSearchParams({ query, page: String(page || 1) }));
+  const params = withLanguage(new URLSearchParams({ query, page: String(page || 1) }));
   if (language) params.set('language', language);
   const url = `${API_BASE}/search?${params.toString()}`;
   const response = await fetch(url);
@@ -82,7 +77,7 @@ export async function getRecommendationsFromTMDB(id, type) {
 export async function discoverTMDB(media, options = {}) {
   if (!media || (media !== 'movie' && media !== 'tv')) return [];
 
-  const params = withCatalogLanguage(new URLSearchParams({
+  const params = withLanguage(new URLSearchParams({
     media,
     page: String(options.page || 1),
   }));
@@ -133,7 +128,7 @@ export async function discoverDiverseWorks() {
 
 export async function getTrendingFromTMDB(media, { window = 'week', language } = {}) {
   if (!media || (media !== 'movie' && media !== 'tv')) return [];
-  const params = withCatalogLanguage(new URLSearchParams({
+  const params = withLanguage(new URLSearchParams({
     media,
     window,
   }));

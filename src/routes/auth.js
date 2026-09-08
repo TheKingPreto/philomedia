@@ -36,6 +36,27 @@ function buildSessionPayload(req) {
   };
 }
 
+export const MAX_AVATAR_DECODED_BYTES = 80 * 1024;
+export const MAX_HTTPS_AVATAR_URL_LENGTH = 2048;
+
+export function decodedDataUrlBytes(value) {
+  const match = String(value || '').match(/^data:image\/(?:png|jpe?g|webp|gif);base64,([A-Za-z0-9+/=\s]+)$/i);
+  if (!match) return null;
+  const b64 = match[1].replace(/\s/g, '');
+  const padding = (b64.match(/=+$/) || [''])[0].length;
+  return Math.max(0, Math.floor((b64.length * 3) / 4) - padding);
+}
+
+function isAllowedAvatarUrl(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return true;
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed.length <= MAX_HTTPS_AVATAR_URL_LENGTH;
+  }
+  const decoded = decodedDataUrlBytes(trimmed);
+  return decoded != null && decoded <= MAX_AVATAR_DECODED_BYTES;
+}
+
 function ensureOAuthConfigured(req, res, next) {
   if (isOAuthEnabled()) {
     return next();
@@ -81,7 +102,7 @@ authRouter.get(
   })(req, res, next)
 );
 
-authRouter.get('/logout', (req, res, next) => {
+function destroySessionAndFinish(req, res, next) {
   req.logout((err) => {
     if (err) {
       console.error('Logout error:', err);
@@ -97,6 +118,15 @@ authRouter.get('/logout', (req, res, next) => {
       res.redirect('/html/index.html');
     });
   });
+}
+
+authRouter.get('/logout', (req, res) => {
+  res.setHeader('Allow', 'POST');
+  res.status(405).json({ error: 'Use POST /auth/logout to end the session.' });
+});
+
+authRouter.post('/logout', (req, res, next) => {
+  destroySessionAndFinish(req, res, next);
 });
 
 authRouter.get('/profile', (req, res) => {
@@ -113,14 +143,14 @@ authRouter.patch(
     .optional()
     .isString()
     .withMessage('avatarUrl must be a string')
-    .isLength({ max: 400000 })
-    .withMessage('avatarUrl is too large')
     .custom(value => {
       const trimmed = String(value || '').trim();
       if (!trimmed) return true;
       return /^(https?:\/\/|data:image\/(?:png|jpe?g|webp|gif);base64,)/i.test(trimmed);
     })
-    .withMessage('avatarUrl must be an https URL or a supported image data URL'),
+    .withMessage('avatarUrl must be an https URL or a supported image data URL')
+    .custom(value => isAllowedAvatarUrl(value))
+    .withMessage(`avatarUrl decoded size must be at most ${MAX_AVATAR_DECODED_BYTES} bytes`),
   validateRequest,
   async (req, res, next) => {
     if (!(req.isAuthenticated?.() && req.user)) {

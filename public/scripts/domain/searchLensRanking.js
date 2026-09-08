@@ -3,6 +3,7 @@
  */
 
 import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
+import { scoringOverview } from '/scripts/services/tmdbOverviewI18n.js';
 import {
   getCuratedPhilosophicalProfile,
   scoreCuratedProfileForLens,
@@ -28,7 +29,7 @@ export function getMediaType(item) {
 export function annotateResult(item, index) {
   const mediaType = getMediaType(item);
   const title = item.title || item.name || 'Untitled';
-  const overview = item.overview || '';
+  const overview = scoringOverview(item);
   const tmdbKeywords = extractItemTmdbKeywords(item);
   const keywordText = tmdbKeywords.map(entry => entry.name).filter(Boolean).join(' ');
   const textContext = `${title} ${overview} ${keywordText}`.trim();
