@@ -314,6 +314,7 @@ export function createMediaCard(item, {
   enableLibraryActions = true,
   enableWatchedAction = false,
   onStatusChange = null,
+  philosopherSlug = '',
 } = {}) {
   const title = item.title || item.name || 'Untitled';
   const mediaType = getMediaType(item);
@@ -329,8 +330,18 @@ export function createMediaCard(item, {
   shell.dataset.libraryKey = `${mediaType}:${itemId}`;
   shell.dataset.enableLibraryActions = String(Boolean(enableLibraryActions));
 
+  const detailsParams = new URLSearchParams({
+    id: itemId,
+    type: mediaType,
+  });
+  const fromSlug = String(philosopherSlug || '').trim();
+  if (fromSlug) {
+    detailsParams.set('from', 'philosopher');
+    detailsParams.set('philosopher', fromSlug);
+  }
+
   const cardLink = document.createElement('a');
-  cardLink.href = `${DETAILS_BASE}?id=${itemId}&type=${mediaType}`;
+  cardLink.href = `${DETAILS_BASE}?${detailsParams.toString()}`;
   cardLink.classList.add('result-card-link');
 
   const card = document.createElement('div');

@@ -39,6 +39,9 @@ describe('Basic API endpoints', () => {
     expect(res.headers['content-type']).toMatch(/application\/xml|text\/xml/);
     expect(res.text).toContain('/html/index.html');
     expect(res.text).toContain('/html/philosophers.html');
+    expect(res.text).toContain('/html/philosopher.html?slug=socrates');
+    expect(res.text).toContain('/html/philosopher.html?slug=isaac-newton');
+    expect(res.text).toMatch(/<urlset xmlns="http:\/\/www.sitemaps.org\/schemas\/sitemap\/0.9">/);
   });
 
   test('GET unknown route should return 404 JSON', async () => {

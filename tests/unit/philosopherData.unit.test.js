@@ -7,6 +7,7 @@ import {
   getPhilosopherProfileBySlug,
   getPhilosopherUrlByAuthor,
 } from '../../public/scripts/philosopher-data.js';
+import { PHILOSOPHER_AUTHORS } from '../../public/scripts/domain/philosopherAuthors.js';
 
 describe('philosopher data helpers', () => {
   test('normalizes mojibake author names to the canonical philosopher profile', () => {
@@ -228,5 +229,26 @@ describe('philosopher data helpers', () => {
     }));
     expect(profile.summary).toContain('absurdity');
     expect(profile.focus).toContain('resilience');
+  });
+
+  test('resolves a curated thinker with no quotes instead of returning null', () => {
+    const curatedWithoutQuotes = PHILOSOPHER_AUTHORS.find(author =>
+      author.slug === 'isaac-newton'
+    );
+
+    expect(curatedWithoutQuotes).toBeDefined();
+
+    const profile = getPhilosopherProfileBySlug([], 'isaac-newton');
+
+    expect(profile).not.toBeNull();
+    expect(profile).toEqual(expect.objectContaining({
+      slug: 'isaac-newton',
+      name: 'Isaac Newton',
+      quoteCount: 0,
+      quotes: [],
+      linkedWorkIds: [],
+    }));
+    expect(profile.summary).toBeTruthy();
+    expect(getPhilosopherProfileBySlug([], '')).toBeNull();
   });
 });

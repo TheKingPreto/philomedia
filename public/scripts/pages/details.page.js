@@ -19,7 +19,7 @@ import { getQuoteCatalog, getQuotes } from '/scripts/philosophersapi.js';
 import { curatedQuoteMatches } from '/scripts/curatedmatches.js';
 import { getSession, redirectToLogin, setupAuthUI } from '/scripts/auth-ui.js';
 import { renderMediaCards } from '/scripts/media-card.js';
-import { getDisplayAuthorName, getPhilosopherUrlByAuthor } from '/scripts/domain/philosopherAuthors.js';
+import { getDisplayAuthorName, getPhilosopherAuthorBySlug, getPhilosopherUrl, getPhilosopherUrlByAuthor } from '/scripts/domain/philosopherAuthors.js';
 import { updatePageSeo } from '/scripts/seo.js';
 import {
   buildLibraryItem,
@@ -57,10 +57,36 @@ const AI_TRIGGER_DELAY_MS = 800;
 
 function getQueryParams() {
   const params = new URLSearchParams(window.location.search);
+  const from = params.get('from');
+  const philosopher = params.get('philosopher') || (from === 'philosopher' ? params.get('slug') : '');
   return {
     id: params.get('id'),
     type: params.get('type'),
+    philosopherSlug: String(philosopher || '').trim(),
   };
+}
+
+function renderThinkerBackLink(slug) {
+  const crumb = document.getElementById('details-thinker-crumb');
+  if (!crumb) return;
+
+  if (!slug) {
+    crumb.hidden = true;
+    crumb.innerHTML = '';
+    return;
+  }
+
+  const href = getPhilosopherUrl(slug);
+  if (!href) {
+    crumb.hidden = true;
+    crumb.innerHTML = '';
+    return;
+  }
+
+  const author = getPhilosopherAuthorBySlug(slug);
+  const label = t('details.back_to_thinker', { name: author?.name || slug });
+  crumb.hidden = false;
+  crumb.innerHTML = `<a class="details-thinker-back" href="${href}">${escapeHtml(label)}</a>`;
 }
 
 function setLoading(visible) {
@@ -565,7 +591,9 @@ async function init() {
   setupLanguageChrome();
   setupAuthUI().catch(() => {});
 
-  const { id, type } = getQueryParams();
+  const { id, type, philosopherSlug } = getQueryParams();
+
+  renderThinkerBackLink(philosopherSlug);
 
   if (!id || !type || (type !== 'movie' && type !== 'tv')) {
     showError(t('details.invalid_id'));

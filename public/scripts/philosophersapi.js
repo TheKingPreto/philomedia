@@ -43,6 +43,25 @@ let submittedPhilosophersPromise = null;
 const referenceLookupCache = new Map();
 const textDecoder = typeof TextDecoder === 'function' ? new TextDecoder('utf-8', { fatal: false }) : null;
 const MOJIBAKE_PATTERN = /[ÃÂâ€]/;
+const FETCH_TIMEOUT_MS = 4000;
+const REFERENCE_TIMEOUT_MS = 5000;
+
+function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => {
+    clearTimeout(timer);
+  });
+}
+
+function withTimeout(promise, timeoutMs = REFERENCE_TIMEOUT_MS, fallback = null) {
+  let timer;
+  const timeoutPromise = new Promise(resolve => {
+    timer = setTimeout(() => resolve(fallback), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
 
 // ─── Source 1: MongoDB via backend API ───────────────────────────────────────
 
@@ -312,7 +331,7 @@ function normalizePhilosopherEntry(entry) {
 
 export async function getPhilosopherDirectory() {
   if (!philosopherDirectoryPromise) {
-    philosopherDirectoryPromise = fetch(PHILOSOPHERS_URL)
+    philosopherDirectoryPromise = fetchWithTimeout(PHILOSOPHERS_URL)
       .then(async response => {
         if (!response.ok) throw new Error(`Philosophers API responded ${response.status}`);
         const data = await response.json();
@@ -479,7 +498,7 @@ async function fetchReferenceFromSummaryEndpoint(name, title) {
   for (const baseUrl of WIKIPEDIA_SUMMARY_ENDPOINTS) {
     for (const candidate of candidates) {
       try {
-        const response = await fetch(`${baseUrl}${encodeURIComponent(candidate)}`);
+        const response = await fetchWithTimeout(`${baseUrl}${encodeURIComponent(candidate)}`);
         if (!response.ok) continue;
 
         const data = await response.json();
@@ -493,20 +512,24 @@ async function fetchReferenceFromSummaryEndpoint(name, title) {
     }
   }
 
-  return '';
+  return null;
 }
 
 export async function getPhilosopherReference(title, wikiTitle = '') {
   const cacheKey = `${title}::${wikiTitle}`;
   if (!referenceLookupCache.has(cacheKey)) {
-    referenceLookupCache.set(cacheKey, (async () => {
-      const titles = [wikiTitle, title, normalizeThinkerName(title), normalizeThinkerName(wikiTitle)].filter(Boolean);
-      for (const candidate of titles) {
-        const reference = await fetchReferenceFromSummaryEndpoint(title, candidate);
-        if (reference) return reference;
+    referenceLookupCache.set(cacheKey, withTimeout((async () => {
+      try {
+        const titles = [wikiTitle, title, normalizeThinkerName(title), normalizeThinkerName(wikiTitle)].filter(Boolean);
+        for (const candidate of titles) {
+          const reference = await fetchReferenceFromSummaryEndpoint(title, candidate);
+          if (reference) return reference;
+        }
+      } catch (error) {
+        return null;
       }
       return null;
-    })());
+    })()));
   }
 
   return referenceLookupCache.get(cacheKey);

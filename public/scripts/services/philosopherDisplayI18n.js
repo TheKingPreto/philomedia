@@ -48,7 +48,7 @@ export function resolveClientQuoteText(quote, locale = getUiLocale()) {
 }
 
 export function localizeThinkerCard(profile, locale = getUiLocale()) {
-  if (!profile) return { period: '', summary: '', themeLabels: [], quotePreview: '' };
+  if (!profile) return { period: '', summary: '', focus: '', themeLabels: [], quotePreview: '' };
 
   const loc = normalizeUiLocale(locale);
   const copy = getThinkerCopyForLocale(profile, loc);
@@ -59,6 +59,10 @@ export function localizeThinkerCard(profile, locale = getUiLocale()) {
   if (loc === 'pt' && ptDef?.summary) {
     summary = ptDef.summary;
   }
+  let focus = copy.focus;
+  if (loc === 'pt' && ptDef?.focus) {
+    focus = ptDef.focus;
+  }
 
   const themeLabels = (profile.topThemes || []).map(theme => formatThemeLabelForLocale(theme, loc));
 
@@ -67,5 +71,5 @@ export function localizeThinkerCard(profile, locale = getUiLocale()) {
     ? resolveClientQuoteText(featured, loc)
     : profile.featuredQuotePreview;
 
-  return { period, summary, themeLabels, quotePreview };
+  return { period, summary, focus, themeLabels, quotePreview };
 }

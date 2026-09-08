@@ -51,6 +51,28 @@ body.details-page main {
   padding-top: 0.5rem;
 }
 
+.details-thinker-crumb {
+  margin: 0 0 0.85rem;
+}
+
+.details-thinker-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  color: #e2c77a;
+  text-decoration: none;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.details-thinker-back:hover,
+.details-thinker-back:focus-visible {
+  color: #c9a84c;
+  text-decoration: underline;
+}
+
 #details-title {
   font-family: 'Cormorant Garamond', Georgia, serif;
   font-size: 2.4rem;

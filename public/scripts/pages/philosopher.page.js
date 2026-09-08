@@ -1,6 +1,7 @@
 import { setupAuthUI } from '/scripts/auth-ui.js';
 import {
   getPhilosopherDirectory,
+  getPhilosopherPortrait,
   getPhilosopherReference,
   getQuoteCatalog,
   getSubmittedPhilosophers,
@@ -34,6 +35,7 @@ import {
   localizeThinkerCard,
 } from '/scripts/services/philosopherDisplayI18n.js';
 import { getDisplayQuoteText } from '/scripts/services/quoteDisplayResolve.js';
+import { t } from '/scripts/services/i18n.js';
 import { getThinkerCopyForLocale, getUiLocale } from '/scripts/services/uiLocale.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 
@@ -394,13 +396,53 @@ function renderState(container, html) {
   container.innerHTML = html;
 }
 
+function showSigilFallback(sigil, profile) {
+  if (!sigil) return;
+  sigil.classList.remove('philosopher-sigil-photo');
+  sigil.removeAttribute('aria-hidden');
+  sigil.setAttribute('aria-hidden', 'true');
+  sigil.innerHTML = '';
+  sigil.textContent = profile.initials || '';
+}
+
+function bindPortraitFallback(sigil, profile) {
+  const img = sigil?.querySelector('img');
+  if (!img) return;
+
+  img.addEventListener('error', () => {
+    if (sigil.dataset.wikimediaTried === '1') {
+      showSigilFallback(sigil, profile);
+      return;
+    }
+
+    sigil.dataset.wikimediaTried = '1';
+    showSigilFallback(sigil, profile);
+
+    getPhilosopherPortrait(profile.name, profile.wikiTitle)
+      .then(url => {
+        if (!url || url === img.getAttribute('src')) return;
+        applyPortrait(sigil, profile, url);
+      })
+      .catch(() => {});
+  }, { once: true });
+}
+
+function applyPortrait(sigil, profile, url) {
+  if (!sigil || !url) return;
+
+  sigil.classList.add('philosopher-sigil-photo');
+  sigil.removeAttribute('aria-hidden');
+  sigil.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(t('philosophers.portrait_alt', { name: profile.name }))}" loading="eager" fetchpriority="high" decoding="async" width="176" height="220">`;
+  bindPortraitFallback(sigil, profile);
+}
+
 function renderHeader(profile) {
   const loc = getUiLocale();
   const copy = getThinkerCopyForLocale(profile, loc);
   const display = localizeThinkerCard(profile, loc);
   updatePageSeo({
-    title: `PhiloMedia | ${profile.name}`,
-    description: copy.summary || `${profile.name} in PhiloMedia, with signature quotes, philosophical lenses, and related works.`,
+    title: t('philosopher.seo_title', { name: profile.name }),
+    description: copy.summary || t('philosopher.seo_description', { name: profile.name }),
     path: `${window.location.pathname}?slug=${encodeURIComponent(profile.slug)}`,
     image: profile.portraitUrl || '',
     type: 'profile',
@@ -415,50 +457,72 @@ function renderHeader(profile) {
 
   if (sigil) {
     if (profile.portraitUrl) {
-      sigil.classList.add('philosopher-sigil-photo');
-      sigil.innerHTML = `<img src="${profile.portraitUrl}" alt="${escapeHtml(profile.name)} portrait" loading="eager" fetchpriority="high" decoding="async" width="104" height="104">`;
+      applyPortrait(sigil, profile, profile.portraitUrl);
     } else {
-      sigil.classList.remove('philosopher-sigil-photo');
-      sigil.textContent = profile.initials;
+      showSigilFallback(sigil, profile);
     }
   }
   if (name) name.textContent = profile.name;
   if (period) period.textContent = display.period;
   if (summary) summary.textContent = display.summary;
-  if (focus) focus.textContent = copy.focus;
+  if (focus) focus.textContent = display.focus || copy.focus;
 
   if (lenses) {
     lenses.innerHTML = profile.lenses
       .map(lens => {
-        const label = lens.id
-          ? formatThemeLabelForLocale(lens.id, loc)
-          : lens.label;
+        const label = formatLensLabel(lens, loc);
         return `<a href="${lens.url}" class="philosopher-chip philosopher-lens-link">${escapeHtml(label)}</a>`;
       })
       .join('');
   }
 }
 
+function formatLensLabel(lens, loc) {
+  if (lens?.id) {
+    const key = `search.lens.${lens.id}.label`;
+    const translated = t(key);
+    if (translated && translated !== key) return translated;
+    return formatThemeLabelForLocale(lens.id, loc);
+  }
+  return lens?.label || '';
+}
+
+function getCoreThreadLabel(profile) {
+  const loc = getUiLocale();
+  const lens = profile.lenses?.[0];
+  if (lens?.id) return formatLensLabel(lens, loc);
+  if (profile.topThemes?.[0]) return formatThemeLabelForLocale(profile.topThemes[0], loc);
+  return t('philosopher.stat_thread_fallback');
+}
+
 function renderStats(profile) {
   const container = document.getElementById('philosopher-stats');
   if (!container) return;
 
+  const hasQuotes = Number(profile.quoteCount) > 0;
+  const quoteCaption = hasQuotes
+    ? t('philosopher.stat_quotes_caption', { name: profile.name })
+    : t('philosopher.stat_quotes_caption_empty', { name: profile.name });
+  const threadCaption = hasQuotes
+    ? t('philosopher.stat_thread_caption')
+    : t('philosopher.stat_thread_caption_empty');
+
   container.innerHTML = `
-    <article class="profile-stat-card">
-      <span class="profile-stat-label">Quotes</span>
-      <span class="profile-stat-value">${profile.quoteCount}</span>
-      <p class="profile-stat-caption">Curated lines in the collection that are attributed to ${escapeHtml(profile.name)}.</p>
-    </article>
-    <article class="profile-stat-card">
-      <span class="profile-stat-label">Related works</span>
-      <span id="philosopher-related-count" class="profile-stat-value">${profile.linkedWorkCount}</span>
-      <p id="philosopher-related-caption" class="profile-stat-caption">Titles already connected through PhiloMedia's quote pairings and thematic discovery.</p>
-    </article>
-    <article class="profile-stat-card">
-      <span class="profile-stat-label">Core thread</span>
-      <span class="profile-stat-value philosopher-stat-theme">${escapeHtml(profile.lenses?.[0]?.label || profile.themeLabels[0] || 'Philosophy')}</span>
-      <p class="profile-stat-caption">The strongest recurring idea across this thinker's current quotes in the collection.</p>
-    </article>
+    <div class="philosopher-meta-item">
+      <span class="philosopher-meta-label">${escapeHtml(t('philosopher.stat_quotes'))}</span>
+      <span class="philosopher-meta-value">${profile.quoteCount}</span>
+      <p class="philosopher-meta-caption">${escapeHtml(quoteCaption)}</p>
+    </div>
+    <div class="philosopher-meta-item">
+      <span class="philosopher-meta-label">${escapeHtml(t('philosopher.stat_works'))}</span>
+      <span id="philosopher-related-count" class="philosopher-meta-value">${profile.linkedWorkCount}</span>
+      <p id="philosopher-related-caption" class="philosopher-meta-caption">${escapeHtml(t('philosopher.stat_works_caption'))}</p>
+    </div>
+    <div class="philosopher-meta-item">
+      <span class="philosopher-meta-label">${escapeHtml(t('philosopher.stat_thread'))}</span>
+      <span class="philosopher-meta-value philosopher-stat-theme">${escapeHtml(getCoreThreadLabel(profile))}</span>
+      <p class="philosopher-meta-caption">${escapeHtml(threadCaption)}</p>
+    </div>
   `;
 }
 
@@ -467,7 +531,7 @@ function updateRelatedWorkStat(profile, count) {
   const caption = document.getElementById('philosopher-related-caption');
   if (value) value.textContent = String(Math.max(Number(count) || 0, Number(profile.linkedWorkCount) || 0));
   if (caption) {
-    caption.textContent = `Works surfaced for ${profile.name} through curated links, thematic discovery, and philosophical reranking.`;
+    caption.textContent = t('philosopher.stat_works_caption_live', { name: profile.name });
   }
 }
 
@@ -475,7 +539,18 @@ function renderQuotes(profile) {
   const container = document.getElementById('philosopher-quotes');
   if (!container) return;
 
-  container.innerHTML = profile.quotes
+  const quotes = profile.quotes || [];
+  if (!quotes.length) {
+    container.innerHTML = `
+      <div class="empty-state philosopher-empty-state">
+        <p class="empty-state-title">${escapeHtml(t('philosopher.quotes_empty_title'))}</p>
+        <p class="empty-state-text">${escapeHtml(t('philosopher.quotes_empty_text'))}</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = quotes
     .slice(0, QUOTE_LIMIT)
     .map(quote => `
       <article class="philosopher-quote-card">
@@ -489,10 +564,12 @@ function renderQuotes(profile) {
 }
 
 function getQuoteThemeLabels(quote) {
+  const loc = getUiLocale();
+  const fallback = t('philosopher.stat_thread_fallback');
   const explicitLabels = [...new Set(
     (quote.themes || [])
-      .map(theme => formatThemeLabel(theme))
-      .filter(label => label && label !== 'Philosophy')
+      .map(theme => formatThemeLabelForLocale(theme, loc))
+      .filter(label => label && label !== fallback)
   )];
 
   if (explicitLabels.length) {
@@ -501,7 +578,8 @@ function getQuoteThemeLabels(quote) {
 
   return analyzeWorkForThemes(quote.quote || '')
     .slice(0, 3)
-    .map(({ theme }) => formatThemeLabel(theme));
+    .map(({ theme }) => formatThemeLabelForLocale(theme, loc))
+    .filter(label => label && label !== fallback);
 }
 
 function needsReferenceMetadata(profile) {
@@ -531,16 +609,17 @@ function renderNotFound() {
   const content = document.getElementById('philosopher-content');
   if (content) content.hidden = true;
   updatePageSeo({
-    title: 'PhiloMedia | Thinker not found',
-    description: 'The requested thinker page is not available in PhiloMedia right now.',
+    title: t('philosopher.seo_not_found_title'),
+    description: t('philosopher.seo_not_found_description'),
     path: window.location.pathname,
     type: 'website',
   });
 
   renderState(state, `
     <div class="error-state">
-      <p class="error-state-title">This thinker is not available.</p>
-      <p class="error-state-text">Return to the <a href="/html/philosophers.html">thinker index</a> and choose another voice from the collection.</p>
+      <p class="error-state-title">${escapeHtml(t('philosopher.not_found_title'))}</p>
+      <p class="error-state-text">${escapeHtml(t('philosopher.not_found_text'))}</p>
+      <p><a href="/html/philosophers.html">${escapeHtml(t('philosopher.not_found_link'))}</a></p>
     </div>
   `);
 }
@@ -582,7 +661,7 @@ async function renderRelatedWorks(profile) {
       <div class="skeleton-card"></div>
       <div class="skeleton-card"></div>
     </div>
-    <p class="loading-message">Tracing works that orbit ${escapeHtml(profile.name)}...</p>
+    <p class="loading-message">${escapeHtml(t('philosopher.works_loading', { name: profile.name }))}</p>
   `;
 
   try {
@@ -598,7 +677,7 @@ async function renderRelatedWorks(profile) {
       { source: 'keyword', items: keywordWorks },
     ]);
 
-    if (merged.length < WORK_LIMIT * 2) {
+    if (merged.length < WORK_LIMIT * 2 && (profile.quoteCount > 0 || (profile.linkedWorkIds || []).length > 0)) {
       const broadWorks = await loadBroadDiscovery();
       merged = mergeCandidateBuckets([
         { source: 'curated', items: curatedWorks },
@@ -631,14 +710,14 @@ async function renderRelatedWorks(profile) {
     ).slice(0, WORK_LIMIT);
 
     if (summary) {
-      summary.textContent = `Works connected to ${profile.name} through curated quote pairings, thematic discovery, and philosophical reranking.`;
+      summary.textContent = t('philosopher.works_summary', { name: profile.name });
     }
 
     if (!ranked.length) {
       renderState(container, `
-        <div class="empty-state">
-          <p class="empty-state-title">No related works yet</p>
-          <p class="empty-state-text">This thinker already has quotes in the collection, but the related works layer still needs more pairings.</p>
+        <div class="empty-state philosopher-empty-state">
+          <p class="empty-state-title">${escapeHtml(t('philosopher.works_empty_title'))}</p>
+          <p class="empty-state-text">${escapeHtml(t('philosopher.works_empty_text'))}</p>
         </div>
       `);
       return;
@@ -647,14 +726,28 @@ async function renderRelatedWorks(profile) {
     updateRelatedWorkStat(profile, ranked.length);
     renderMediaCards(container, ranked, {
       overviewLength: 100,
+      philosopherSlug: profile.slug,
     });
   } catch (error) {
     renderState(container, `
       <div class="error-state">
-        <p class="error-state-title">We could not load related works.</p>
-        <p class="error-state-text">The thinker page loaded, but the media layer could not be resolved right now.</p>
+        <p class="error-state-title">${escapeHtml(t('philosopher.works_error_title'))}</p>
+        <p class="error-state-text">${escapeHtml(t('philosopher.works_error_text'))}</p>
       </div>
     `);
+  }
+}
+
+async function hydrateReference(profile) {
+  if (!profile) return null;
+  if (profile.portraitUrl && !needsReferenceMetadata(profile)) return null;
+
+  try {
+    const reference = await getPhilosopherReference(profile.name, profile.wikiTitle);
+    if (!reference) return null;
+    return applyReferenceToProfile(profile, reference);
+  } catch (error) {
+    return null;
   }
 }
 
@@ -694,20 +787,26 @@ async function init() {
       return;
     }
 
-    if (!profile.portraitUrl || needsReferenceMetadata(profile)) {
-      const reference = await getPhilosopherReference(profile.name, profile.wikiTitle);
-      if (reference) {
-        profile = applyReferenceToProfile(profile, reference);
-      }
-    }
-
     if (state) state.innerHTML = '';
     if (content) content.hidden = false;
 
     renderHeader(profile);
     renderStats(profile);
     renderQuotes(profile);
-    await renderRelatedWorks(profile);
+
+    const referenceTask = hydrateReference(profile)
+      .then(updated => {
+        if (!updated) return;
+        profile = updated;
+        renderHeader(profile);
+        renderStats(profile);
+      })
+      .catch(() => {});
+
+    await Promise.all([
+      renderRelatedWorks(profile),
+      referenceTask,
+    ]);
   } catch (error) {
     renderNotFound();
   }

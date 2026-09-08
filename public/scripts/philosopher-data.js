@@ -813,5 +813,9 @@ export function buildPhilosopherIndexProfiles(quotes = [], philosopherDirectory 
 }
 
 export function getPhilosopherProfileBySlug(quotes = [], slug, philosopherDirectory = [], submittedProfiles = []) {
-  return buildPhilosopherProfiles(quotes, philosopherDirectory, submittedProfiles).find(profile => profile.slug === slug) || null;
+  const normalized = String(slug || '').trim();
+  if (!normalized) return null;
+
+  return buildPhilosopherIndexProfiles(quotes, philosopherDirectory, submittedProfiles)
+    .find(profile => profile.slug === normalized) || null;
 }

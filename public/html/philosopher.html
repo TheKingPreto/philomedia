@@ -76,43 +76,27 @@
 
     <section id="philosopher-content" hidden>
       <section class="philosopher-hero">
-        <div class="profile-copy">
-          <p class="profile-eyebrow">Thinker portrait</p>
-          <div class="philosopher-hero-head">
-            <div class="philosopher-title-block">
-              <h1 id="philosopher-name" class="section-title">Thinker</h1>
-              <p id="philosopher-period" class="section-subtitle"></p>
-            </div>
-            <div id="philosopher-sigil" class="philosopher-sigil" aria-hidden="true"></div>
-          </div>
+        <div id="philosopher-sigil" class="philosopher-sigil" aria-hidden="true"></div>
+        <div class="philosopher-identity">
+          <h1 id="philosopher-name" class="philosopher-name">Thinker</h1>
+          <p id="philosopher-period" class="philosopher-period"></p>
           <p id="philosopher-summary" class="profile-summary"></p>
           <p id="philosopher-focus" class="philosopher-focus"></p>
-          <div id="philosopher-lenses" class="philosopher-chip-row philosopher-chip-row-links" aria-label="Related search lenses"></div>
+          <div id="philosopher-lenses" class="philosopher-chip-row philosopher-chip-row-links" data-i18n-aria-label="philosopher.lenses_label" aria-label="Related search lenses"></div>
+          <section id="philosopher-stats" class="philosopher-meta" data-i18n-aria-label="philosopher.stats_label" aria-label="Thinker overview"></section>
         </div>
       </section>
 
-      <section id="philosopher-stats" class="profile-stats" aria-label="Thinker stats"></section>
+      <section class="philosopher-quotes-block" aria-labelledby="philosopher-quotes-heading">
+        <h2 id="philosopher-quotes-heading" class="section-title" data-i18n="philosopher.quotes_title">Signature quotes</h2>
+        <p class="section-subtitle" data-i18n="philosopher.quotes_subtitle">The lines in this collection that most clearly shape this thinker's presence on the site.</p>
+        <div id="philosopher-quotes" class="philosopher-quote-grid"></div>
+      </section>
 
-      <section class="philosopher-section-grid">
-        <article class="profile-panel philosopher-panel-compact">
-          <div class="results-meta">
-            <div class="results-meta-copy">
-              <h2 class="section-title">Signature quotes</h2>
-              <p class="section-subtitle">The lines in this collection that most clearly shape this thinker's presence on the site.</p>
-            </div>
-          </div>
-          <div id="philosopher-quotes" class="philosopher-quote-grid"></div>
-        </article>
-
-        <article class="profile-panel">
-          <div class="results-meta">
-            <div class="results-meta-copy">
-              <h2 class="section-title">Related works</h2>
-              <p id="philosopher-works-summary" class="section-subtitle">Works connected through curated quote pairings and thematic discovery.</p>
-            </div>
-          </div>
-          <div id="philosopher-works" class="results-grid"></div>
-        </article>
+      <section class="philosopher-works-block" aria-labelledby="philosopher-works-heading">
+        <h2 id="philosopher-works-heading" class="section-title" data-i18n="philosopher.works_title">Related works</h2>
+        <p id="philosopher-works-summary" class="section-subtitle" data-i18n="philosopher.works_subtitle">Works connected through curated quote pairings and thematic discovery.</p>
+        <div id="philosopher-works" class="results-grid"></div>
       </section>
     </section>
   </main>

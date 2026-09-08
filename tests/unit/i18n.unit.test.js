@@ -50,4 +50,15 @@ describe('translation tables', () => {
 
     expect(empty).toEqual([]);
   });
+
+  test('thinker detail chrome is translated in both locales', () => {
+    expect(resolveTranslation('philosopher.stat_quotes', 'en')).toBe('Quotes');
+    expect(resolveTranslation('philosopher.stat_quotes', 'pt')).toBe('Citações');
+    expect(resolveTranslation('philosopher.works_title', 'en')).toBe('Related works');
+    expect(resolveTranslation('philosopher.works_title', 'pt')).toBe('Obras relacionadas');
+    expect(resolveTranslation('philosopher.quotes_empty_title', 'pt')).toBe('Ainda não há citações');
+    expect(resolveTranslation('philosopher.not_found_title', 'pt')).toBe('Este pensador não está disponível.');
+    expect(resolveTranslation('philosopher.seo_not_found_title', 'en')).toBe('PhiloMedia | Thinker not found');
+    expect(resolveTranslation('details.back_to_thinker', 'pt', { name: 'Platão' })).toBe('Ver Platão');
+  });
 });

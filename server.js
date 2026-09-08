@@ -23,6 +23,7 @@ import { specs } from './config/swagger.js';
 import { connectMongo, registerMongoConnectionLogging } from './config/database.js';
 import { buildPublicUrl, getPublicBaseUrl } from './src/utils/publicUrl.js';
 import { preferredLocaleFromHeader } from './src/utils/preferredLocale.js';
+import { PHILOSOPHER_AUTHORS } from './public/scripts/domain/philosopherAuthors.js';
 
 if (process.env.NODE_ENV !== 'test') {
   dotenv.config();
@@ -186,14 +187,26 @@ app.get('/sitemap.xml', (req, res) => {
     { path: '/html/index.html', changefreq: 'daily', priority: '1.0' },
     { path: '/html/search.html', changefreq: 'weekly', priority: '0.9' },
     { path: '/html/philosophers.html', changefreq: 'weekly', priority: '0.9' },
+    ...PHILOSOPHER_AUTHORS.map(author => ({
+      path: `/html/philosopher.html?slug=${encodeURIComponent(author.slug)}`,
+      changefreq: 'weekly',
+      priority: '0.7',
+    })),
   ];
+
+  const escapeXml = value => String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 
   const xml = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     ...urls.map(entry => [
       '  <url>',
-      `    <loc>${buildPublicUrl(req, entry.path)}</loc>`,
+      `    <loc>${escapeXml(buildPublicUrl(req, entry.path))}</loc>`,
       `    <changefreq>${entry.changefreq}</changefreq>`,
       `    <priority>${entry.priority}</priority>`,
       '  </url>',
