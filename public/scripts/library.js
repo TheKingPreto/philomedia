@@ -1,6 +1,8 @@
 import { getFirstName, getSession, redirectToLogin, setupAuthUI } from '/scripts/auth-ui.js';
 import { getLibrary } from '/scripts/library-api.js';
+import { listRatings } from '/scripts/ratings-api.js';
 import { createMediaCard, hydrateMediaCards, primeLibraryContext } from '/scripts/media-card.js';
+import { mediaRatingTargetId, ratingsByTargetId } from '/scripts/domain/userRatings.js';
 import { t } from '/scripts/services/i18n.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 
@@ -13,6 +15,7 @@ const MEDIA_FILTERS = [
 const SORT_FILTERS = [
   { id: 'added', labelKey: 'library.sort.added' },
   { id: 'rating', labelKey: 'library.sort.rating' },
+  { id: 'mine', labelKey: 'library.sort.mine' },
   { id: 'recent', labelKey: 'library.sort.recent' },
   { id: 'title', labelKey: 'library.sort.title' },
 ];
@@ -103,6 +106,13 @@ function sortItems(items) {
     );
   }
 
+  if (state.sort === 'mine') {
+    return sorted.sort((a, b) =>
+      (Number(b.userRating) || 0) - (Number(a.userRating) || 0)
+      || getAddedTimestamp(b) - getAddedTimestamp(a)
+    );
+  }
+
   if (state.sort === 'recent') {
     return sorted.sort((a, b) =>
       getReleaseTimestamp(b) - getReleaseTimestamp(a)
@@ -175,6 +185,7 @@ function renderCollection(container, items, collection, onStatusChange) {
       poster_path: item.posterPath,
       release_date: item.releaseDate,
       vote_average: item.voteAverage,
+      userRating: item.userRating,
     }, {
       index,
       showOverview: false,
@@ -246,6 +257,16 @@ async function init() {
 
   async function fetchLibraryData() {
     libraryData = await getLibrary();
+    const ratingPayload = await listRatings({ targetType: 'media' }).catch(() => ({ ratings: [] }));
+    const ratingMap = ratingsByTargetId(ratingPayload.ratings || []);
+
+    ['watchlist', 'favorites', 'watched'].forEach(collection => {
+      libraryData[collection] = (libraryData[collection] || []).map(item => ({
+        ...item,
+        userRating: ratingMap.get(mediaRatingTargetId(item.mediaType, item.tmdbId)) ?? null,
+      }));
+    });
+
     await primeLibraryContext(libraryData);
     renderLibraryState();
   }

@@ -13,6 +13,7 @@ import {
   WEAK_POOL_SIZE,
 } from '../../public/scripts/domain/detailsPageConfig.js';
 import {
+  applyQuoteRatingBias,
   buildGenreThemeWeights,
   buildQuoteThemeWeights,
   buildSourceContext,
@@ -224,6 +225,15 @@ describe('selectQuoteForMedia', () => {
   it('devolve null para catálogo vazio', () => {
     expect(selectQuoteForMedia([], 'movie:1')).toBeNull();
     expect(selectQuoteForMedia(null, 'movie:1')).toBeNull();
+  });
+
+  it('ainda não aplica peso de rating no ranking (ponto de extensão)', () => {
+    const ranked = rankQuotesForSource(CATALOG, new Map(), { core: [], context: [] });
+    const biased = applyQuoteRatingBias(ranked, new Map([['q1', 1], ['q2', -1]]));
+
+    expect(biased).toBe(ranked);
+    expect(selectQuoteForMedia(ranked, 'movie:1', new Map([['q1', 1]])).quote)
+      .toBe(selectQuoteForMedia(ranked, 'movie:1').quote);
   });
 });
 

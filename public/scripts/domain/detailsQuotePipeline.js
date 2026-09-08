@@ -459,10 +459,20 @@ export function selectPoolIndex(hash, poolSize) {
   return Math.min(poolSize - 1, Math.floor(biased * poolSize));
 }
 
-export function selectQuoteForMedia(rankedQuotes, mediaKey) {
-  if (!Array.isArray(rankedQuotes) || rankedQuotes.length === 0) return null;
+/**
+ * Extension point for quote thumbs (user ratings). Ranking does not use
+ * ratings yet — fold `ratingsByQuoteId` (quoteId → 1 | -1) into pool order
+ * here when that weight is calibrated. Until then this is a documented no-op.
+ */
+export function applyQuoteRatingBias(rankedQuotes, _ratingsByQuoteId) {
+  return rankedQuotes;
+}
 
-  const { tier, pool } = resolveQuoteCandidatePool(rankedQuotes);
+export function selectQuoteForMedia(rankedQuotes, mediaKey, ratingsByQuoteId) {
+  const ranked = applyQuoteRatingBias(rankedQuotes, ratingsByQuoteId);
+  if (!Array.isArray(ranked) || ranked.length === 0) return null;
+
+  const { tier, pool } = resolveQuoteCandidatePool(ranked);
   if (pool.length === 0) return null;
 
   const selected = pool[selectPoolIndex(hashString(mediaKey), pool.length)];

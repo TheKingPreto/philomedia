@@ -34,6 +34,7 @@ export function buildLibraryItem(details, mediaType) {
     posterPath: details.poster_path || details.posterPath || '',
     releaseDate: details.release_date || details.first_air_date || details.releaseDate || '',
     voteAverage: Number(details.vote_average ?? details.voteAverage) || 0,
+    // TMDB public score only — user ratings live in /api/me/ratings.
   };
 }
 

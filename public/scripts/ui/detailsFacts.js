@@ -3,6 +3,7 @@
  */
 
 import { formatRating, joinNames } from '/scripts/ui/detailsFormatters.js';
+import { t } from '/scripts/services/i18n.js';
 
 function getCreativeLead(details, type) {
   if (type === 'tv') {
@@ -44,24 +45,34 @@ export function renderFacts(details, type) {
   const container = document.getElementById('details-facts');
   if (!container) return;
 
+  const tmdbScore = formatRating(details);
   const facts = [
-    formatRating(details),
-    getCreativeLead(details, type),
-    getStudio(details, type),
-    getGenres(details),
-    getStreamingProviders(details),
-  ].filter(Boolean);
+    tmdbScore
+      ? { className: 'detail-fact detail-fact-tmdb', label: t('details.tmdb_rating'), value: tmdbScore }
+      : null,
+    { className: 'detail-fact', value: getCreativeLead(details, type) },
+    { className: 'detail-fact', value: getStudio(details, type) },
+    { className: 'detail-fact', value: getGenres(details) },
+    { className: 'detail-fact', value: getStreamingProviders(details) },
+  ].filter(fact => fact?.value);
 
   container.innerHTML = '';
   container.hidden = facts.length === 0;
 
   facts.forEach(fact => {
     const item = document.createElement('span');
-    item.className = 'detail-fact';
+    item.className = fact.className;
+
+    if (fact.label) {
+      const label = document.createElement('span');
+      label.className = 'detail-fact-label';
+      label.textContent = fact.label;
+      item.appendChild(label);
+    }
 
     const value = document.createElement('span');
     value.className = 'detail-fact-value';
-    value.textContent = fact;
+    value.textContent = fact.value;
 
     item.appendChild(value);
     container.appendChild(item);

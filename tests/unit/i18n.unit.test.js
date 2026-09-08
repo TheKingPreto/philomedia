@@ -60,5 +60,10 @@ describe('translation tables', () => {
     expect(resolveTranslation('philosopher.not_found_title', 'pt')).toBe('Este pensador não está disponível.');
     expect(resolveTranslation('philosopher.seo_not_found_title', 'en')).toBe('PhiloMedia | Thinker not found');
     expect(resolveTranslation('details.back_to_thinker', 'pt', { name: 'Platão' })).toBe('Ver Platão');
+    expect(resolveTranslation('library.sort.rating', 'pt')).toBe('Nota TMDB');
+    expect(resolveTranslation('library.sort.rating', 'en')).toBe('TMDB rating');
+    expect(resolveTranslation('library.sort.mine', 'pt')).toBe('Minha nota');
+    expect(resolveTranslation('details.tmdb_rating', 'en')).toBe('TMDB rating');
+    expect(resolveTranslation('details.your_rating', 'pt')).toBe('Sua nota');
   });
 });

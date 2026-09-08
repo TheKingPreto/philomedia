@@ -24,6 +24,7 @@ const savedMediaSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  /** Public TMDB score copied at save time — never the user's personal rating. */
   voteAverage: {
     type: Number,
     default: 0,

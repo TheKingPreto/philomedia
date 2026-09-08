@@ -96,6 +96,26 @@ const options = {
           },
         },
 
+        Rating: {
+          type: 'object',
+          required: ['targetType', 'targetId', 'value'],
+          properties: {
+            targetType: {
+              type: 'string',
+              enum: ['media', 'quote'],
+            },
+            targetId: {
+              type: 'string',
+              description: 'Media uses movie:tmdbId or tv:tmdbId. Quote uses catalog id.',
+              example: 'movie:157336',
+            },
+            value: {
+              type: 'number',
+              description: 'Quote thumbs are 1 or -1. Media stars are integers 1–5.',
+            },
+          },
+        },
+
         // ─── AI Quote Requests ────────────────────────────────────────────────
         GenerateByThemeRequest: {
           type: 'object',

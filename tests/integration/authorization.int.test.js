@@ -29,6 +29,23 @@ describe('AI generation endpoints require a session', () => {
   });
 });
 
+describe('Ratings require a session', () => {
+  test('GET /api/me/ratings returns 401 without auth', async () => {
+    const res = await request(app).get('/api/me/ratings');
+    expect(res.status).toBe(401);
+  });
+
+  test.each(['put', 'post', 'delete'])('%s /api/me/ratings returns 401 without auth', async (method) => {
+    const res = await request(app)[method]('/api/me/ratings').send({
+      targetType: 'quote',
+      targetId: '1035',
+      value: 1,
+    });
+
+    expect(res.status).toBe(401);
+  });
+});
+
 describe('Quote and Match mutations require a session', () => {
   test.each([
     ['put', '/api/quotes'],

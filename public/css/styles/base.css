@@ -566,6 +566,15 @@ a.result-card-link:hover .result-card-poster::after {
   color: var(--gold);
 }
 
+.result-card .user-rating {
+  margin: 0.15rem 0 0;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
 .result-card .date,
 .result-card p {
   font-size: 0.78rem;

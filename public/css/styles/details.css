@@ -174,6 +174,127 @@ body.details-page main {
   display: none;
 }
 
+.detail-fact-tmdb .detail-fact-label {
+  display: inline;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8d8a94;
+}
+
+.details-user-rating {
+  margin: 0.15rem 0 0.55rem;
+}
+
+.details-user-rating-label {
+  margin: 0 0 0.3rem;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8d8a94;
+}
+
+.star-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.05rem;
+}
+
+.star-rating-button {
+  appearance: none;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #4a4852;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.star-rating-button:hover,
+.star-rating-button:focus-visible {
+  color: #e2c77a;
+  background: rgba(201, 168, 76, 0.08);
+}
+
+.star-rating-button.is-on {
+  color: #c9a84c;
+}
+
+.star-rating-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.star-rating-button svg,
+.quote-rating-button svg {
+  display: block;
+}
+
+.details-rating-hint,
+.quote-rating-hint {
+  margin: 0.35rem 0 0;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: #7a7780;
+}
+
+.quote-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem 1.25rem;
+  flex-wrap: wrap;
+}
+
+.quote-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.quote-rating-button {
+  appearance: none;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #6e6b74;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.quote-rating-button:hover,
+.quote-rating-button:focus-visible {
+  color: #e2c77a;
+  background: rgba(201, 168, 76, 0.08);
+}
+
+.quote-rating-button.is-active {
+  color: #e2c77a;
+}
+
+.quote-rating-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .detail-fact-value {
   font-family: 'DM Sans', system-ui, sans-serif;
   font-size: 0.72rem;
@@ -262,6 +383,8 @@ body.details-page main {
   text-transform: uppercase;
   color: #c9a84c;
   margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* ─── AI Expansion Block ───────────────────────────────────────────────────── */
@@ -458,12 +581,14 @@ body.details-page main {
   .details-facts  { gap: 0.35rem 0.65rem; }
   .details-actions { gap: 0.65rem; flex-wrap: wrap; }
   .library-action-button { width: 100%; justify-content: center; }
+  .details-user-rating { width: 100%; }
   .details-attribution { margin-bottom: 0.85rem; }
   #philosophy-quote {
     padding: 1.75rem 1.25rem;
     overflow-wrap: anywhere;
     text-wrap: pretty;
   }
+  .quote-footer { gap: 0.65rem; }
   #related-results { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
   #quote-text     { font-size: 1.1rem; overflow-wrap: anywhere; }
 }

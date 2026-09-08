@@ -1,4 +1,5 @@
 import { getSession, redirectToLogin } from '/scripts/auth-ui.js';
+import { t } from '/scripts/services/i18n.js';
 
 const DETAILS_BASE = '/html/details.html';
 const POSTER_BASE = 'https://image.tmdb.org/t/p/w185';
@@ -14,10 +15,16 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function formatRating(value) {
+function formatTmdbRating(value) {
   const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) return 'TMDB n/a';
-  return `TMDB ${numeric.toFixed(1)}`;
+  if (!Number.isFinite(numeric) || numeric <= 0) return t('library.tmdb_unavailable');
+  return t('library.tmdb_rating_value', { score: numeric.toFixed(1) });
+}
+
+function formatUserRating(value) {
+  const numeric = Number(value);
+  if (!Number.isInteger(numeric) || numeric < 1 || numeric > 5) return '';
+  return t('library.your_rating_value', { score: numeric });
 }
 
 function getMediaType(item) {
@@ -315,12 +322,14 @@ export function createMediaCard(item, {
   enableWatchedAction = false,
   onStatusChange = null,
   philosopherSlug = '',
+  userRating = null,
 } = {}) {
   const title = item.title || item.name || 'Untitled';
   const mediaType = getMediaType(item);
   const date = item.release_date || item.first_air_date || item.releaseDate || '-';
   const overview = item.overview || 'No synopsis available.';
-  const rating = formatRating(item.vote_average);
+  const tmdbRating = formatTmdbRating(item.vote_average ?? item.voteAverage);
+  const savedUserRating = formatUserRating(userRating ?? item.userRating);
   const posterPath = item.poster_path || item.posterPath;
   const posterUrl = posterPath ? `${POSTER_BASE}${posterPath}` : null;
   const itemId = getItemId(item);
@@ -358,7 +367,8 @@ export function createMediaCard(item, {
     </div>
     <div class="result-card-body">
       <h3>${escapeHtml(title)}</h3>
-      <p class="media-type">${escapeHtml(mediaType)} | ${escapeHtml(rating)}</p>
+      <p class="media-type">${escapeHtml(mediaType)} | ${escapeHtml(tmdbRating)}</p>
+      ${savedUserRating ? `<p class="user-rating">${escapeHtml(savedUserRating)}</p>` : ''}
       <p class="date">${escapeHtml(date)}</p>
       ${showOverview ? `<p class="overview">${escapeHtml(overview.length > overviewLength ? `${overview.slice(0, overviewLength)}...` : overview)}</p>` : ''}
     </div>

@@ -32,6 +32,9 @@
   <link rel="modulepreload" href="/scripts/domain/detailsQuotePipeline.js">
   <link rel="modulepreload" href="/scripts/domain/philosopherAuthors.js">
   <link rel="modulepreload" href="/scripts/library-api.js">
+  <link rel="modulepreload" href="/scripts/ratings-api.js">
+  <link rel="modulepreload" href="/scripts/domain/userRatings.js">
+  <link rel="modulepreload" href="/scripts/ui/userRatingControls.js">
   <link rel="modulepreload" href="/scripts/media-card.js">
   <link rel="modulepreload" href="/scripts/philosophersapi.js">
   <link rel="modulepreload" href="/scripts/seo.js">
@@ -80,6 +83,11 @@
         <h1 id="details-title"></h1>
         <p id="details-meta"></p>
         <div id="details-facts" class="details-facts" data-i18n-aria-label="details.work_details" aria-label="Work details"></div>
+        <div id="details-user-rating" class="details-user-rating">
+          <p id="details-user-rating-label" class="details-user-rating-label" data-i18n="details.your_rating">Your rating</p>
+          <div id="details-star-rating" class="star-rating"></div>
+          <p id="details-rating-hint" class="details-rating-hint" hidden></p>
+        </div>
         <div id="details-actions" class="details-actions" hidden>
           <button type="button" id="watchlist-button" class="library-action-button" data-i18n="details.save_watchlist">Save to watchlist</button>
           <button type="button" id="favorite-button" class="library-action-button" data-i18n="details.add_favorites">Add to favorites</button>
@@ -96,7 +104,14 @@
 
       <div id="static-quote">
         <p id="quote-text" class="quote-text"></p>
-        <span id="quote-author" class="quote-author"></span>
+        <div class="quote-footer">
+          <span id="quote-author" class="quote-author"></span>
+          <div id="quote-rating" class="quote-rating" hidden>
+            <button type="button" id="quote-rating-up" class="quote-rating-button" data-quote-rating="up" aria-pressed="false"></button>
+            <button type="button" id="quote-rating-down" class="quote-rating-button" data-quote-rating="down" aria-pressed="false"></button>
+          </div>
+        </div>
+        <p id="quote-rating-hint" class="quote-rating-hint" hidden></p>
       </div>
 
       <div id="ai-quote-container">

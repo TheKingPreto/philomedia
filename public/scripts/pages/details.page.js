@@ -27,6 +27,7 @@ import {
   removeLibraryItem,
   saveLibraryItem,
 } from '/scripts/library-api.js';
+import { mountMediaStarRating, mountQuoteThumbRating } from '/scripts/ui/userRatingControls.js';
 import { escapeHtml } from '/scripts/ui/viewHelpers.js';
 import { t } from '/scripts/services/i18n.js';
 import { getDisplayQuoteText } from '/scripts/services/quoteDisplayResolve.js';
@@ -616,6 +617,12 @@ async function init() {
 
     populateDetails(details, type);
     initializeLibraryActions(details, type).catch(() => {});
+    mountMediaStarRating({
+      container: document.getElementById('details-star-rating'),
+      hintEl: document.getElementById('details-rating-hint'),
+      mediaType: type,
+      tmdbId: String(details.id),
+    }).catch(() => {});
 
     const [relatedWorks, staticQuote] = await Promise.all([
       loadRelatedWorks(id, type, details, reviews).catch(() => []),
@@ -629,6 +636,13 @@ async function init() {
         text: getDisplayQuoteText(staticQuote),
         author: staticQuote.author,
       });
+      mountQuoteThumbRating({
+        container: document.getElementById('quote-rating'),
+        upButton: document.getElementById('quote-rating-up'),
+        downButton: document.getElementById('quote-rating-down'),
+        hintEl: document.getElementById('quote-rating-hint'),
+        quoteId: staticQuote.id,
+      }).catch(() => {});
     } else {
       setText('quote-text', t('details.no_quote'));
       setText('quote-author', '');
