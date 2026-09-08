@@ -17,10 +17,9 @@ import {
 import { discoverTMDBCached, searchTMDBCached } from '/scripts/services/tmdbCachedClient.js';
 import { getQuoteCatalog, getQuotes } from '/scripts/philosophersapi.js';
 import { curatedQuoteMatches } from '/scripts/curatedmatches.js';
-import { analyzeWorkForThemes } from '/scripts/hermeneutics.js';
 import { getSession, redirectToLogin, setupAuthUI } from '/scripts/auth-ui.js';
 import { renderMediaCards } from '/scripts/media-card.js';
-import { getDisplayAuthorName, getPhilosopherUrlByAuthor } from '/scripts/philosopher-data.js';
+import { getDisplayAuthorName, getPhilosopherUrlByAuthor } from '/scripts/domain/philosopherAuthors.js';
 import { updatePageSeo } from '/scripts/seo.js';
 import {
   buildLibraryItem,
@@ -36,27 +35,20 @@ import { getUiLocale } from '/scripts/services/uiLocale.js';
 import { setupLanguageChrome } from '/scripts/ui/languageChrome.js';
 import { formatYear, formatRuntime } from '/scripts/ui/detailsFormatters.js';
 import { renderFacts } from '/scripts/ui/detailsFacts.js';
-import {
-  MIN_DECENT_SCORE,
-  MIN_DECENT_THEME_SCORE,
-  MIN_DECENT_TOKEN_SCORE,
-  MIN_STRONG_THEME_SCORE,
-  MIN_STRONG_TOKEN_SCORE,
-} from '/scripts/domain/detailsPageConfig.js';
+import { WEAK_POOL_SIZE } from '/scripts/domain/detailsPageConfig.js';
 import { getDisplayTitle } from '/scripts/domain/detailsMediaHelpers.js';
 import {
-  buildQuoteFallbackKey,
   buildSearchQuery,
   buildSourceContext,
-  createThemeWeightMap,
+  buildSourceThemeWeights,
   extractSalientTokenGroups,
+  hashString,
   mergeCandidateBuckets,
   normalizeQuoteEntry,
+  rankQuotesForSource,
   rankRelatedCandidates,
-  scoreQuoteAuthorLens,
   scoreQuoteQuality,
-  scoreQuoteThemeAlignment,
-  scoreQuoteTokenAlignmentGrouped,
+  selectQuoteForMedia,
 } from '/scripts/domain/detailsQuotePipeline.js';
 
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w400';
@@ -123,15 +115,6 @@ function showError(message) {
 function setText(id, text) {
   const el = document.getElementById(id);
   if (el) el.textContent = text;
-}
-
-function hashString(value) {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = ((hash << 5) - hash) + value.charCodeAt(index);
-    hash |= 0;
-  }
-  return Math.abs(hash);
 }
 
 function renderAttribution(details) {
@@ -415,54 +398,29 @@ async function resolveStaticQuote(id, type, details, allQuotes, reviews) {
     if (match) return match;
   }
 
+  const mediaKey = `${type}:${id}`;
+
   try {
-    const sourceContext = buildSourceContext(details, reviews);
-    const sourceThemeWeights = createThemeWeightMap(analyzeWorkForThemes(sourceContext), 8);
-    const sourceTokens = extractSalientTokenGroups(sourceContext, 4, 6);
-    const rankedQuotes = allQuotes
-      .map(normalizeQuoteEntry)
-      .filter(quote => quote.quote && quote.author)
-      .map(quote => {
-        const themeScore = scoreQuoteThemeAlignment(sourceThemeWeights, quote);
-        const tokenScore = scoreQuoteTokenAlignmentGrouped(sourceTokens, quote);
-        const authorScore = scoreQuoteAuthorLens(sourceThemeWeights, quote);
-        const qualityScore = scoreQuoteQuality(quote);
-        const deterministicNudge = (hashString(buildQuoteFallbackKey(details, quote)) % 100) / 1000;
+    const sourceThemeWeights = buildSourceThemeWeights(details, reviews, type, 8);
+    const sourceTokens = extractSalientTokenGroups(buildSourceContext(details, reviews), 4, 6);
+    const rankedQuotes = rankQuotesForSource(allQuotes, sourceThemeWeights, sourceTokens);
 
-        return {
-          ...quote,
-          _score: themeScore * 1.8 + tokenScore + authorScore + qualityScore * 0.45 + deterministicNudge,
-          _themeScore: themeScore,
-          _tokenScore: tokenScore,
-          _authorScore: authorScore,
-        };
-      })
-      .sort((a, b) => b._score - a._score);
-
-    const strongThemeMatch = rankedQuotes.find(quote =>
-      quote._themeScore >= MIN_STRONG_THEME_SCORE
-      && quote._tokenScore >= MIN_STRONG_TOKEN_SCORE
-    );
-    if (strongThemeMatch) return strongThemeMatch;
-
-    const decentMatch = rankedQuotes.find(quote =>
-      quote._score >= MIN_DECENT_SCORE
-      && quote._themeScore >= MIN_DECENT_THEME_SCORE
-      && quote._tokenScore >= MIN_DECENT_TOKEN_SCORE
-    );
-    if (decentMatch) return decentMatch;
+    const selected = selectQuoteForMedia(rankedQuotes, mediaKey);
+    if (selected) return selected;
   } catch (err) {
     console.warn('[PhiloMedia] Theme analysis failed:', err.message);
   }
 
-  return allQuotes
+  const byQuality = allQuotes
     .map(normalizeQuoteEntry)
     .filter(quote => quote.quote && quote.author)
-    .map(quote => ({
-      ...quote,
-      _score: scoreQuoteQuality(quote) + (hashString(buildQuoteFallbackKey(details, quote)) % 100) / 1000,
-    }))
-    .sort((a, b) => b._score - a._score)[0] || null;
+    .map(quote => ({ ...quote, _score: scoreQuoteQuality(quote) }))
+    .sort((a, b) => b._score - a._score)
+    .slice(0, WEAK_POOL_SIZE);
+
+  return byQuality.length > 0
+    ? byQuality[hashString(mediaKey) % byQuality.length]
+    : null;
 }
 
 function renderStaticQuote({ text, author }) {

@@ -4,7 +4,7 @@
  */
 import { analyzeWorkForThemes } from './hermeneutics.js';
 import { THEME_DATABASE } from './themedatabase.js';
-import { flattenThemeGenreHint } from './philosopher-data.js';
+import { flattenThemeGenreHint } from './domain/themeGenreHints.js';
 import {
   getCuratedPhilosophicalProfile,
   scorePhilosophicalTagsAgainstThemeWeights,

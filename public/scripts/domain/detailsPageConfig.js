@@ -17,6 +17,26 @@ export const MIN_DECENT_SCORE = 34;
 export const MIN_DECENT_THEME_SCORE = 14;
 export const MIN_DECENT_TOKEN_SCORE = 10;
 
+/**
+ * Quantas citações continuam elegíveis depois de aplicado o corte de cada
+ * camada. A obra escolhe dentro do lote por hash, então o tamanho controla
+ * directamente a variedade: lotes estreitos onde a evidência é forte, largos
+ * onde ela é fraca e a ordem no topo é praticamente arbitrária.
+ */
+export const STRONG_POOL_SIZE = 6;
+export const DECENT_POOL_SIZE = 10;
+export const WEAK_POOL_SIZE = 16;
+
+/** Peso do sinal de género face ao sinal textual ao montar o perfil da obra. */
+export const GENRE_SIGNAL_WEIGHT = 0.35;
+
+/**
+ * Expoente da curva que enviesa a escolha dentro do lote. 1 distribui de forma
+ * uniforme; acima de 1 favorece as citações mais bem pontuadas sem excluir as
+ * restantes.
+ */
+export const POOL_BIAS_EXPONENT = 1.6;
+
 /** Max related works returned on the details page. */
 export const DETAILS_RELATED_WORKS_LIMIT = 6;
 

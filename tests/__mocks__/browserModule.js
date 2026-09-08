@@ -17,8 +17,12 @@ export const getReviewsFromTMDB = async () => [];
 export const getQuotes = async () => [];
 export const getQuoteCatalog = async () => [];
 
-// hermeneutics.js
-export const analyzeWorkForThemes = () => [];
+// hermeneutics.js, viewHelpers.js e philosopher-data.js entram com a
+// implementação real: o pipeline de citações depende do comportamento
+// genuíno destes módulos para ser testado com sentido.
+export { analyzeWorkForThemes } from '../../public/scripts/hermeneutics.js';
+export { normalizeText } from '../../public/scripts/ui/viewHelpers.js';
+export { THEME_GENRE_HINTS } from '../../public/scripts/domain/themeGenreHints.js';
 
 // curatedmatches.js
 export const curatedQuoteMatches = {};

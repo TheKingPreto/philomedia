@@ -1,7 +1,7 @@
 import { formatThemeLabel } from '/scripts/domain/canonicalThemes.js';
 import { resolveQuoteForLocale } from '/scripts/domain/quoteDisplay.js';
 import { PHILOSOPHER_DEF_PT } from '/scripts/services/philosopherDefPt.js';
-import { t } from '/scripts/services/i18n.js';
+import { resolveTranslation } from '/scripts/services/i18n.js';
 import { getThinkerCopyForLocale, getUiLocale, normalizeUiLocale } from '/scripts/services/uiLocale.js';
 
 const THEME_LABEL_KEYS = {
@@ -39,7 +39,7 @@ const THEME_LABEL_KEYS = {
 export function formatThemeLabelForLocale(theme, locale = getUiLocale()) {
   const key = THEME_LABEL_KEYS[theme];
   if (!key) return formatThemeLabel(theme);
-  const label = t(key);
+  const label = resolveTranslation(key, locale);
   return label === key ? formatThemeLabel(theme) : label;
 }
 

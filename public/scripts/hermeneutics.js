@@ -1,5 +1,20 @@
 import { THEME_DATABASE } from './themedatabase.js';
 
+/**
+ * THEME_DATABASE é estático, então as ~400 expressões são compiladas uma vez
+ * no carregamento do módulo. Compilá-las por chamada dominava o custo da
+ * página de detalhes, que analisa o catálogo inteiro a cada obra aberta.
+ */
+const COMPILED_THEMES = Object.entries(THEME_DATABASE).map(([theme, keywordsWithWeights]) => ({
+  theme,
+  keywords: Object.entries(keywordsWithWeights)
+    .filter(([keyword]) => keyword)
+    .map(([keyword, weight]) => ({
+      pattern: new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gu'),
+      weight,
+    })),
+}));
+
 export function analyzeWorkForThemes(text) {
   if (!text) return [];
 
@@ -13,16 +28,12 @@ export function analyzeWorkForThemes(text) {
   const cleaned = normalized.replace(/\s+/g, ' ').trim();
   const themeScores = [];
 
-  for (const [theme, keywordsWithWeights] of Object.entries(THEME_DATABASE)) {
+  for (const { theme, keywords } of COMPILED_THEMES) {
     let currentThemeScore = 0;
 
-    for (const [keyword, weight] of Object.entries(keywordsWithWeights)) {
-      if (!keyword) continue;
-      const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp(`\\b${escaped}\\b`, 'gu');
-      const matches = cleaned.match(re);
-      const occurrences = matches ? matches.length : 0;
-      if (occurrences > 0) currentThemeScore += occurrences * weight;
+    for (const { pattern, weight } of keywords) {
+      const matches = cleaned.match(pattern);
+      if (matches) currentThemeScore += matches.length * weight;
     }
 
     if (currentThemeScore > 0) themeScores.push({ theme, score: currentThemeScore });

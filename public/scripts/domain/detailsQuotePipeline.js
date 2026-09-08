@@ -3,15 +3,45 @@ import {
   getCuratedPhilosophicalProfile,
   scoreCuratedRelatedAffinity,
 } from '/scripts/curatedPhilosophicalProfiles.js';
+import { THEME_GENRE_HINTS } from '/scripts/domain/themeGenreHints.js';
 import { normalizeText } from '/scripts/ui/viewHelpers.js';
 import {
   AUTHOR_LENS_MAP,
+  DECENT_POOL_SIZE,
   DETAILS_RELATED_WORKS_LIMIT,
   GENERIC_QUOTE_PATTERNS,
+  GENRE_SIGNAL_WEIGHT,
+  MIN_DECENT_SCORE,
+  MIN_DECENT_THEME_SCORE,
+  MIN_DECENT_TOKEN_SCORE,
+  MIN_STRONG_THEME_SCORE,
+  MIN_STRONG_TOKEN_SCORE,
   NOISE_WORDS,
+  POOL_BIAS_EXPONENT,
   QUOTE_SOURCE_BOOST,
+  STRONG_POOL_SIZE,
+  WEAK_POOL_SIZE,
 } from './detailsPageConfig.js';
 import { getDisplayDate, getDisplayTitle, getYear } from './detailsMediaHelpers.js';
+
+/** Inverso de THEME_GENRE_HINTS: id de género TMDB → temas que ele sugere. */
+const GENRE_THEME_INDEX = (() => {
+  const index = new Map();
+
+  Object.entries(THEME_GENRE_HINTS || {}).forEach(([theme, hint]) => {
+    const genreIds = Array.isArray(hint)
+      ? hint
+      : [...(hint?.movie || []), ...(hint?.tv || [])];
+
+    new Set(genreIds).forEach(genreId => {
+      const themes = index.get(genreId) || [];
+      themes.push(theme);
+      index.set(genreId, themes);
+    });
+  });
+
+  return index;
+})();
 
 export function getQuoteText(quote) {
   return String(quote?.quote ?? quote?.quoteText ?? '').trim();
@@ -139,11 +169,28 @@ export function createThemeWeightMap(themeScores, limit = 6) {
   return new Map(topThemes.map(item => [item.theme, item.score / total]));
 }
 
+/**
+ * Os pesos de uma citação não dependem da obra aberta, mas eram recalculados
+ * uma vez por citação em `scoreQuoteThemeAlignment` e outra em
+ * `scoreQuoteQuality`. O catálogo é limitado a algumas centenas de entradas,
+ * então cabe inteiro em memória.
+ */
+const quoteThemeWeightCache = new Map();
+
+export function clearQuoteScoringCache() {
+  quoteThemeWeightCache.clear();
+}
+
 export function buildQuoteThemeWeights(quote, limit = 6) {
+  const quoteText = getQuoteTextForRanking(quote);
+  const cacheKey = `${quote?.id ?? quoteText}|${limit}`;
+  const cached = quoteThemeWeightCache.get(cacheKey);
+  if (cached) return cached;
+
   const explicitThemes = Array.isArray(quote.themes)
     ? quote.themes.map(theme => String(theme || '').trim().toLowerCase()).filter(Boolean)
     : [];
-  const inferredWeights = createThemeWeightMap(analyzeWorkForThemes(getQuoteTextForRanking(quote)), limit);
+  const inferredWeights = createThemeWeightMap(analyzeWorkForThemes(quoteText), limit);
   const weights = new Map(inferredWeights);
 
   explicitThemes.forEach((theme, index) => {
@@ -152,7 +199,66 @@ export function buildQuoteThemeWeights(quote, limit = 6) {
 
   const ranked = [...weights.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
   const total = ranked.reduce((sum, [, score]) => sum + score, 0) || 1;
-  return new Map(ranked.map(([theme, score]) => [theme, score / total]));
+  const normalized = new Map(ranked.map(([theme, score]) => [theme, score / total]));
+
+  quoteThemeWeightCache.set(cacheKey, normalized);
+  return normalized;
+}
+
+/**
+ * Géneros TMDB rendem um perfil temático grosseiro mas sempre disponível —
+ * ao contrário das reviews, que faltam justamente nas obras menos populares.
+ */
+export function buildGenreThemeWeights(details, mediaType) {
+  const genreIds = Array.isArray(details?.genres)
+    ? details.genres.map(genre => genre?.id).filter(Boolean)
+    : (Array.isArray(details?.genre_ids) ? details.genre_ids : []);
+
+  if (genreIds.length === 0) return new Map();
+
+  const counts = new Map();
+  genreIds.forEach(genreId => {
+    (GENRE_THEME_INDEX.get(genreId) || []).forEach(theme => {
+      counts.set(theme, (counts.get(theme) || 0) + 1);
+    });
+  });
+
+  // Séries e filmes partilham o mesmo índice; o tipo só afina o desempate.
+  if (mediaType === 'tv') {
+    counts.forEach((count, theme) => {
+      const hint = THEME_GENRE_HINTS?.[theme];
+      const tvGenres = Array.isArray(hint) ? hint : (hint?.tv || []);
+      if (tvGenres.some(genreId => genreIds.includes(genreId))) {
+        counts.set(theme, count + 0.5);
+      }
+    });
+  }
+
+  const total = [...counts.values()].reduce((sum, count) => sum + count, 0) || 1;
+  return new Map([...counts.entries()].map(([theme, count]) => [theme, count / total]));
+}
+
+/**
+ * Combina o sinal textual (sinopse + reviews) com o sinal de género, para que
+ * obras sem review ainda tenham um perfil temático utilizável.
+ */
+export function buildSourceThemeWeights(details, reviews, mediaType, limit = 8) {
+  const textWeights = createThemeWeightMap(
+    analyzeWorkForThemes(buildSourceContext(details, reviews)),
+    limit
+  );
+  const genreWeights = buildGenreThemeWeights(details, mediaType);
+
+  if (genreWeights.size === 0) return textWeights;
+
+  const combined = new Map(textWeights);
+  genreWeights.forEach((weight, theme) => {
+    combined.set(theme, (combined.get(theme) || 0) + weight * GENRE_SIGNAL_WEIGHT);
+  });
+
+  const ranked = [...combined.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
+  const total = ranked.reduce((sum, [, weight]) => sum + weight, 0) || 1;
+  return new Map(ranked.map(([theme, weight]) => [theme, weight / total]));
 }
 
 export function scoreQuoteThemeAlignment(sourceWeights, quote) {
@@ -206,8 +312,139 @@ export function normalizeQuoteEntry(quote) {
   };
 }
 
-export function buildQuoteFallbackKey(details, quote) {
-  return `${getDisplayTitle(details)}|${quote.id ?? ''}|${quote.quote}|${quote.author}`;
+/**
+ * FNV-1a seguido do finalizador do MurmurHash3. A mistura final é essencial:
+ * sem ela, ids TMDB próximos (que é o caso ao navegar entre obras
+ * relacionadas) produzem hashes quase iguais e caem todos no mesmo índice do
+ * lote, recriando a repetição de citações que esta selecção resolve.
+ */
+export function hashString(value) {
+  const text = String(value);
+  let hash = 2166136261;
+
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  hash ^= hash >>> 15;
+  hash = Math.imul(hash, 2246822507);
+  hash ^= hash >>> 13;
+
+  return hash >>> 0;
+}
+
+export function scoreQuoteForSource(sourceThemeWeights, sourceTokens, quote) {
+  const themeScore = scoreQuoteThemeAlignment(sourceThemeWeights, quote);
+  const tokenScore = scoreQuoteTokenAlignmentGrouped(sourceTokens, quote);
+  const authorScore = scoreQuoteAuthorLens(sourceThemeWeights, quote);
+  const qualityScore = scoreQuoteQuality(quote);
+
+  return {
+    ...quote,
+    _score: themeScore * 1.8 + tokenScore + authorScore + qualityScore * 0.45,
+    _themeScore: themeScore,
+    _tokenScore: tokenScore,
+    _authorScore: authorScore,
+  };
+}
+
+export function rankQuotesForSource(quotes, sourceThemeWeights, sourceTokens) {
+  return quotes
+    .map(normalizeQuoteEntry)
+    .filter(quote => quote.quote && quote.author)
+    .map(quote => scoreQuoteForSource(sourceThemeWeights, sourceTokens, quote))
+    .sort((a, b) => b._score - a._score);
+}
+
+/**
+ * Um mesmo autor costuma ocupar várias posições do topo, o que estreitaria o
+ * lote na prática. Além disso, os cortes de camada são estreitos e muitas
+ * vezes deixam passar uma ou duas citações apenas — nesse caso o lote é
+ * completado com as melhores seguintes do ranking, que continua ordenado por
+ * relevância para a obra.
+ */
+function buildAuthorDiversePool(tierQuotes, rankedQuotes, size) {
+  const seenAuthors = new Set();
+  const pool = [];
+
+  const push = quote => {
+    const authorKey = normalizeAuthor(getQuoteAuthor(quote));
+    if (seenAuthors.has(authorKey)) return;
+    seenAuthors.add(authorKey);
+    pool.push(quote);
+  };
+
+  for (const quote of tierQuotes) {
+    if (pool.length >= size) break;
+    push(quote);
+  }
+
+  for (const quote of rankedQuotes) {
+    if (pool.length >= size) break;
+    push(quote);
+  }
+
+  return pool;
+}
+
+/**
+ * A confiança do ranking define o tamanho do lote elegível, não uma escolha
+ * única: quanto mais fraca a evidência, mais largo o lote, para que obras
+ * distintas não convirjam todas para a mesma citação.
+ */
+export function resolveQuoteCandidatePool(rankedQuotes) {
+  const strong = rankedQuotes.filter(quote =>
+    quote._themeScore >= MIN_STRONG_THEME_SCORE
+    && quote._tokenScore >= MIN_STRONG_TOKEN_SCORE
+  );
+  if (strong.length > 0) {
+    return {
+      tier: 'strong',
+      pool: buildAuthorDiversePool(strong, rankedQuotes, STRONG_POOL_SIZE),
+    };
+  }
+
+  const decent = rankedQuotes.filter(quote =>
+    quote._score >= MIN_DECENT_SCORE
+    && quote._themeScore >= MIN_DECENT_THEME_SCORE
+    && quote._tokenScore >= MIN_DECENT_TOKEN_SCORE
+  );
+  if (decent.length > 0) {
+    return {
+      tier: 'decent',
+      pool: buildAuthorDiversePool(decent, rankedQuotes, DECENT_POOL_SIZE),
+    };
+  }
+
+  return {
+    tier: 'weak',
+    pool: buildAuthorDiversePool(rankedQuotes, rankedQuotes, WEAK_POOL_SIZE),
+  };
+}
+
+/**
+ * Escolhe dentro do lote por hash da obra: estável entre visitas à mesma
+ * página, mas distinto entre obras diferentes. A curva de potência enviesa a
+ * escolha para o início do lote, que está ordenado por relevância, sem nunca
+ * excluir o resto — variedade sem abrir mão da qualidade do par.
+ */
+export function selectPoolIndex(hash, poolSize) {
+  if (poolSize <= 1) return 0;
+
+  const uniform = (hash % 10000) / 10000;
+  const biased = uniform ** POOL_BIAS_EXPONENT;
+  return Math.min(poolSize - 1, Math.floor(biased * poolSize));
+}
+
+export function selectQuoteForMedia(rankedQuotes, mediaKey) {
+  if (!Array.isArray(rankedQuotes) || rankedQuotes.length === 0) return null;
+
+  const { tier, pool } = resolveQuoteCandidatePool(rankedQuotes);
+  if (pool.length === 0) return null;
+
+  const selected = pool[selectPoolIndex(hashString(mediaKey), pool.length)];
+  return { ...selected, _tier: tier, _poolSize: pool.length };
 }
 
 function scoreThemeAlignment(sourceWeights, candidateText) {
